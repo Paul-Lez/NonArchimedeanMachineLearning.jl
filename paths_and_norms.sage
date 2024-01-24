@@ -16,16 +16,18 @@ def berkovichValuation(f, a, r, p):
         the residue characteristic
     """ 
     #we use the formula |f| = max (r^m |b_m|) where f = b_n (t-a)^n + ... + b_0 
-   
-    m = float('inf')
-    # consider the polynomial h = g(t+a) since the the m-th coefficient of h is the same as the m-th coefficient of g (expanded around t = a)
-    h = g (t = t + a)
-    # the max taken wrt absolute values corresponds to the min wrt valuations
-    for i in range(0, f.degree(t)+1):
-        l = h.valuation_of_coefficient(i) + log(r, 1/p)
-        m = min(m, l)
-    # convert result back to absolute value
-    return p**(-m)
+    if r == 0: 
+        return f(a).abs()
+    else:
+        m = float('inf')
+        # consider the polynomial h = g(t+a) since the the m-th coefficient of h is the same as the m-th coefficient of g (expanded around t = a)
+        h = f (t = t + a)
+        e = log(r, 1/p) 
+        # the max taken wrt absolute values corresponds to the min wrt valuations
+        for i in range(0, f.degree(t)+1):
+            m = min(m, h.valuation_of_coefficient(i) + i*e)
+        # convert result back to absolute value
+        return p**(-m)
 
 def berkovichVal(f, b):
     """ berkovichVal(f, b) returns the valuation of polynomial f over Q_p at a point b
@@ -160,25 +162,27 @@ def abs_path_values_sum(s, b1, b2, t1, t2, num):
     return l, a
 
 
+###########################################################
+################ Some tests ###############################
 
+## f_t(x) is the polynomial in t given by (x - t)(x-2t)(x-4t)
+def f_t(x): 
+    return (x - t)*(x-2*t)*(x-4*t)
 
 B = Berkovich_Cp_Affine(2)
-K = Qp(2,10)
+K = Qp(2,20)
 R.<t> = K[]
-#R.<t> = PolynomialRing(QQ, 't')
-#f = t+1
-g = t^2+2*t
 
-#berkovichValuation(g, 1, 1, 3)
-
-Q1 = B(63+1/216)
-Q2 = B(3)
+Q1 = B(8)
+Q2 = B(1)
 Q3 = Q1.join(Q2)
-#print(Q3.big_metric(Q2))
 
-#path(Q1, Q2, 78)
+print(berkovichVal(f_t(1), Q1))
+print(berkovichVal(f_t(2), Q1))
+print(berkovichVal(f_t(4), Q1))
 
-x, y = abs_path_values_sum([g, t^28+ 3*t^20 + 8*t^17 + 1/216 *t +64], Q1, Q2, -50, 50, 2000)
+x, y = abs_path_values_sum([f_t(1), f_t(2), f_t(4)], Q1, Q2, -10, 10, 2000)
 
 plt.plot(x, y)
 plt.show()
+
