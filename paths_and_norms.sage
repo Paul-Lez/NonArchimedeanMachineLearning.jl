@@ -2,13 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sage.all import * 
 
-def berkovichValuation(f, a, r, p): 
+def berkovichValuation(f, a, r): 
     """ berkovichValuation(f, a, r, p) returns the valuation of polynomial f over Q_p at a point of type II or III corresponding to the ball B(a,r)
 
     Parameters
     ----------
     f : PolynomialPolynomialRing(Qp(p,10), 't') 
-    a : Qp(3,10)
+    a : Qp(p,10)
         The center of the ball
     r : QQ 
         The radius of the ball
@@ -22,12 +22,12 @@ def berkovichValuation(f, a, r, p):
         m = float('inf')
         # consider the polynomial h = g(t+a) since the the m-th coefficient of h is the same as the m-th coefficient of g (expanded around t = a)
         h = f (t = t + a)
-        e = log(r, 1/p) 
+        e = log(r, 1/a.parent().prime()) 
         # the max taken wrt absolute values corresponds to the min wrt valuations
         for i in range(0, f.degree(t)+1):
             m = min(m, h.valuation_of_coefficient(i) + i*e)
         # convert result back to absolute value
-        return p**(-m)
+        return a.parent().prime()**(-m)
 
 def berkovichVal(f, b):
     """ berkovichVal(f, b) returns the valuation of polynomial f over Q_p at a point b
@@ -38,7 +38,7 @@ def berkovichVal(f, b):
     b : Berkovich_Cp_Affine(3)
         A point of type I, II or III
     """
-    return berkovichValuation(f, b.center(), b.radius(), b.prime())
+    return berkovichValuation(f, b.center(), b.radius())
 
    
 def path_helper_lt(b1, b2, t):
@@ -82,7 +82,7 @@ def path_helper_gt(b1, b2, t):
         return b2
     else :
         # otherwise return the ball with the same center as b1 and with radius b1.radius()*p^(-t)
-        return B(b1.center(), p**(b1.power() - t))
+        return B(b2.center(), p**(b1.power() - t))
     
 
 def path(b1, b2, t):
@@ -180,9 +180,8 @@ Q3 = Q1.join(Q2)
 print(berkovichVal(f_t(1), Q1))
 print(berkovichVal(f_t(2), Q1))
 print(berkovichVal(f_t(4), Q1))
+print(berkovichVal(f_t(4), Q2))
 
 x, y = abs_path_values_sum([f_t(1), f_t(2), f_t(4)], Q1, Q2, -10, 10, 2000)
-
 plt.plot(x, y)
 plt.show()
-
