@@ -6,7 +6,19 @@ struct BerkovichPoint
 end
 
 function prime(p::BerkovichPoint)
-    return p.center
+    """prime(p) returns the prime number of the padic field of p as an integer
+
+    Parameters
+    ----------
+    p: BerkovichPoint
+        A point of type I, II or III
+
+    Output
+    ----------
+    p: ZZRing
+        The prime number of the padic field of p
+    """
+    return Nemo.prime(p.center.parent)
 end
 
 # For now, we will only consider points of type 1 or 2 (since radius is a float, and not e.g. a symbolic real number)
@@ -43,8 +55,7 @@ function big_metric(b1::BerkovichPoint, b2::BerkovichPoint)
         A point of type I or II
     """
     j = join(b1, b2)
-    #prime(b1) has type padic so we need to convert it to a float before taking the logarithm
-    p = Float64(lift(prime(b1)))
+    p = Float64(prime(b1))
     d1 = log(p, j.radius) - log(p, b1.radius)
     d2 = log(p, j.radius) - log(p, b2.radius)
     return d1+d2
@@ -115,22 +126,6 @@ function path_helper_lt(b1, b2, t)
     end
 end
 
-#######################################################
-# A Few tests
-
-Q = PadicField(3, 10)
-s1 = BerkovichPoint(Q(3), 0.0)
-s2 = BerkovichPoint(Q(3), 0.5)
-R, x = polynomial_ring(Q, "x")
-f = x+1
-
-println(berkovichValuation(f, s1.center, s1.radius))
-println(path_helper_lt(s1, s2, 0))
-     
-# TODO: translate the rest of the code below to Julia
-
-    #=       
-    
 function path_helper_gt(b1, b2, t)
     """ path_helper_gt(b1, b2, t) returns the value attained at time t when traversing path [b1, b2] at unit speed (starting at t = 0 and ending at t = dist(b1, b2)). This assumes that b2 < b1.
     
@@ -140,8 +135,8 @@ function path_helper_gt(b1, b2, t)
         A point of type I, II or III
     t : any real number
     """
-    p = b1.prime()
-    r = b1.big_metric(b2)
+    p = prime(b1)
+    r = big_metric(b1, b2)
     # if t is less than 0, stay at b1
     if t <= 0
         return b1
@@ -150,9 +145,9 @@ function path_helper_gt(b1, b2, t)
         return b2
     else
         # otherwise return the ball with the same center as b1 and with radius b1.radius()*p^(-t)
-        return B(b2.center(), p**(b1.power() - t))
+        return B(b2.center(), b1.radius*Float64(p)^(-t))
     end
-    
+end   
 
 function path(b1, b2, t)
     """ path(b1, b2, t) returns the value attained at time t when traversing path [b1, b2] at unit speed 
@@ -164,24 +159,41 @@ function path(b1, b2, t)
         A point of type I, II or III
     t : any real number
     """
-    b3 = b1.join(b2)
-    r1 = b1.big_metric(b3)
-    r2 = b3.big_metric(b2)
+    b3 = join(b1, b2)
+    r1 = big_metric(b1, b3)
+    r2 = big_metric(b3, b2)
     # if t is less than -r1 then stay at p1 
     if t <= -r1
         return b1
-    
     # if t is between -r1 and 0 then go along the path [b1, b3]
-    elseif -r1 <= t and t <= 0
+    elseif -r1 <= t && t <= 0
         return path_helper_lt(b1, b3, t)
     # if t is between 0 and r2 then go along the path [b3, b2]
-    elseif 0 <= t and t <= r2
+    elseif 0 <= t && t <= r2
         return path_helper_gt(b3, b2, t)
     else
     # is t is greater than r2 then stay at p2
         return b2
     end
+end
+
+#######################################################
+# A Few tests
+
+Q = PadicField(3, 10)
+s1 = BerkovichPoint(Q(3), 0.0)
+s2 = BerkovichPoint(Q(2), 0.5)
+R, x = polynomial_ring(Q, "x")
+f = x+1
+
+println(berkovichValuation(f, s1.center, s1.radius))
+println(path(s1, s2, 0))
+
+println(path(s1, s2, 7))
+     
+# TODO: translate the rest of the code below to Julia  
     
+#=
 function abs_path_values(f, b1, b2, t1, t2, num)
     """ abs_path_values(f, b1, b2, t1, t2, num) returns two arrays: np.linspace(t1, t2, num) and the 
     image of np.linspace(t1, t2, num) by the map sending t to the valuation of f at the point attained at 
