@@ -193,129 +193,158 @@ println(path(s1, s2, 7))
      
 # TODO: translate the rest of the code below to Julia  
     
-#=
+
 function abs_path_values(f, b1, b2, t1, t2, num)
-    """ abs_path_values(f, b1, b2, t1, t2, num) returns two arrays: np.linspace(t1, t2, num) and the 
-    image of np.linspace(t1, t2, num) by the map sending t to the valuation of f at the point attained at 
+    """ abs_path_values(f, b1, b2, t1, t2, num) returns two arrays: linspace(t1, t2, num) and the 
+    image of linspace(t1, t2, num) by the map sending t to the valuation of f at the point attained at 
     time t on the path [p1, p2]
     
     Parameters
     ----------
-    b1, b2 : Berkovich_Cp_Affine(3)
+    b1, b2 : BerkovichPoint
         A point of type I, II or III
-    t1 t2 : any real numbers. 
+    t1 t2 : Real 
         The bounds on the sample times
-    num : any positive integer
+    num : Int
         The number of time samples
 
     Output
     ---------
-    l = np.linspace(t1, t2, num)
-    im : np.ndarray of shape (num)
+    l = linspace(t1, t2, num)
+    im : array of shape (num)
     """
-    l = np.linspace(t1, t2, num)
-    im = np.zeros(num)
-    for i in range(0, num)
+    l = linspace(t1, t2, num)
+    im = zeros(num)
+    for i in 1:num
         im[i] = berkovichVal(f, path(b1, b2, RealField(50)(l[i])))
     end
     return l, im
+end
     
 
 function abs_path_values_sum(s, b1, b2, t1, t2, num)
-    """ abs_path_values_sum(s, b1, b2, t1, t2, num) returns two arrays: np.linspace(t1, t2, num) and the 
-    image of np.linspace(t1, t2, num) by the map sending t to the valuation of f = \sum f_i at the point attained at 
+    """ abs_path_values_sum(s, b1, b2, t1, t2, num) returns two arrays: linspace(t1, t2, num) and the 
+    image of linspace(t1, t2, num) by the map sending t to the valuation of f = \sum f_i at the point attained at 
     time t on the path [p1, p2] where s = [f_1, ..., f_n]
     
     Parameters
     ----------
-    b1, b2 : Berkovich_Cp_Affine(3)
+    s : Array of PolyRingElem{T}
+    b1, b2 : BerkovichPoint
         A point of type I, II or III
-    t1 t2 : any real numbers. 
+    t1, t2 : Real 
         The bounds on the sample times
-    num : any positive integer
+    num : Int
         The number of time samples
 
     Output
     ---------
-    l = np.linspace(t1, t2, num)
-    im : np.ndarray of shape (num)
+    l = linspace(t1, t2, num)
+    a : array of shape (num)
     """
-    a = np.zeros(num)
+    a = zeros(num)
     for f in s
         l, im = abs_path_values(f, b1, b2, t1, t2, num)
-        a += im
+        a .+= im
     end
     return l, a
+end
+
+function gt(b1::BerkovichPoint, b2::BerkovichPoint)
+    """gt(b1, b2) returns true if the Berkovich point b1 is greater than b2 in the sense that the ball b2 is strictly contained in the ball b1.
+
+    Parameters
+    ----------
+    b1, b2 : BerkovichPoint
+    """
+    a1, a2 = b1.center, b2.center
+    r1, r2 = b1.radius, b2.radius
+
+    return padic_abs(a1 - a2) < r1 && r2 < r1
+end
+
+function lt(b1::BerkovichPoint, b2::BerkovichPoint)
+    """gt(b1, b2) returns true if the Berkovich point b1 is lesse than b2 in the sense that the ball b1 is strictly contained in the ball b2.
+
+    Parameters
+    ----------
+    b1, b2 : BerkovichPoint
+    """
+    a1, a2 = b1.center, b2.center
+    r1, r2 = b1.radius, b2.radius
+
+    return padic_abs(a1 - a2) < r2 && r1 < r2
+end
 
 
-#######################################################
 
-function dir_deriv(f, b1, b2)
+function dir_deriv(f::PolyRingElem{T}, b1::BerkovichPoint, b2::BerkovichPoint)
     """ dir_deriv(f, b1, b2) returns the directional derivative of the function |f(x)|_p at the point b1 in the direction b2.
 
     Parameters
     ----------
-    b1, b2 : Berkovich_Cp_Affine(p)
+    b1, b2 : BerkovichPoint
         Points of type I, II or III.
-    f : PolynomialPolynomialRing(Qp(p,10), 't')
+    f : PolyRingElem{T}
         A polynomial in one variable over the p-adics, Q_p
     """
-    p = b1.prime()
-    if b1.gt(b2) == False and b1.lt(b2) == False
+    p = prime(b1)
+    if !gt(b1, b2)  && !lt(b1, b2) 
         # b1 and b2 are not ordered so replace b2 by the join
-        b2 = b2.join(b1)
+        b2 = join(b1, b2)
     end
     if b1 == b2
-        return False
+        return false
         ############# maybe raise an error?
     end
-    a1 = b1.center()
-    a2 = b2.center()
-    r1 = b1.radius()
-    r2 = b2.radius()
+
+    a1, a2 = b1.center, b2.center
+    r1, r2 = b1.radius, b2.radius
+
     if r1 < r2
         # take a1 to be the common centre
-        h = f(t = t + a1)
-        m = float('inf')
-        e = log(r1, 1/p)
-        for i in range(0, f.degree(t) + 1)
-            m = min(m, h.valuation_of_coefficient(i) + i*e)
+        h = compose(f, T + a1)
+        m = typemax(Float)
+        e = log(1/p, r1)
+
+        for i in 0:f.degree(t)
+            m = min(m, valuation(h.coefficient(i), p) + i*e)
         end
-        # this computes minimum of valuations, we also need to store when this minimum is obtained
-        l = []
-        for i in range(0, f.degree(t) + 1)
-            if h.valuation_of_coefficient(i) + i*e == m
-                l.append(i)
+        # this computes the minimum of valuations, we also need to store when this minimum is obtained
+        l = Int[]
+        for i in 0:f.degree(t)
+            if valuation(h.coefficient(i), p) + i*e == m
+                push!(l, i)
             end
         end
         # the directional derivative is in direction of increasing radius, so |f| = |c_n|*r^n locally above b1 for n the largest element of the list l
-        n = l[-1]
+        n = last(l)
         # derivative is then n*|c_n|*r^n = n*p**(-m)
         # if we want the derivative with respect to the radius metric then this is n*|c_n|*r^{n-1}
-        return n*(p**(-m))
+        return n * (p^(-m))
     end
     if r1 > r2
         # take a2 to be the common centre
-        h = f(t = t + a2)
-        m = float('inf')
-        e = log(r1, 1/p)
-        for i in range(0, f.degree(t) + 1)
-            m = min(m, h.valuation_of_coefficient(i) + i*e)
+        h = compose(f, T + a2)
+        m = typemax(Float)
+        e = log(1/p, r1)
+        for i in 0:f.degree(t)
+            m = min(m, valuation(h.coefficient(i), p) + i*e)
         end
         # this computes minimum of valuations, we also need to store when this minimum is obtained
-        l = []
-        for i in range(0, f.degree(t) + 1)
-            if h.valuation_of_coefficient(i) + i*e == m
-                l.append(i)
-            end 
-        end 
+        l = Int[]
+        for i in 0:f.degree(t)
+            if valuation(h.coefficient(i), p) + i*e == m
+                push!(l, i)
+            end
+        end
         # the directional derivative is in direction of decreasing radius, so |f| = |c_n|*r^n locally above b1 for n the smallest element of the list l
-        n = l[0]
+        n = first(l)
         # derivative is then -n*|c_n|*r^n = -n*p**(-m)
         # if we want the derivative with respect to the radius metric then this is n*|c_n|*r^{n-1}
-        return -n*(p**(-m))   
+        return -n * (p^(-m))   
     end
 
- =#
+
 
 
