@@ -379,6 +379,7 @@ function enumerate_change_points(f::PolyRingElem{R}, P::BerkovichPoint, regime=d
     r = regime 
     # Initialise the list of change points.
     changes = []
+    changes_regime = Dict()
     p = Nemo.prime(P.center.parent)
     # Find the valuation corresponding to the radius of P
     val = -Int64(floor(log(Float64(p), P.radius)))
@@ -387,41 +388,40 @@ function enumerate_change_points(f::PolyRingElem{R}, P::BerkovichPoint, regime=d
     T = gen(f.parent)
     # consider the polynomial h = f(t+a) since the the m-th coefficient of h is the same as the m-th coefficient of g (expanded around t = a)
     f = compose(f, T+P.center)
-    println(f)
+    has_jumps = false
     while r != 0
         loop_count += 1
-        println("r = ", r, " val = ", val)
-        new_val = valuation_coeff(f, r) + val 
+        new_val = val
+        jump = false
         for j in (r-1):-1:0
-            println("r = ", r, " j = ", j)
             # if the coefficient is 0 we can ignore it and move on to the next interation of the loop.
             if coeff(f, j) != 0
-                # otherwise we compute at which radius a jump from coeff r to coeff j would occur (i.e. for which radius s do we have S
-                # |coeff(j)| => |coeff(r)|*p^(r-j). 
-                temp_val = (valuation_coeff(f, j) - valuation_coeff(f, r))/(r-j)
-                #println(temp_val, " ", val)
+                #= otherwise we compute at which radius a jump from coeff r to coeff j would occur (i.e. for which radius s do we have 
+                |coeff(j)| => |coeff(r)|*p^(r-j).  =#
+                temp_val = (valuation_coeff(f, r) - valuation_coeff(f, j))/(r-j)
                 # if this radius is smaller than the current radius and larger than the current jump radius we update it.
-                if temp_val >= val && temp_val <= new_val
-                    new_val = temp_val
+                if -temp_val >= val && (!jump || -temp_val <= new_val)
+                    jump = true
+                    new_val = -temp_val
                     # Update the regime of f at that point.
                     new_r = j
-                    #println(new_r)
                 end
             end 
         end
         # if r has changed then we must have found a change point above so we can add it to the list
         if r != new_r
-            push!(changes, BerkovichPoint(P.center, Float64(p)^(-val)))
+            Q = BerkovichPoint(P.center, Float64(p)^(-new_val))
+            push!(changes, Q)
+            changes_regime[(Q, f)] = new_r
             r = new_r
             val = new_val
+            has_jumps = true
         # otherwise the modulus of f is constant for the rest of the branch so we can stop.
         else 
-            println("Break ", r)
-            #println(loop_count)
             break
         end
     end 
-    return changes
+    return changes, changes_regime, has_jumps
 end
 
 # Naive implementation of the tree search algorithm. Still need to implements some of the dependencies plus add some of the 
@@ -433,22 +433,34 @@ function min_find(F, N, R) #= ::Vector{PolyRingElem{T}} =# #= where T <: RingEle
     p = Nemo.prime(R)
     # Initialise set of type II points  
     B = [BerkovichPoint(R(0), max_radius(F, p))]
+    BR = Dict()
     for i in 1:N
         # Initialise new set of type II points
         C = []
+        CR = Dict()
         for b in B
             #println(B)
             # Enumerate the centers of the branches below p
             L = enumerate_centers(b)
-            for a in L
-                println(a)
-                for f in F
-                    # consider the polynomial h = f(t+a) since the the m-th coefficient of h is the same as the m-th coefficient of g (expanded around t = a)
-                    T = gen(f.parent)
-                    h = compose(f, a + T)
-                    #add all change points to the new set of type II points
-                    append!(C, enumerate_change_points(h, BerkovichPoint(a, b.radius)))
-                end 
+            for f in F
+                for a in L
+                    if i == 1 || BR[(b, f)] != 0 
+                        # consider the polynomial h = f(t+a) since the the m-th coefficient of h is the same as the m-th coefficient of g (expanded around t = a)
+                        T = gen(f.parent)
+                        #h = compose(f, a + T)
+                        #add all change points to the new set of type II points
+                        cp, cpr, has_jumps = enumerate_change_points(f, BerkovichPoint(a, b.radius), BR[b])
+                        if has_jumps
+                            append!(C, cp)
+                            merge!(CR, cpr)
+                        else 
+                            println("No jumps - fixme")
+                            print("Poly = ", f, "  a = ", a, "  b = ", b)
+                        end
+                    else 
+                        
+                    end
+                end
             end
         end
         # Update the set of type II points
@@ -466,7 +478,8 @@ Q = PadicField(3, 10)
 s1 = BerkovichPoint(Q(3), 0.0)
 s2 = BerkovichPoint(Q(2), 0.5)
 R, x = polynomial_ring(Q, "x")
-f = (x-3)*(x-12)
+f = (x-3)*(x-12)*(x-30)*(x-84)
+g = (x-1)
 #println(compose(f, f))
 
 #######################################################
@@ -480,8 +493,9 @@ println(path(s1, s2, 7))
 println(enumerate_centers(BerkovichPoint(Q(3), 1)))
 println(enumerate_centers(BerkovichPoint(Q(3), 0)))  =#
 
-println(enumerate_change_points(f, BerkovichPoint(Q(3), 3)))
+#println(enumerate_change_points(f, BerkovichPoint(Q(3), 3)))
+#println(enumerate_change_points(g, BerkovichPoint(Q(3), 0.5)))
 
 # Find the minimum of a polynomial
 #println(max_radius([f], 3))
-#println(min_find([f], 10, Q))
+println(min_find([g], 10, Q))
