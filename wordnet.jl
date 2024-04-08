@@ -1,18 +1,17 @@
 import Pkg
+include("berkovich.jl")
 Pkg.add("Nemo")
 
+#using berkovich
 using Oscar
 using Nemo
+
 
 struct BerkovichPolyDisk
     disks::Vector{BerkovichPoint}
 end
 
-function BerkovichPolyDisk(disks::Vector{BerkovichPoint})
-    return BerkovichPolyDisk(disks)
-end
-
-function BerkovichPolyDisk(center::Vector{padic}, radius::Vector{Int64})
+function BerkovichPolyDisk(center::Vector{padic}, radius::Vector{Float64})
     if length(center) != length(radius)
         error("Center and radius vectors should have the same length")
     end
@@ -32,7 +31,7 @@ function radius(d::BerkovichPolyDisk)
 end
 
 function center(b::BerkovichPoint)
-    return b.Center
+    return b.center
 end 
 
 function center(d::BerkovichPolyDisk)
@@ -50,29 +49,46 @@ struct BerkovichPolyTangent
     tangents::Vector{BerkovichTangent}
 end
 
-function BerkovichPolyTangent(points, directions, magnitudes)
-    if points.length != directions.length | directions.length != magnitudes.length | magnitudes.length != points.length
+function BerkovichPolyTangent(point, direction, magnitude)
+    if length(point.disks) != length(direction) | length(direction) != length(magnitude) | length(magnitude) != length(point.disks)
         println("lengths of input arrays are incompatible")
     else
         arr = []
-        for i in eachindex(points)
-            arr.append!(BerkovichTangent(points[i], directions[i], magnitudes[i]))
+        for i in eachindex(point.disks)
+            push!(arr, BerkovichTangent(point.disks[i], direction[i], magnitude[i]))
         end 
         return BerkovichPolyTangent(arr)
     end 
 end 
 
-function BerkovichPolyTangent_Base(tangents::Vector{BerkovichTangent})
-    return [p.point for p in tangents]
+function Base.length(v::BerkovichPolyTangent)
+    return length(v.tangents)
+end 
+
+function point(v::BerkovichPolyTangent)
+    return BerkovichPolyDisk([p.point for p in v.tangents])
 end
 
+function direction(v::BerkovichPolyTangent)
+    return [p.direction for p in v.tangents]
+end 
+
+function magnitude(v::BerkovichPolyTangent)
+    return [p.magnitude for p in v.tangents]
+end 
+
 # the zero tangent vector at a Berkovich PolyDisk P, in the direction of segment [P, Q]
-function BerkovichPolyTangent_zero(P::BerkovichPolyDisk, Q::padic)
-    if length(P) != length(Q)
-        error("Length of P and Q should be the same")
-    else 
-        return BerkovichPolyTangent([BerkovichTangent(P.disks[i], Q[i], 0) for i in eachindex(P)])
-    end 
+function BerkovichPolyTangent_zero(P::BerkovichPolyDisk, Q::Vector{padic})
+    return BerkovichPolyTangent([BerkovichTangent(P.disks[i], Q[i], 0) for i in eachindex(P.disks)])
+end
+
+function BerkovichPolyTangent_zero(v::BerkovichPolyTangent)
+    return BerkovichPolyTangent_zero(point(v), direction(v))
+end 
+
+#addition of two tangent vectors. Warning: this is only well behaved when they have the same base and direction...
+function Base.:+(P::BerkovichPolyTangent, Q::BerkovichPolyTangent)
+    return BerkovichPolyTangent(point(P), direction(P), magnitude(P) + magnitude(Q))
 end
 
 function change_center(P::BerkovichPolyDisk, a::padic, i)
@@ -298,6 +314,14 @@ function simul_descent(X, Y, N)
     return [t0, t1, t2, s0, s1, s2]
 end
 
+# Compute symbolical gradient of rational function f at evaluated at the base point of v, in the direction of v
+function abs_grad_sym(f, v) 
+    #t = gen(f.parent)
+    #h = compose(f, )
+    """ IMPLEMENT ME !!!!!! """
+    return BerkovichPolyTangent_zero(v)
+end 
+
 # IMPLEMENT ME!
 function abs_sum_grad(F, v)
     """ abs_sum_grad(F, v) returns the gradient of the sum of absolute values of rational functions in vector F in the direction of tangent vector v.
@@ -307,9 +331,9 @@ function abs_sum_grad(F, v)
     F : Vector of rational functions
     a : Tangent vector 
     """
-    grad = 0
+    grad = BerkovichPolyTangent_zero(v)
     for f in F
-        grad = grad + abs_grad(f, v)
+        grad = grad + abs_grad_sym(f, v)
     end
     return grad
 end
@@ -326,32 +350,31 @@ function gradient_step(F, V, alpha)
     """
     # compute the gradient at each tangent vector in V and the norm of the gradient
     grads = [abs_sum_grad(F, v) for v in V]
-    norms = [norm(grad) for grad in grads]
+    norms = [norm(magnitude(grad)) for grad in grads]
     # pick v that gives the greatest gradient
-    j, _ = findmax(norms)
+    _, j = findmax(norms)
     v = grads[j]
     # pick center a in the direction of v
-    a = BerkovichPolyDisk.Base(v)
+    a = point(v)
     r = radius(a)
     # make a step in the direction of v with along the gradient (scaled by alpha)
     for i in eachindex(r)
-        r[i] = max(0, r[i] - alpha * v[i])
+        r[i] = max(0, r[i] - alpha * magnitude(v)[i])
     end
-    return BerkovichPolyDisk(a, r)
+    return BerkovichPolyDisk(center(a), r)
 end
 
-function enumerate_axial_centers(P)
-    a = center(P) 
+function enumerate_axial_centers(P) 
     centers = []
-    for i in eachindex(P)
+    for i in eachindex(center(P))
         ith_axial_centers = enumerate_centers(P.disks[i])
-        join(centers, [change_index(P, c, i) for c in ith_axial_centers])
+        append!(centers, [change_center(P, c, i) for c in ith_axial_centers])
     end   
     return centers
 end 
 
 function enumerate_axial_directions(P)
-    return [BerkovichPolyTangent(P, center, 1) for center in enumerate_axial_centers(P)]
+    return [BerkovichPolyTangent(P, center(axial_centers), 1) for axial_centers in enumerate_axial_centers(P)]
 end
 
 function enumerate_all_directions(P)
@@ -465,8 +488,8 @@ function greedy_descent(X, Y, N, M)
 end
 
 Q = PadicField(3, 10)
-s1 = BerkovichPoint(Q(3), 0.0)
-s2 = BerkovichPoint(Q(2), 0.5)
+s1 = BerkovichPolyDisk([Q(3)], [0.0])
+s2 = BerkovichPolyDisk([Q(2)], [0.5])
 R, x = polynomial_ring(Q, "x")
 f = (x-3)*(x-12)*(x-30)*(x-84)
 g = (x-1)
