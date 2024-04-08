@@ -498,4 +498,4 @@ println(enumerate_centers(BerkovichPoint(Q(3), 0)))  =#
 
 # Find the minimum of a polynomial
 #println(max_radius([f], 3))
-println(min_find([g], 10, Q))
+#println(min_find([g], 10, Q))
