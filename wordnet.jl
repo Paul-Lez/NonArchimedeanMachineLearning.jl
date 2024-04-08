@@ -6,7 +6,6 @@ Pkg.add("Nemo")
 using Oscar
 using Nemo
 
-
 struct BerkovichPolyDisk
     disks::Vector{BerkovichPoint}
 end
@@ -35,7 +34,7 @@ function center(b::BerkovichPoint)
 end 
 
 function center(d::BerkovichPolyDisk)
-    return [center(b) for b in d.disks]
+    return [center(b) for b in d.disks]::Vector{padic}
 end
 
 # BerkovichTagent represents an element of the tangent space at a Berkovich point. Here we allow the tangent to have a magnitude instead of normalising it to 1.
@@ -47,6 +46,15 @@ end
 
 struct BerkovichPolyTangent 
     tangents::Vector{BerkovichTangent}
+end
+
+function evaluate(f::MPolyRingElem, p::BerkovichPolyDisk)
+    t = gens(f.parent)
+    vec = [t[i] - center(p)[i] for i in eachindex(center(p))]
+    g = AbstractAlgebra.evaluate(f, vec) 
+    # coeff seems to return a constant polynomial so need to move this to padics by "taking the constant term" before taking absolute value
+    max, ind = findmax([padic_abs(constant_coefficient(coeff(g, t, v))) * prod(radius(p) .^ v)  for v in exponent_vectors(g)])
+    return max
 end
 
 function BerkovichPolyTangent(point, direction, magnitude)
@@ -490,8 +498,12 @@ end
 Q = PadicField(3, 10)
 s1 = BerkovichPolyDisk([Q(3)], [0.0])
 s2 = BerkovichPolyDisk([Q(2)], [0.5])
-R, x = polynomial_ring(Q, "x")
-f = (x-3)*(x-12)*(x-30)*(x-84)
-g = (x-1)
+R, (x, ) = polynomial_ring(Q, ["x"])
+f = (x-Q(3))*(x-Q(12))*(x-Q(30))*(x-Q(84))
+g = (x-Q(1))
 
-restrained_gradient_descent([f, g], 2, s1, 0.1)
+s3 = restrained_gradient_descent([f, g], 10, s2, 0.1)
+
+println(evaluate(f, s2))
+println(evaluate(f, s3))
+
