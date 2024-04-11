@@ -12,34 +12,40 @@ mammalHypernyms = permutedims(reduce(hcat,mammalHypernyms))
 # create a vector of unique strings in dataset
 mammalStrings = sort(unique([mammalHypernyms...]))
 
+###
+# Removing redundant edges to make a tree
+###
 
-# construct an Oscar graph from the CSV data
-mammalGraph = Oscar.Graph{Directed}(length(mammalStrings))
-for mammalHypernym in eachrow(mammalHypernyms)
-    i = findfirst(isequal(mammalHypernym[1]), mammalStrings)
-    j = findfirst(isequal(mammalHypernym[2]), mammalStrings)
-    if i!=j
-        Oscar.add_edge!(mammalGraph, i, j)
-    end
+
+# assign each unique string a depth value
+mammalStringsCopy = copy(mammalStrings)
+mammalHypernymsCopy = copy(mammalHypernyms)
+mammalStringsFiltered = []
+
+# iterate over all directed edges as long as some remain
+while !isempty(mammalHypernymsCopy)
+    # identify the current ends of the directed graph
+    mammalEnds = [ mammalString for mammalString in mammalStringsCopy if !(mammalString in mammalHypernymsCopy[:,2])]
+    push!(mammalStringsFiltered, mammalEnds)
+
+    # remove the current ends from the list of strings and edges
+    mammalStringsCopy = mammalStringsCopy[findall(mammal->!(mammal in mammalEnds),mammalStringsCopy)]
+    mammalHypernymsCopy = mammalHypernymsCopy[findall(mammal->!(mammal in mammalEnds),mammalHypernymsCopy[:,1]),:]
 end
+push!(mammalStringsFiltered, ["mammal.n.01"]) # add the root node
 
-# todo: construct tree from it!
 
-# foo1 = Polymake.graph.random_spanningtree(mammalGraph.pm_graph)
-# foo2 = Polymake.graph.random_spanningtree(mammalGraph.pm_graph)
 
-# G = Oscar.Graph{Directed}(3)
-# Oscar.add_edge!(G, 1, 2)
-# Oscar.add_edge!(G, 2, 3)
-# Oscar.add_edge!(G, 1, 3)
-# Polymake.graph.all_spanningtrees(G.pm_graph)
 
-# G = Oscar.Graph{Undirected}(3)
-# Oscar.add_edge!(G, 1, 2)
-# Oscar.add_edge!(G, 2, 3)
-# Oscar.add_edge!(G, 1, 3)
-# Polymake.graph.all_spanningtrees(G.pm_graph)
-
+# # construct an Oscar graph from the CSV data for visualization # bad idea!
+# mammalGraph = Oscar.Graph{Directed}(length(mammalStrings))
+# for mammalHypernym in eachrow(mammalHypernyms)
+#     i = findfirst(isequal(mammalHypernym[1]), mammalStrings)
+#     j = findfirst(isequal(mammalHypernym[2]), mammalStrings)
+#     if i!=j
+#         Oscar.add_edge!(mammalGraph, i, j)
+#     end
+# end
 
 # # construct a graph from the CSV data
 # mammalGraph = Graphs.SimpleGraph(length(mammalStrings))
