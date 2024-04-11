@@ -99,6 +99,15 @@ function Base.:+(P::BerkovichPolyTangent, Q::BerkovichPolyTangent)
     return BerkovichPolyTangent(point(P), direction(P), magnitude(P) + magnitude(Q))
 end
 
+function extend(P::BerkovichPolyDisk, p::BerkovichPoint)
+    return BerkovichPolyDisk([P.disks, p])
+end 
+
+
+function extend(v::BerkovichPolyTangent, point::BerkovichPoint, dir::padic, mag::Float64)
+    return BerkovichPolyTangent(extend(point(v), point), [direction(v), dir], [magnitude(v), mag])
+end
+
 function change_center(P::BerkovichPolyDisk, a::padic, i)
     disks = P.disks
     disks[i] = BerkovichPoint(a, disks[i].radius)
@@ -373,7 +382,7 @@ function gradient_step(F, V, alpha)
     r = radius(a)
     # make a step in the direction of v with along the gradient (scaled by alpha)
     for i in eachindex(r)
-        r[i] = max(0, r[i] - alpha * magnitude(v)[i])
+        r[i] = max(0, r[i] + alpha * magnitude(v)[i])
     end
     return BerkovichPolyDisk(center(a), r)
 end
@@ -392,8 +401,21 @@ function enumerate_axial_directions(P)
 end
 
 function enumerate_all_directions(P)
-    return "Implement me!"
-end
+    centers = []
+    n = length(P.disks)
+    if n > 1
+        one_dim_centers = enumerate_centers(P.disks[n])
+        temp_centers = enumerate_all_directions(BerkovichPolyDisk(P.disks[1:n-1]))
+        for c in one_dim_centers
+            for t in temp_centers
+                append!(centers, extend(t, P.disks[n], c, 1))
+            end
+        end
+    else 
+        return enumerate_centers(P.disks[1])
+    end         
+end 
+
 
 # Implement me! Gradient descent algorithm that uses a subset of all (normalized) tangent vectors: those that correspond to shrinking only one radius at a time. 
 function restrained_gradient_descent(F, N, P, alpha)
@@ -503,13 +525,18 @@ end
 
 Q = PadicField(3, 10)
 s1 = BerkovichPolyDisk([Q(3)], [0.0])
-s2 = BerkovichPolyDisk([Q(2)], [0.5])
+s2 = BerkovichPolyDisk([Q(3)], [9*9*81.0])
 R, (x, ) = polynomial_ring(Q, ["x"])
 f = (x-Q(3))*(x-Q(12))*(x-Q(30))*(x-Q(84))
 g = (x-Q(1))
 
-s3 = restrained_gradient_descent([f, g], 10, s2, 0.1)
+for i in 1:3
+    local s3 = restrained_gradient_descent([f, g], i , s2, 0.001 / Float64(i))
+    println(evaluate(f, s3)) 
+    #local s4 = restrained_gradient_descent([f, g], i , s2, 0.001 / Float64(i))
+    #println(evaluate(f, s4))
+end 
 
-println(evaluate(f, s2))
-println(evaluate(f, s3))
+#println(evaluate(f, s2))
+#println(evaluate(f, s3))
 

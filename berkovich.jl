@@ -352,7 +352,8 @@ function enumerate_centers(P::BerkovichPoint)
         a = P.center
         A = [a]
         for i in 1:(p-1)
-            a = a + p^(-m)
+            Q = a.parent
+            a = a + Q(p)^(-m)
             push!(A, a)
         end
         return A
@@ -477,11 +478,12 @@ end
 # Define a few objects
 Q = PadicField(3, 10)
 s1 = BerkovichPoint(Q(3), 0.0)
-s2 = BerkovichPoint(Q(2), 0.5)
+s2 = BerkovichPoint(Q(3), 0.5)
 R, x = polynomial_ring(Q, "x")
 f = (x-3)*(x-12)*(x-30)*(x-84)
 g = (x-1)
 println(dir_deriv(f, s2, s1))
+println(dir_deriv(g, s2, s1))
 #println(compose(f, f))
 
 #######################################################
