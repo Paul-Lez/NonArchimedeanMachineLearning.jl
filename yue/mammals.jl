@@ -1,6 +1,6 @@
 using CSV, DataFrames
 using Graphs
-using Oscar
+# using Oscar
 
 # Load wordnet_mammal_hypernyms.tsv
 mammalHypernyms = Matrix(CSV.read("wordnet_mammal_hypernyms.tsv", DataFrame, delim='\t', header=false))
@@ -10,17 +10,16 @@ mammalHypernyms = [ collect(mammalHypernym) for mammalHypernym in eachrow(mammal
 mammalHypernyms = permutedims(reduce(hcat,mammalHypernyms))
 
 # create a vector of unique strings in dataset
-mammalStrings = sort(unique([mammalHypernyms...]))
+mammalStrings = unique([mammalHypernyms...])
 
 ###
 # Removing redundant edges to make a tree
 ###
 
-
 # assign each unique string a depth value
 mammalStringsCopy = copy(mammalStrings)
 mammalHypernymsCopy = copy(mammalHypernyms)
-mammalStringsFiltered = []
+mammalStringsFiltered = Vector{String}[]
 
 # iterate over all directed edges as long as some remain
 while !isempty(mammalHypernymsCopy)
@@ -34,43 +33,36 @@ while !isempty(mammalHypernymsCopy)
 end
 push!(mammalStringsFiltered, ["mammal.n.01"]) # add the root node
 
+# convert filtered list into a height vector
+D = length(mammalStringsFiltered)
+mammalStringsHeights = Int[ findfirst(i->(mammalString in mammalStringsFiltered[i]),1:D) for mammalString in mammalStrings ]
 
 
+# assign each hyponym a length value
+mammalHypernymsLengths = Int[]
+for mammalHypernym in eachrow(mammalHypernyms)
+    i = findfirst(isequal(mammalHypernym[1]), mammalStrings)
+    j = findfirst(isequal(mammalHypernym[2]), mammalStrings)
+    mammalHypernymHeight = abs(mammalStringsHeights[i]-mammalStringsHeights[j])
+    @assert !iszero(mammalHypernymHeight)
+    push!(mammalHypernymsLengths, mammalHypernymHeight)
+end
+@assert max(mammalHypernymsLengths...) == D-1
 
-# # construct an Oscar graph from the CSV data for visualization # bad idea!
-# mammalGraph = Oscar.Graph{Directed}(length(mammalStrings))
-# for mammalHypernym in eachrow(mammalHypernyms)
-#     i = findfirst(isequal(mammalHypernym[1]), mammalStrings)
-#     j = findfirst(isequal(mammalHypernym[2]), mammalStrings)
-#     if i!=j
-#         Oscar.add_edge!(mammalGraph, i, j)
-#     end
-# end
+# group hyponyms based on their length
+mammalHypernymsFiltered = [ [ mammalHypernyms[j,:] for j in findall(isequal(i), mammalHypernymsLengths)] for i in 1:D-1 ]
 
-# # construct a graph from the CSV data
-# mammalGraph = Graphs.SimpleGraph(length(mammalStrings))
-# for mammalHypernym in eachrow(mammalHypernyms)
-#     i = findfirst(isequal(mammalHypernym[1]), mammalStrings)
-#     j = findfirst(isequal(mammalHypernym[2]), mammalStrings)
-#     @assert !isnothing(i) && !isnothing(j)
-#     if i!=j
-#         Graphs.add_edge!(mammalGraph, i, j)
-#     end
-# end
 
-# # find all cycles in the graph
-# mammalCycles = Graphs.cycle_basis(mammalGraph)
-
-# mammal = mammalStrings[54]
-# for mammalHypernym in eachrow(mammalHypernyms)
-#     if mammalHypernym[1] == mammal || mammalHypernym[2] == mammal
-#         println(mammalHypernym)
-#     end
-# end
-
-# mammalCycle = mammalCycles[1]
-# for mammalHypernym in eachrow(mammalHypernyms)
-#     if length(findall(mammal->(mammal in mammalHypernym), mammalStrings[mammalCycle])) > 1
-#         println(mammalHypernym)
-#     end
-# end
+# construct mammal tree using only hyponyms that are composition of shorter hyponyms
+G = Graph(length(mammalStrings))
+for (k, mammalHypernymsBatch) in enumerate(mammalHypernymsFiltered)
+    for (l,mammalHypernym) in enumerate(mammalHypernymsBatch)
+        println("Processing batch $k/$D, edge $l/$(length(mammalHypernymsBatch))")
+        i = findfirst(isequal(mammalHypernym[1]), mammalStrings)
+        j = findfirst(isequal(mammalHypernym[2]), mammalStrings)
+        path = Graphs.a_star(G, i, j)
+        if isempty(path)
+            add_edge!(G, i, j)
+        end
+    end
+end
