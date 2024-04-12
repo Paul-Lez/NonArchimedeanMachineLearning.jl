@@ -1,59 +1,77 @@
 using CSV, DataFrames
 using Graphs
-# using Oscar
 
-# Load wordnet_mammal_hypernyms.tsv
+
+###
+# Loading the dataset of wordnet mammal hypernyms
+###
+# read the tsv file and convert it to a Nx2 matrix (one row per hypernym)
 mammalHypernyms = Matrix(CSV.read("wordnet_mammal_hypernyms.tsv", DataFrame, delim='\t', header=false))
 
-# remove loops in mammal graph
-mammalHypernyms = [ collect(mammalHypernym) for mammalHypernym in eachrow(mammalHypernyms) if mammalHypernym[1] != mammalHypernym[2] ]
-mammalHypernyms = permutedims(reduce(hcat,mammalHypernyms))
 
-# create a vector of unique strings in dataset
+
+###
+# The mammals hypernyms form a directed acyclic graph (DAG),
+# we want to remove redundant edges to make a tree
+###
+
+# remove all loops in the DAG
+nonLoopIndices = findall(i->(mammalHypernyms[i,1]!=mammalHypernyms[i,2]), 1:size(mammalHypernyms,1))
+mammalHypernyms = mammalHypernyms[nonLoopIndices,:]
+
+# create a list of vertices of the DAG
 mammalStrings = unique([mammalHypernyms...])
 
-###
-# Removing redundant edges to make a tree
-###
 
-# assign each unique string a depth value
+# filter the vertices of the DAG:
+# - first are vertices with only outgoing edges
+# - second are vertices the first vertices are connected to
+# - third are the vertices the second vertices are connected to
+# - etc.
 mammalStringsCopy = copy(mammalStrings)
 mammalHypernymsCopy = copy(mammalHypernyms)
 mammalStringsFiltered = Vector{String}[]
 
 # iterate over all directed edges as long as some remain
 while !isempty(mammalHypernymsCopy)
-    # identify the current ends of the directed graph
+    # identify the (current) vertices with only outgoing edges
     mammalEnds = [ mammalString for mammalString in mammalStringsCopy if !(mammalString in mammalHypernymsCopy[:,2])]
     push!(mammalStringsFiltered, mammalEnds)
 
-    # remove the current ends from the list of strings and edges
+    # remove them from the list of vertices
     mammalStringsCopy = mammalStringsCopy[findall(mammal->!(mammal in mammalEnds),mammalStringsCopy)]
+    # and their edges from the list of edges
     mammalHypernymsCopy = mammalHypernymsCopy[findall(mammal->!(mammal in mammalEnds),mammalHypernymsCopy[:,1]),:]
 end
-push!(mammalStringsFiltered, ["mammal.n.01"]) # add the root node
+@assert length(mammalStringsCopy) == 1 # there should be only one vertex left and it should be "mammals"
+push!(mammalStringsFiltered, mammalStringsCopy)
 
-# convert filtered list into a height vector
+
+# convert filtered list of vertices into a height vector
+# - first vertices are height 1
+# - second vertices are height 2
+# - etc.
 D = length(mammalStringsFiltered)
-mammalStringsHeights = Int[ findfirst(i->(mammalString in mammalStringsFiltered[i]),1:D) for mammalString in mammalStrings ]
+mammalStringsHeights = [ findfirst(i->(mammalString in mammalStringsFiltered[i]),1:D) for mammalString in mammalStrings ]
 
 
-# assign each hyponym a length value
+# assign each hyponym a length based on the height difference of its vertices
 mammalHypernymsLengths = Int[]
 for mammalHypernym in eachrow(mammalHypernyms)
     i = findfirst(isequal(mammalHypernym[1]), mammalStrings)
     j = findfirst(isequal(mammalHypernym[2]), mammalStrings)
     mammalHypernymHeight = abs(mammalStringsHeights[i]-mammalStringsHeights[j])
-    @assert !iszero(mammalHypernymHeight)
     push!(mammalHypernymsLengths, mammalHypernymHeight)
 end
-@assert max(mammalHypernymsLengths...) == D-1
+@assert min(mammalHypernymsLengths...) == 1  # the minimal length should be 1 (no edges between vertices of the same height)
+@assert max(mammalHypernymsLengths...) == D-1 # the maximal length should be D-1 (all vertices are connected to the root)
 
-# group hyponyms based on their length
+
+# filter the edges based on their length
 mammalHypernymsFiltered = [ [ mammalHypernyms[j,:] for j in findall(isequal(i), mammalHypernymsLengths)] for i in 1:D-1 ]
 
 
-# construct mammal tree using only hyponyms that are composition of shorter hyponyms
+# construct mammal tree using only hyponyms that are not composition of shorter hyponyms
 G = Graph(length(mammalStrings))
 for (k, mammalHypernymsBatch) in enumerate(mammalHypernymsFiltered)
     for (l,mammalHypernym) in enumerate(mammalHypernymsBatch)
@@ -61,8 +79,20 @@ for (k, mammalHypernymsBatch) in enumerate(mammalHypernymsFiltered)
         i = findfirst(isequal(mammalHypernym[1]), mammalStrings)
         j = findfirst(isequal(mammalHypernym[2]), mammalStrings)
         path = Graphs.a_star(G, i, j)
-        if isempty(path)
+        if isempty(path) # empty means there is no path between i and j
             add_edge!(G, i, j)
         end
     end
 end
+@assert is_tree(G) # final test that G is indeed a tree
+
+
+####
+# # Trying to visualize the graph in OSCAR (bad idea, too large)
+# ###
+# using Oscar
+# Goscar = Oscar.Graph{Undirected}(nv(G))
+# for edge in edges(G)
+#     Oscar.add_edge!(Goscar, src(edge), dst(edge))
+# end
+# visualize(Goscar)
