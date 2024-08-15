@@ -9,7 +9,7 @@ struct ValuationDisc{S, T} where T<:Oscar.scalar_types
 end
 
 # Polydisk with radius coordinate given in terms of valuation. 
-struct AbsPolydisc{S, T} where T<:Oscar.scalar_types 
+struct AbsDisc{S, T} where T<:Oscar.scalar_types 
     center::S
     # For normed points, the radius is measured with respect to the norm 
     radius::T
@@ -46,18 +46,18 @@ function join(b1::ValuationDisc{S, T}, b2::ValuationDisc{S, T}) where S<:Oscar.s
     ----------
     b1, b2 : ValuationPolydisk{S, T}
     """
-    v = valuation(b1.center - b2.radius)
+    v = valuation(b1.center - b2.center)
     # check correctness (max vs min)
-    return BerkovichPoint(b1.center, min(b1, v, b2))
+    return ValuationDisc(b1.center, min(b1.radius, v, b2.radius))
 end
 
 
-function join(b1::ValuationDisc{S, T}, b2::ValuationDisc{S, T}) where S<:Oscar.scalar_types
+function join(b1::AbsDisc{S, T}, b2::AbsDisc{S, T}) where S<:Oscar.scalar_types
     return "implement me"
 end 
 
-function big_metric(b1::ValuationDisc{S, T}, b2::ValuationDisc{S, T})  where S<:Oscar.scalar_types
-    """big_metric(b1, b2) returns the hyperbolic distance between two points of type I or II
+function hyperbolic_distance(b1::ValuationDisc{S, T}, b2::ValuationDisc{S, T})  where S<:Oscar.scalar_types
+    """ hyperbolic_distance(b1, b2) returns the hyperbolic distance between two points of type I or II
     
     Parameters
     ----------
