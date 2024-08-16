@@ -36,7 +36,7 @@ function prime(p::ValuationPolydisc)
     p: ZZRing
         The prime number of the padic field of p
     """
-    return Nemo.prime(parent(p.center[1]))
+    return Nemo.prime(p.center[1].parent)
 end
 
 ## This currently only works for unramified extensions of the p-adic numbers at the moment
@@ -86,7 +86,7 @@ function children(p::ValuationPolydisc{S, T}, degree=1) where S where T
         # TODO Paul: explain the line below!
         for radius_changes in Iterators.product([shrink[i] == 1 ? (0:Int(prime(p))-1) : (0:0) for i in Base.eachindex(p)]...)
             # TODO Paul: figure out what's happening with S
-            R = parent(p.center[1])
+            R = p.center[1].parent
             new_center = p.radius + R.(([(Int(i)) for i in radius_changes])) 
             push!(output, ValuationPolydisc(new_center, new_radius))
         end 
@@ -94,34 +94,12 @@ function children(p::ValuationPolydisc{S, T}, degree=1) where S where T
     return output
 end 
 
+function concatenate(p::ValuationPolydisc{S, T}, q::ValuationPolydisc{S, T}) where S where T
+    new_center = [p.center ; q.center]
+    new_radius = [p.radius ; q.radius]
+    return ValuationPolydisc(new_center, new_radius)
+end 
 
-# function join(b1::ValuationDisc{S, T}, b2::ValuationDisc{S, T}) where S<:Oscar.scalar_types where T<:Oscar.scalar_types
-#     return "implement me"
+# function aggregate(p::ValuationPolydisc{S, T}, q::ValuationPolydisc{S, T}, p_coords::Vector{Bool}) where S where T
+#     new_center = Vector{T}
 # end 
-
-# function valuation_coeff(f::PolyRingElem{T}, i) where T <: RingElement
-#     return valuation(coeff(f, i))
-# end
-
-# # TODO(Paul-Lez): here we probably want some constraints on the coefficient ring 
-# function val_eval(f::PolyRingElem, p::ValuationDisk{S, T}) where T <: RingElement T<:Oscar.scalar_types
-#     """abs_eval(f, p) returns the evaluation of the valuation of a 
-#        polynomial f at the point p
-
-#     Parameters
-#     ----------
-#     f : PolynomialPolynomialRing(Qp(p,10), 't') 
-#     p : ValuationDisk{S, T}"""
-    
-#     #we use the formula v(f) = min (v(b_m) + bm) where f = b_n (t-a)^n + ... + b_0 and b is the valuation radius.
-#     m = typemax(Float64)
-#     # consider the polynomial h = f(t+a) since the the m-th coefficient of h is the same as the m-th coefficient of g (expanded around t = a)
-#     t = gen(f.parent)
-#     h = compose(f, t + a)
-#     e = - log(r, p) 
-#     # compute the min. 
-#     for i in 0:degree(f)
-#         m = min(m, valuation_coeff(h, i) + i*e)
-#     end
-#     return m
-# end
