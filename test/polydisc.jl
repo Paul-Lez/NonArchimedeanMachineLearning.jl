@@ -21,6 +21,10 @@ println("The join of p1 and p2 is ", join(p1, p2))
 
 # TODO: write more tests for the children function
 
-println(length(children(p1)))
+L = PadicField(2, prec)
+gauss = ValuationPolydisc([L(0)], [2])
+@show children(gauss)
+
+
 
 

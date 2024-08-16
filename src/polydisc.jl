@@ -1,8 +1,16 @@
 using Oscar
 using Combinatorics
 
-# TODO(Paul-Lez): add constraints on the type of T, and check those on S
-# In theory at this level of abstraction, T could actually be any metric space
+################### POLYDISCS ###################
+
+# This file sets up the basic structures and 
+# API to work with polydiscs over the p-adics 
+# Our convention is that the radius is always
+# measured wrt the valuation rather than the 
+# absolute value. 
+
+##################################################
+
 struct ValuationPolydisc{S, T}
     center::Vector{S}
     # For valued points, the radius is measured with respect to the valuation 
@@ -87,7 +95,7 @@ function children(p::ValuationPolydisc{S, T}, degree=1) where S where T
         for radius_changes in Iterators.product([shrink[i] == 1 ? (0:Int(prime(p))-1) : (0:0) for i in Base.eachindex(p)]...)
             # TODO Paul: figure out what's happening with S
             R = p.center[1].parent
-            new_center = p.radius + R.(([(Int(i)) for i in radius_changes])) 
+            new_center = p.center + R.([Int(radius_changes[i]) * prime(p)^(p.radius[i]) for i in Base.eachindex(radius_changes)]) 
             push!(output, ValuationPolydisc(new_center, new_radius))
         end 
     end 
