@@ -10,8 +10,8 @@ polydisc space over a non-Archimedean field).
 - The folder `src/optim` contains the infrastructure for training non-Archimedean models. 
     - `basic.jl` develops some objects and API for setting up and training models,
     - `loss.jl` implements several "standard" loss functions,
-    - The folder `greedy_descent.jl` implements a "greedy" descent algorithm,
-    - The folder `gradient_descent.jl` implements a version of gradient descent.
+    - `greedy_descent.jl` implements a "greedy" descent algorithm,
+    - `gradient_descent.jl` implements a version of gradient descent.
 
 ## See how this works
 
