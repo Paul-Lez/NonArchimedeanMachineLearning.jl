@@ -2,35 +2,35 @@ using Oscar
 
 ################### POLYDISCS ###################
 
-# This file sets up the basic structures and 
-# API to work with polydiscs over the p-adics 
+# This file sets up the basic structures and
+# API to work with polydiscs over the p-adics
 # Our convention is that the radius is always
-# measured wrt the valuation rather than the 
-# absolute value. 
+# measured wrt the valuation rather than the
+# absolute value.
 
 ##################################################
 
 struct ValuationPolydisc{S, T}
     center::Vector{S}
-    # For valued points, the radius is measured with respect to the valuation 
+    # For valued points, the radius is measured with respect to the valuation
     radius::Vector{T}
 end
 
-# Polydisk with radius coordinate given in terms of valuation. 
+# Polydisk with radius coordinate given in terms of valuation.
 struct AbsPolydisc{S, T}
     center::Vector{S}
-    # For normed points, the radius is measured with respect to the norm 
+    # For normed points, the radius is measured with respect to the norm
     radius::Vector{T}
 end
 
 function Base.eachindex(p::ValuationPolydisc)
     return Base.eachindex(p.center)
-end 
+end
 
-# Some of the code (e.g the function below) might be nicer if we can use some unifying type 
+# Some of the code (e.g the function below) might be nicer if we can use some unifying type
 # E.g. Polydisk
 
-function prime(p::ValuationPolydisc) 
+function prime(p::ValuationPolydisc)
     """prime(p) returns the prime number of the padic field of p as an integer
 
     Parameters
@@ -47,13 +47,13 @@ function prime(p::ValuationPolydisc)
 end
 
 ## This currently only works for unramified extensions of the p-adic numbers at the moment
-function residue_size(p::ValuationPolydisc) 
-    return 
-end 
+function residue_size(p::ValuationPolydisc)
+    return
+end
 
-function dim(p::ValuationPolydisc) 
+function dim(p::ValuationPolydisc)
     return length(p.center)
-end 
+end
 
 function padic_abs(a::padic)
     v = valuation(a)
@@ -62,7 +62,7 @@ end
 
 function join(b1::ValuationPolydisc{S, T}, b2::ValuationPolydisc{S, T}) where S where T
     """join(b1, b2) returns the join of b1 and b2
-    
+
     Parameters
     ----------
     b1, b2 : ValuationPolydisk{S, T}
@@ -73,9 +73,9 @@ function join(b1::ValuationPolydisc{S, T}, b2::ValuationPolydisc{S, T}) where S 
 end
 
 
-# Returns the list of the children of a point p in the polydisc space, 
-# i.e. the polydiscs obtained by making "one" step down in one or more 
-# of the radii. The number of radii allowed to shrink is controlled by 
+# Returns the list of the children of a point p in the polydisc space,
+# i.e. the polydiscs obtained by making "one" step down in one or more
+# of the radii. The number of radii allowed to shrink is controlled by
 # the parameter degree.
 # WARNING: this will need to chanage to work for fields that aren't the p-adic numbers
 # since we're enumerating residue classes as 0:prime(p)-1
@@ -98,14 +98,14 @@ function children(p::ValuationPolydisc{S, T}, degree=1) where S where T
         end
     end
     return output
-end 
+end
 
 function concatenate(p::ValuationPolydisc{S, T}, q::ValuationPolydisc{S, T}) where S where T
     new_center = [p.center ; q.center]
     new_radius = [p.radius ; q.radius]
     return ValuationPolydisc(new_center, new_radius)
-end 
+end
 
 # function aggregate(p::ValuationPolydisc{S, T}, q::ValuationPolydisc{S, T}, p_coords::Vector{Bool}) where S where T
 #     new_center = Vector{T}
-# end 
+# end
