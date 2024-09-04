@@ -81,6 +81,7 @@ end
 # since we're enumerating residue classes as 0:prime(p)-1
 # TODO Paul: do we want some type safety mechanism?
 function children(p::ValuationPolydisc{S, T}, degree=1) where S where T
+    @req dim(p)>=degree "degree exceeding dimension of polydisc"
     output = Vector{ValuationPolydisc{S, T}}()
     # The point p has prime(p)^degree children.
     sizehint!(output, Int(prime(p))^degree)
