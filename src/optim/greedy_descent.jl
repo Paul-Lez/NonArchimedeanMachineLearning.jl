@@ -6,13 +6,12 @@ include("basic.jl")
 
 # The optimiser function for greedy descent
 function greedy_descent(data::Vector{Tuple{ValuationPolydisc{S, T}, U}}, model::Model{S, T}, loss, degree=1) where S where T where U
-    below_nodes = children(model.param, degree)
-    # In greedy descent, we look at the children of the 
-    # current parameter point and take the child 
+    below_nodes = new_children(model.param, degree)
+    # In greedy descent, we look at the children of the
+    # current parameter point and take the child
     # that minimises the loss
-    val, ind = findmin([loss(model, data, param) for param in below_nodes]) 
-    return below_nodes[ind]
-end   
+    return argmin(param -> loss(model, data, param), below_nodes)
+end
 
 # This function outputs the OptimSetup object for greedy descent
 function greedy_descent_init(data::Vector{Tuple{ValuationPolydisc{S, T}, U}}, model::Model{S, T}, loss, degree=1) where S where T where U

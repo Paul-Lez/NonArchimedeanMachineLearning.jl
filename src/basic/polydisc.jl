@@ -1,38 +1,36 @@
 using Oscar
-using Combinatorics
 
 ################### POLYDISCS ###################
 
-# This file sets up the basic structures and 
-# API to work with polydiscs over the p-adics 
+# This file sets up the basic structures and
+# API to work with polydiscs over the p-adics
 # Our convention is that the radius is always
-# measured wrt the valuation rather than the 
-# absolute value. 
+# measured wrt the valuation rather than the
+# absolute value.
 
 ##################################################
 
 struct ValuationPolydisc{S, T}
     center::Vector{S}
-    # For valued points, the radius is measured with respect to the valuation 
+    # For valued points, the radius is measured with respect to the valuation
     radius::Vector{T}
 end
 
-# Polydisk with radius coordinate given in terms of valuation. 
+# Polydisk with radius coordinate given in terms of valuation.
 struct AbsPolydisc{S, T}
     center::Vector{S}
-    # For normed points, the radius is measured with respect to the norm 
+    # For normed points, the radius is measured with respect to the norm
     radius::Vector{T}
 end
 
 function Base.eachindex(p::ValuationPolydisc)
     return Base.eachindex(p.center)
-end 
+end
 
-# Some of the code (e.g the function below) might be nicer if we can use some unifying type 
+# Some of the code (e.g the function below) might be nicer if we can use some unifying type
 # E.g. Polydisk
 
-function prime(p::ValuationPolydisc) 
-    """prime(p) returns the prime number of the padic field of p as an integer
+@doc raw"""prime(p) returns the prime number of the padic field of p as an integer
 
     Parameters
     ----------
@@ -43,20 +41,21 @@ function prime(p::ValuationPolydisc)
     ----------
     p: ZZRing
         The prime number of the padic field of p
-    """
+"""
+function prime(p::ValuationPolydisc)
     return Nemo.prime(p.center[1].parent)
 end
 
 ## This currently only works for unramified extensions of the p-adic numbers at the moment
-function residue_size(p::ValuationPolydisc) 
-    return 
-end 
+function residue_size(p::ValuationPolydisc)
+    return
+end
 
 # Returns the dimension of the space in which the polydisc `p` lies, 
 # i.e. the dimension of the center of `p`
 function dim(p::ValuationPolydisc) 
     return length(p.center)
-end 
+end
 
 # Returns the p-adic valuation of a p-adic number `a`
 function padic_abs(a::padic)
@@ -64,13 +63,13 @@ function padic_abs(a::padic)
     return Float64(Nemo.prime(a.parent))^(-v)
 end
 
-function join(b1::ValuationPolydisc{S, T}, b2::ValuationPolydisc{S, T}) where S where T
-    """join(b1, b2) returns the join of b1 and b2
-    
+@doc raw"""join(b1, b2) returns the join of b1 and b2
+
     Parameters
     ----------
     b1, b2 : ValuationPolydisk{S, T}
-    """
+"""
+function join(b1::ValuationPolydisc{S, T}, b2::ValuationPolydisc{S, T}) where S where T
     r = [min(b1.radius[i], valuation(b1.center[i] - b2.center[i]), b2.radius[i]) for i in Base.eachindex(b1)]
     # check correctness (max vs min)
     return ValuationPolydisc(b1.center, r)
@@ -85,33 +84,33 @@ function dist(b1::ValuationPolydisc{S, T}, b2::ValuationPolydisc{S, T}) where S 
 
 end 
 
-# Returns the list of the children of a point p in the polydisc space, 
-# i.e. the polydiscs obtained by making "one" step down in one or more 
-# of the radii. The number of radii allowed to shrink is controlled by 
+# Returns the list of the children of a point p in the polydisc space,
+# i.e. the polydiscs obtained by making "one" step down in one or more
+# of the radii. The number of radii allowed to shrink is controlled by
 # the parameter degree.
 # WARNING: this will need to chanage to work for fields that aren't the p-adic numbers
 # since we're enumerating residue classes as 0:prime(p)-1
 # TODO Paul: do we want some type safety mechanism?
 function children(p::ValuationPolydisc{S, T}, degree=1) where S where T
+    @req dim(p)>=degree "degree exceeding dimension of polydisc"
     output = Vector{ValuationPolydisc{S, T}}()
     # The point p has prime(p)^degree children.
     sizehint!(output, Int(prime(p))^degree)
     # iterate over all possible lists that have precisely degree times the value 1 and 0 everywhere else
-    for shrink in Combinatorics.permutations([ones(T, degree) ; zeros(T, dim(p) - degree)])
-        # a "unit shrink" along a radius is the same as increasing the valuation 
-        # measure of the radius by 1 
-        new_radius = p.radius + shrink
+    for coordinatesToShrink in AbstractAlgebra.combinations(dim(p),degree)
+        # a "unit shrink" along a radius is the same as increasing the valuation
+        # measure of the radius by 1
+        new_radius = copy(p.radius)
+        new_radius[coordinatesToShrink] .+= 1
         # We can shrink along various centers so we need to be sure to include them all
-        # TODO Paul: explain the line below!
-        for radius_changes in Iterators.product([shrink[i] == 1 ? (0:Int(prime(p))-1) : (0:0) for i in Base.eachindex(p)]...)
-            # TODO Paul: figure out what's happening with S
-            R = p.center[1].parent
-            new_center = p.center + R.([Int(radius_changes[i]) * prime(p)^(p.radius[i]) for i in Base.eachindex(radius_changes)]) 
+        for radius_changes in Iterators.product([0:Int(prime(p))-1 for i in coordinatesToShrink]...)
+            new_center = copy(p.center)
+            new_center[coordinatesToShrink] .+= radius_changes .* (prime(p) .^ p.radius[coordinatesToShrink])
             push!(output, ValuationPolydisc(new_center, new_radius))
-        end 
-    end 
+        end
+    end
     return output
-end 
+end
 
 # Concatenate two polydiscs. I.e. if `p = B(a, r)` and `q = B(a', r')` then this returns 
 # the polydisc `B((a, a'), (r, r'))`.
@@ -119,8 +118,8 @@ function concatenate(p::ValuationPolydisc{S, T}, q::ValuationPolydisc{S, T}) whe
     new_center = [p.center ; q.center]
     new_radius = [p.radius ; q.radius]
     return ValuationPolydisc(new_center, new_radius)
-end 
+end
 
 # function aggregate(p::ValuationPolydisc{S, T}, q::ValuationPolydisc{S, T}, p_coords::Vector{Bool}) where S where T
 #     new_center = Vector{T}
-# end 
+# end
