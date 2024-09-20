@@ -2,6 +2,8 @@ include("../basic/functions.jl")
 
 ###### THIS SECTIONS DEFINES THE DATA TYPES NEEDED FOR DOING OPTIMISATION AND PROVIDES SOME BASIC API #####
 
+# This struct captures the underlying function of a model, plus which variables 
+# are parameters, but does not specify any values for the parameters.
 struct AbstractModel{S}
     fun::PolydiscFunction{S}
     # The data of which variables are parameters
@@ -9,6 +11,8 @@ struct AbstractModel{S}
     param_info 
 end 
 
+# This structure captures a model, i.e. the underlying function, the 
+# data of which variables are parameters, and values for each parameter
 mutable struct Model{S, T}
     fun::AbstractModel{S}
     # the values of the parameters
@@ -16,7 +20,7 @@ mutable struct Model{S, T}
 end 
 
 # OptimSetup is the structure that capture everything we need to do 
-# Optimisation. Notice that we are imposing the data to be chosen and 
+# optimisation. Notice that we are imposing the data to be chosen and 
 # a choice of a parameter. However these can vary along the way since 
 # the structure is mutable. 
 mutable struct OptimSetup{S, T, U}
@@ -82,6 +86,8 @@ function set_model_variable(m::Model{S, T}, val::ValuationPolydisc{S, T}) where 
     return set_abstract_model_variable(m.fun, val, m.param)
 end 
 
+# This function is deprecated. 
+# TODO Paul: remove this
 function specialise_abstract_model_data(m::AbstractModel{S}, val::ValuationPolydisc{S, T}) where S where T
     keys = getkeys(m)
     R = parent(model.fun)
@@ -99,6 +105,7 @@ function eval_abs(m::AbstractModel, val, param)
     return eval_abs(m.fun, var)
 end 
 
+# Evaluate model `m` at a choice of input `val`
 function eval_abs(m::Model, val)
     return eval_abs(m.fun, val, m.param)
 end     

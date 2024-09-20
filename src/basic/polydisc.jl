@@ -52,10 +52,13 @@ function residue_size(p::ValuationPolydisc)
     return 
 end 
 
+# Returns the dimension of the space in which the polydisc `p` lies, 
+# i.e. the dimension of the center of `p`
 function dim(p::ValuationPolydisc) 
     return length(p.center)
 end 
 
+# Returns the p-adic valuation of a p-adic number `a`
 function padic_abs(a::padic)
     v = valuation(a)
     return Float64(Nemo.prime(a.parent))^(-v)
@@ -73,6 +76,14 @@ function join(b1::ValuationPolydisc{S, T}, b2::ValuationPolydisc{S, T}) where S 
     return ValuationPolydisc(b1.center, r)
 end
 
+# Returns the distance between two valuation polydiscs
+function dist(b1::ValuationPolydisc{S, T}, b2::ValuationPolydisc{S, T}) where S where T
+    p = prime(b1)
+    b = Float64(p)
+    j = join(b1, b2)
+    return sum([b^(- j.radius[i]) - b^(- b1.radius[i]) + b^(- j.radius[i]) - b^(- b2.radius[i]) for i in Base.eachindex(b1)])
+
+end 
 
 # Returns the list of the children of a point p in the polydisc space, 
 # i.e. the polydiscs obtained by making "one" step down in one or more 
@@ -102,6 +113,8 @@ function children(p::ValuationPolydisc{S, T}, degree=1) where S where T
     return output
 end 
 
+# Concatenate two polydiscs. I.e. if `p = B(a, r)` and `q = B(a', r')` then this returns 
+# the polydisc `B((a, a'), (r, r'))`.
 function concatenate(p::ValuationPolydisc{S, T}, q::ValuationPolydisc{S, T}) where S where T
     new_center = [p.center ; q.center]
     new_radius = [p.radius ; q.radius]

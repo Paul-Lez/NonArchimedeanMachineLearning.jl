@@ -10,6 +10,7 @@ struct ValuationTangent{S, T} #where T<:Oscar.scalar_types
     magnitude::Vector{T}
 end
 
+# Returns the dimension of the tangent vector `v`
 function dim(v::ValuationTangent)
     return dim(v.point)
 end
@@ -19,14 +20,17 @@ function zero(P::ValuationPolydisc{S, T}, Q::Vector{S}) where S where T
     return ValuationTangent(P, Q, [Oscar.zero(T) for i in eachindex(Q)])
 end
 
+# Outputs the zero tangent vector with same basepoint and direction as `v`
 function zero(v::ValuationTangent{S, T}) where S where T
     return zero(v.point, v.direction)
 end 
 
+# Returns the i-th basis vector with basepoint `P` and direction `Q`
 function basis_vector(P::ValuationPolydisc{S, T}, Q::Vector{S}, i) where S where T
     return ValuationTangent(P, Q, [j == i ? Oscar.one(T) : Oscar.zero(T) for j in Base.eachindex(Q)])
 end 
 
+# Returns the i-th standard basis vector with same basepoint and direction as `v`
 function basis_vector(v::ValuationTangent{S, T}, i) where S where T
     return basis_vector(v.point, v.direction, i)
 end 
