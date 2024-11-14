@@ -25,6 +25,24 @@ function Base.eachindex(p::ValuationPolydisc)
     return Base.eachindex(p.center)
 end
 
+function center(p::ValuationPolydisc)
+    return p.center
+end
+
+function radius(p::ValuationPolydisc)
+    return p.radius
+end
+
+function base_ring(p::ValuationPolydisc)
+    return Base.parent(first(center(p)))
+end
+
+import Base.show
+function Base.show(io::IO, p::ValuationPolydisc)
+    print(io, "Polydisc over $(base_ring(p)) with center $(center(p)) and radius $(radius(p))")
+end
+
+
 # Some of the code (e.g the function below) might be nicer if we can use some unifying type
 # E.g. Polydisk
 
