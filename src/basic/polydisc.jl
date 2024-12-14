@@ -1,5 +1,3 @@
-using Oscar
-
 ################### POLYDISCS ###################
 
 # This file sets up the basic structures and
@@ -27,6 +25,24 @@ function Base.eachindex(p::ValuationPolydisc)
     return Base.eachindex(p.center)
 end
 
+function center(p::ValuationPolydisc)
+    return p.center
+end
+
+function radius(p::ValuationPolydisc)
+    return p.radius
+end
+
+function base_ring(p::ValuationPolydisc)
+    return Base.parent(first(center(p)))
+end
+
+import Base.show
+function Base.show(io::IO, p::ValuationPolydisc)
+    print(io, "Polydisc over $(base_ring(p)) with center $(center(p)) and radius $(radius(p))")
+end
+
+
 # Some of the code (e.g the function below) might be nicer if we can use some unifying type
 # E.g. Polydisk
 
@@ -51,9 +67,9 @@ function residue_size(p::ValuationPolydisc)
     return
 end
 
-# Returns the dimension of the space in which the polydisc `p` lies, 
+# Returns the dimension of the space in which the polydisc `p` lies,
 # i.e. the dimension of the center of `p`
-function dim(p::ValuationPolydisc) 
+function dim(p::ValuationPolydisc)
     return length(p.center)
 end
 
@@ -82,7 +98,7 @@ function dist(b1::ValuationPolydisc{S, T}, b2::ValuationPolydisc{S, T}) where S 
     j = join(b1, b2)
     return sum([b^(- j.radius[i]) - b^(- b1.radius[i]) + b^(- j.radius[i]) - b^(- b2.radius[i]) for i in Base.eachindex(b1)])
 
-end 
+end
 
 # Returns the list of the children of a point p in the polydisc space,
 # i.e. the polydiscs obtained by making "one" step down in one or more
@@ -112,7 +128,7 @@ function children(p::ValuationPolydisc{S, T}, degree=1) where S where T
     return output
 end
 
-# Concatenate two polydiscs. I.e. if `p = B(a, r)` and `q = B(a', r')` then this returns 
+# Concatenate two polydiscs. I.e. if `p = B(a, r)` and `q = B(a', r')` then this returns
 # the polydisc `B((a, a'), (r, r'))`.
 function concatenate(p::ValuationPolydisc{S, T}, q::ValuationPolydisc{S, T}) where S where T
     new_center = [p.center ; q.center]
