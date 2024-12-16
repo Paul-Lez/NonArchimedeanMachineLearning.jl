@@ -42,6 +42,18 @@ function Base.show(io::IO, p::ValuationPolydisc)
     print(io, "Polydisc over $(base_ring(p)) with center $(center(p)) and radius $(radius(p))")
 end
 
+import Base.==
+function Base.:(==)(p::ValuationPolydisc, q::ValuationPolydisc)
+    # check whether the radii coincide
+    # and if yes, check whether coordinate-wise difference of centers
+    # has lower valuation than radii
+    return radius(p)==radius(q) && all(valuation.(center(p).-center(q)) .> radius(p))
+end
+
+function Base.hash(m::ValuationPolydisc, h::UInt)
+    return hash(h)
+end
+
 
 # Some of the code (e.g the function below) might be nicer if we can use some unifying type
 # E.g. Polydisk
