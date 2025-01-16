@@ -59,3 +59,12 @@ G = Graph{Undirected}(length(parameterSpaceIndex))
 for edge in parameterSpaceEdgesDescending
     add_edge!(G,edge[1],edge[2])
 end
+
+parameterSpaceIndexReversed = Dict(value => key for (key, value) in parameterSpaceIndex)
+
+vertexLabels = String[]
+for vertex in 1:n_vertices(G)
+    push!(vertexLabels,string(vertex)*": "*string(round(parameterSpaceLoss[parameterSpaceIndexReversed[vertex]],digits=3)))
+end
+
+visualize(G,VertexLabels=vertexLabels)
