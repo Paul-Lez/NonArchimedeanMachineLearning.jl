@@ -22,18 +22,19 @@ function gradient_data(m::Model, data)
 end
 
 # This is the optimiser function used for the "Gradient Descent" OptimSetup structure.
-function gradient_descent(data::Vector{Tuple{ValuationPolydisc{S, T}, U}}, model::Model{S, T}, loss, degree=1) where S where T where U
+# The loss is already a closure over the data, so we don't need to pass data separately
+function gradient_descent(loss::Loss, param::ValuationPolydisc{S, T}, degree=1) where S where T
     # Compute the children of the point param
-    below_nodes = children(model.param, degree)
+    below_nodes = children(param, degree)
     # Get the corresponding tangent vectors
-    tangents = [ValuationTangent(model.param, lower_point.center, zeros(T, dim(model.param))) for lower_point in below_nodes]
+    tangents = [ValuationTangent(param, lower_point.center, zeros(T, dim(param))) for lower_point in below_nodes]
     # In gradient descent, we look at the children of the current parameter point and take the child
     # that maximises the norm of the (downwards pointing) gradient
-    val, ind = findmax([LinearAlgebra.norm(loss.grad(model, data, v)) for v in tangents])
+    val, ind = findmax([LinearAlgebra.norm(loss.grad(v)) for v in tangents])
     return below_nodes[ind]
 end
 
 # Helper function to initialise the "Gradient Descent" OptimSetup structure.
-function gradient_descent_init(data::Vector{Tuple{ValuationPolydisc{S, T}, U}}, model::Model{S, T}, loss, degree=1) where S where T where U
-    return OptimSetup(data, model, loss, (dat, mod) -> gradient_descent(dat, mod, loss, degree))
+function gradient_descent_init(param::ValuationPolydisc{S, T}, loss::Loss, degree=1) where S where T
+    return OptimSetup(loss, param, (l, p) -> gradient_descent(l, p, degree))
 end
