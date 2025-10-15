@@ -1,4 +1,5 @@
 using Oscar
+using LinearAlgebra
 # Include all source files
 include("basic/polydisc.jl")
 include("basic/tangent_vector.jl")
