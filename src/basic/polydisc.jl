@@ -112,6 +112,8 @@ function dist(b1::ValuationPolydisc{S, T}, b2::ValuationPolydisc{S, T}) where S 
 
 end
 
+# TODO Paul: make variable names more evocative
+
 # Returns the list of the children of a point p in the polydisc space,
 # i.e. the polydiscs obtained by making "one" step down in one or more
 # of the radii. The number of radii allowed to shrink is controlled by
@@ -139,6 +141,30 @@ function children(p::ValuationPolydisc{S, T}, degree=1) where S where T
     end
     return output
 end
+
+function children_along_branch(
+    p::ValuationPolydisc{S, T}, 
+    branch_index::Int
+) where S where T
+    @req dim(p)>=degree "degree exceeding dimension of polydisc"
+    output = Vector{ValuationPolydisc{S, T}}()
+    # The point p has prime(p) children below branch i
+    sizehint!(output, Int(prime(p)))
+    # iterate over all possible lists that have precisely degree times the value 1 and 0 everywhere else
+    # for coordinatesToShrink in 0::(Int(prime(p))-1)
+    # a "unit shrink" along a radius is the same as increasing the valuation
+    # measure of the radius by 1
+    new_radius = copy(p.radius)
+    new_radius[branch_index] .+= 1
+    # We can shrink along various centers so we need to be sure to include them all
+    for residue_class in 0:Int(prime(p))-1
+        new_center = copy(p.center)
+        new_center[branch_index] += residue_class * (prime(p) ^ p.radius[branch_index])
+        push!(output, ValuationPolydisc(new_center, new_radius))
+    end
+    return output
+end
+
 
 # Concatenate two polydiscs. I.e. if `p = B(a, r)` and `q = B(a', r')` then this returns
 # the polydisc `B((a, a'), (r, r'))`.
