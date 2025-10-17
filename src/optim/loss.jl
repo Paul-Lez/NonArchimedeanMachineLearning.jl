@@ -22,7 +22,7 @@ function MSE_loss_init(model::AbstractModel{S}, data::Vector{Tuple{ValuationPoly
     # The gradient is evaluated at the current model.param
     # (TODO Paul: Do we want to allow v to weight the sum?)
     function MSE_grad(v::ValuationTangent{S,T}) where S where T
-        return 1 / length(data) * sum([2 * (eval_abs(model, val, model.param) - out) * gradient_param(model.fun, val, v) for (val, out) in data])
+        return 1 / length(data) * sum([2 * (eval_abs(model, val, model.param) - out) * gradient_param(model, val, v) for (val, out) in data])
     end
     return Loss(MSE_compute, MSE_grad)
 end

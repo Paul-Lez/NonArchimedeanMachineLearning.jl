@@ -12,7 +12,7 @@ function greedy_descent(
     (strict, degree) = settings
     if strict
         below_nodes = children_along_branch(param, next_branch)
-        next_branch = (next_branch + 1) % prime(p)
+        next_branch = next_branch == prime(param) ? (next_branch + 1) : 1
     else
         below_nodes = children(param, degree)
     end 
