@@ -22,22 +22,20 @@ end
 function frechet_mean(X::Vector{ValuationPolydisc{S, T}}, prec) where S where T
     mean_point = Vector{S}()
     mean_radius = Vector{T}()
-    # Define the Frechet loss
-    function loss_eval(abs_model, data, param)
-        return sum([dist(x, param) for x in X])
+    # Define the Frechet loss for batches
+    function loss_eval(params::Vector{ValuationPolydisc{S, T}}) where S where T
+        return [sum([dist(x, param) for x in X]) for param in params]
     end
-    loss = Loss(loss_eval, x -> 1)
+    loss = Loss(loss_eval, x -> ones(length(x)))
     K = Base.parent(X[1].center[1])
     R, (x, ) = polynomial_ring(K, ["x"])
-    abstract_model = AbstractModel(PolydiscFunction([x]), [false])
     starting_point = X[1]
     for i in 2:length(X)
         starting_point = join(starting_point, X[i])
     end
-    model = Model(abstract_model, starting_point)
-    optim = greedy_descent_init([(x, 1) for x in X], model, loss)
+    optim = greedy_descent_init(starting_point, loss, 1, (false, 1))
     for i in 1:prec
         step!(optim)
     end
-    return optim.model.param
+    return optim.param
 end

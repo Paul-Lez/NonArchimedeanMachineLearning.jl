@@ -2,6 +2,8 @@
 
 # Loss structure wraps an evaluation function and a gradient function
 # Both should be closures that capture any necessary data
+# eval should take a batch (array) of parameter points and return batch loss values (array)
+# grad should take a batch (array) of tangent vectors and return batch gradient values (array)
 struct Loss
     eval::Function
     grad::Function
@@ -36,7 +38,7 @@ end
 
 # Evaluate the loss with respect to the current choice of parameters.
 function eval_loss(optim::OptimSetup)
-    return optim.loss.eval(optim.param)
+    return optim.loss.eval([optim.param])[1]
 end
 
 # Update the parameter in the OptimSetup structure

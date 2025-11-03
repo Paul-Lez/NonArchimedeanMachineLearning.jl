@@ -19,19 +19,22 @@ fun = PolydiscFunction([x])
 abs_model = AbstractModel(fun, [false])
 # Set the initial value of the model's parameters to be the point p1 in the Polydisc space
 model = Model(abs_model, p1)
-# Pick the loss function 
-loss = Loss((model, data, param) -> eval_abs(model.fun, p2, param), (model, data, v) -> gradient_param(model.fun, p2, v))
-# Package the data of the model + loss function into an "optimiser object". 
+# Pick the loss function (batch interface)
+loss = Loss(
+    (params::Vector) -> [eval_abs(abs_model, p2, param) for param in params],
+    (vs::Vector) -> [gradient_param(abs_model, p2, v) for v in vs]
+)
+# Package the data of the model + loss function into an "optimiser object".
 # This has a built in optimisation algorithm: greedy descent
-optim = greedy_descent_init(data, model, loss)
+optim = greedy_descent_init(model.param, loss, 1, (false, 1))
 
 @show eval_loss(optim)
 N_epochs = 20
 # Now optimise for 20 epochs
-for i in 1:N_epochs 
+for i in 1:N_epochs
     # Make a step in the direction given by the optimiser and update the parameters
     step!(optim)
-    @show optim.model.param
+    @show optim.param
     @show eval_loss(optim)
 end 
 

@@ -37,7 +37,8 @@ function gradient_descent(
     tangents = [ValuationTangent(param, lower_point.center, zeros(T, dim(param))) for lower_point in below_nodes]
     # In gradient descent, we look at the children of the current parameter point and take the child
     # that maximises the norm of the (downwards pointing) gradient
-    val, ind = findmax([LinearAlgebra.norm(loss.grad(v)) for v in tangents])
+    grad_values = loss.grad(tangents)
+    val, ind = findmax([LinearAlgebra.norm(g) for g in grad_values])
     return below_nodes[ind], state
 end
 
