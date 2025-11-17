@@ -114,6 +114,7 @@ function base_ring(p::ValuationPolydisc)
     return Base.parent(first(center(p)))
 end
 
+import Base.show
 @doc raw"""
     Base.show(io::IO, p::ValuationPolydisc)
 
@@ -125,11 +126,11 @@ Display a polydisc in human-readable format.
 
 Prints the base ring, center, and radius information.
 """
-import Base.show
 function Base.show(io::IO, p::ValuationPolydisc)
     print(io, "Polydisc over $(base_ring(p)) with center $(center(p)) and radius $(radius(p))")
 end
 
+import Base.==
 @doc raw"""
     Base.:(==)(p::ValuationPolydisc, q::ValuationPolydisc)
 
@@ -146,7 +147,6 @@ the same point in the polydisc space).
 # Returns
 `Bool`: `true` if the polydiscs are equal, `false` otherwise
 """
-import Base.==
 function Base.:(==)(p::ValuationPolydisc, q::ValuationPolydisc)
     # check whether the radii coincide
     # and if yes, check whether coordinate-wise difference of centers
