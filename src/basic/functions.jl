@@ -17,8 +17,23 @@ struct AbsolutePolynomialSum{S} <: PolydiscFunction{S}
     polys::Vector{AbstractAlgebra.Generic.MPoly{S}}
 end
 
+# TODO: implement gradient computation for this datatype
+struct LinearPolynomial{S}
+    # The array of coefficient of the variables
+    coefficients::Vector{S}
+    constant::S
+end
+
+struct LinearAbsolutePolynomialSum{S} <: PolydiscFunction{S}
+    polys::Vector{LinearPolynomial{S}}
+end
+
 function parent(F::PolydiscFunction{S}) where S
-    return parent(F[1])
+    return parent(F)
+end
+
+function parent(F::AbsolutePolynomialSum{S}) where S
+    return F.polys[1].parent
 end
 
 @doc raw"""
@@ -53,6 +68,30 @@ end
 
 function directional_derivative(fun::AbsolutePolynomialSum{S}, v::ValuationTangent{S,T}) where S where T
     return sum([directional_derivative(f, v) for f in fun.polys])
+end
+
+function evaluate(f::LinearAbsolutePolynomialSum{S}, p::ValuationPolydisc{S,T}) where S where T
+    # Implementation: if f = a_1 T_1 + ... + a_n T _n + b then
+    # the output is for a single f is max(abs(a_1) * r_1, ..., abs(a_n) * r_n, abs(b + a_1 * c_1 + ... + a_n * c_n))
+    # where r is the radius of the polydisc and c the center.
+    # When there is more than one f in the array then the output is the sum of the output for an individual f. This means that
+    # one can paralllize the computation.
+    return sum([evaluate(poly, p) for poly in f.polys])
+end
+
+function evaluate(poly::LinearPolynomial{S}, p::ValuationPolydisc{S,T}) where S where T
+    # For a linear polynomial: a_1 * T_1 + ... + a_n * T_n + b
+    # Compute max(|a_1| * r_1, ..., |a_n| * r_n, |b + a_1 * c_1 + ... + a_n * c_n|)
+
+    # Evaluate the constant term plus the dot product of coefficients with center
+    constant_term = poly.constant + sum(poly.coefficients[i] * p.center[i] for i in eachindex(poly.coefficients))
+
+    # Compute absolute values of all terms
+    abs_values = [padic_abs(poly.coefficients[i]) * (Float64(prime(p))^(-p.radius[i])) for i in eachindex(poly.coefficients)]
+    push!(abs_values, padic_abs(constant_term))
+
+    # Return the maximum
+    return maximum(abs_values)
 end
 
 # At the moment we work with multiple differential operators: the directional derivative along a tangent vector, and the gradient at a point.
