@@ -1,22 +1,57 @@
 ## This file contains the basic of functions on the polydisc space and their calculus
 
 @doc raw"""
-    evaluate_abs(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{S, T}) where {S,T}
-
-Evaluate the valuation (absolute value) of a multivariate polynomial at a polydisc.
-
-Computes ``\max_{n} |a_n|_p \cdot p^{-\sum_i r_i n_i}`` where ``f = \sum_n a_n T^n`` is the
-polynomial expansion around the center, ``|·|_p`` is the p-adic absolute value, and ``r_i``
-are the radii.
-
-# Arguments
-- `f::AbstractAlgebra.Generic.MPoly{S}`: A multivariate polynomial
-- `p::ValuationPolydisc{S, T}`: The polydisc at which to evaluate
-
-# Returns
-`Float64`: The absolute value of the polynomial at the polydisc
+An abstract class for the functions on polydisc spaces that we're interested in.
 """
-function evaluate_abs(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{S, T}) where S where T
+abstract type PolydiscFunction{S} end
+
+## The functions we're interested in are the composition of a vector of MV polynomials with a differentiable function on the Euclidean space.
+
+## For now we specialise to absolute polynomial sums. We should later modify this type to get the general differentiable case.
+@doc raw"""
+A structure representing absolute polynomial sums.
+
+Note: we may later want to generalise to allow polydiscs as coefficients.
+"""
+struct AbsolutePolynomialSum{S} <: PolydiscFunction{S}
+    polys::Vector{AbstractAlgebra.Generic.MPoly{S}}
+end
+
+# TODO: implement gradient computation for this datatype
+struct LinearPolynomial{S}
+    # The array of coefficient of the variables
+    coefficients::Vector{S}
+    constant::S
+end
+
+struct LinearAbsolutePolynomialSum{S} <: PolydiscFunction{S}
+    polys::Vector{LinearPolynomial{S}}
+end
+
+function parent(F::PolydiscFunction{S}) where S
+    return parent(F)
+end
+
+function parent(F::AbsolutePolynomialSum{S}) where S
+    return F.polys[1].parent
+end
+
+@doc raw"""
+Evaluate a polydisc function at a polydisc.
+"""
+function evaluate(f::PolydiscFunction{S}, p::ValuationPolydisc{S,T}) where S where T
+    return evaluate(f, p)
+end
+
+@doc raw"""
+Evaluate the directional derivative of a polydisc function at a tangent vector v.
+"""
+function directional_derivative(f::PolydiscFunction{S}, v::ValuationTangent{S,T}) where S where T
+    return directional_derivative(f, v)
+end
+
+# Evaluate the valuation of a polynomial at a point p
+function evaluate_abs(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{S,T}) where S where T
     t = gens(f.parent)
     # Is this the right thing to compute?
     vec = [t[i] + p.center[i] for i in eachindex(p.center)]
@@ -26,67 +61,49 @@ function evaluate_abs(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{
     return max
 end
 
-@doc raw"""
-    PolydiscFunction{S}
-
-A function on polydisc spaces represented as a sum of absolute values of polynomials.
-
-Represents functions of the form ``F = \sum_i |f_i|`` where each ``f_i`` is a multivariate
-polynomial. This is a specialized case that will later be generalized to compositions of
-polynomial vectors with differentiable functions.
-
-# Fields
-- `polys::Vector{AbstractAlgebra.Generic.MPoly{S}}`: Vector of polynomials whose absolute values are summed
-
-# Type Parameters
-- `S`: The coefficient type (typically p-adic numbers)
-"""
-struct PolydiscFunction{S}
-    polys::Vector{AbstractAlgebra.Generic.MPoly{S}}
+# Evaluate an absolute polynomial sum at a polydisc
+function evaluate(fun::AbsolutePolynomialSum{S}, var::ValuationPolydisc{S,T}) where S where T
+    return sum([evaluate_abs(f, var) for f in fun.polys])
 end
 
-@doc raw"""
-    parent(F::PolydiscFunction{S}) where S
+function directional_derivative(fun::AbsolutePolynomialSum{S}, v::ValuationTangent{S,T}) where S where T
+    return sum([directional_derivative(f, v) for f in fun.polys])
+end
 
-Get the parent polynomial ring of the first polynomial in the function.
+function evaluate(f::LinearAbsolutePolynomialSum{S}, p::ValuationPolydisc{S,T}) where S where T
+    # Implementation: if f = a_1 T_1 + ... + a_n T _n + b then
+    # the output is for a single f is max(abs(a_1) * r_1, ..., abs(a_n) * r_n, abs(b + a_1 * c_1 + ... + a_n * c_n))
+    # where r is the radius of the polydisc and c the center.
+    # When there is more than one f in the array then the output is the sum of the output for an individual f. This means that
+    # one can paralllize the computation.
+    return sum([evaluate(poly, p) for poly in f.polys])
+end
 
-# Arguments
-- `F::PolydiscFunction{S}`: The polydisc function
+function evaluate(poly::LinearPolynomial{S}, p::ValuationPolydisc{S,T}) where S where T
+    # For a linear polynomial: a_1 * T_1 + ... + a_n * T_n + b
+    # Compute max(|a_1| * r_1, ..., |a_n| * r_n, |b + a_1 * c_1 + ... + a_n * c_n|)
 
-# Returns
-The parent ring of the first polynomial in `F.polys`
-"""
-function parent(F::PolydiscFunction{S}) where S
-    return parent(F[1])
+    # Evaluate the constant term plus the dot product of coefficients with center
+    constant_term = poly.constant + sum(poly.coefficients[i] * p.center[i] for i in eachindex(poly.coefficients))
+
+    # Compute absolute values of all terms
+    abs_values = [padic_abs(poly.coefficients[i]) * (Float64(prime(p))^(-p.radius[i])) for i in eachindex(poly.coefficients)]
+    push!(abs_values, padic_abs(constant_term))
+
+    # Return the maximum
+    return maximum(abs_values)
 end
 
 # At the moment we work with multiple differential operators: the directional derivative along a tangent vector, and the gradient at a point.
 
 
-@doc raw"""
-    directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S, T}) where {S,T}
-
-Compute the directional exponent of a polynomial along a tangent vector.
-
-The directional exponent is the exponent vector ``n`` such that when moving in the direction
-of ``v``, the absolute value ``|f|`` is asymptotically given by a monomial term with exponent ``n``.
-This corresponds to the dominant term(s) when expanding around the tangent direction.
-
-# Arguments
-- `f::AbstractAlgebra.Generic.MPoly{S}`: A multivariate polynomial
-- `v::ValuationTangent{S, T}`: The tangent vector direction
-
-# Returns
-`Vector{Int}`: Indices of the dominant exponent vectors (may return multiple if there's a tie)
-
-# Notes
-The directional exponent is not uniquely defined when multiple terms achieve the maximum
-absolute value. In this case, all minimal exponents achieving the maximum are returned.
-"""
-function directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S, T}) where S where T
+# Returns the directional exponent of an absolute polynomial |f| in the direction of a tangent vector v, i.e.
+# the exponent vector n such that when we move in the direction of v, |f| is given by a monomial of exponent n.
+# This is not uniquely defined, so the output of this function is an array of exponents.
+function directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S,T}) where S where T
     t = gens(f.parent)
-    g = AbstractAlgebra.evaluate(f, t+v.direction)
-    abs_terms = [padic_abs(Nemo.coeff(g, n)) * prod(v.point.radius .^ n)  for n in Nemo.exponent_vectors(g)]
+    g = AbstractAlgebra.evaluate(f, t + v.direction)
+    abs_terms = [padic_abs(Nemo.coeff(g, n)) * prod(v.point.radius .^ n) for n in Nemo.exponent_vectors(g)]
     # Find all exponents at which the max is attained
     max_exponents = findall(a -> a == maximum(abs_terms), abs_terms)
     # In principle this if clause isn't necessary (the "else" part works for all possible cases)
@@ -101,113 +118,34 @@ function directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationT
     end
 end
 
-@doc raw"""
-    directional_derivative(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S, T}) where {S,T}
-
-Compute the directional derivative of an absolute polynomial along a tangent vector.
-
-Uses the fact that if locally in the direction of ``v``, ``|f| = a_n r^n`` for some multi-index ``n``,
-then the directional derivative is ``d_v |f| = -|n| \cdot |a_n| \cdot r^n`` where ``r`` is the
-radius vector at the basepoint of ``v``.
-
-# Arguments
-- `f::AbstractAlgebra.Generic.MPoly{S}`: A multivariate polynomial
-- `v::ValuationTangent{S, T}`: The tangent vector direction
-
-# Returns
-`Float64`: The directional derivative value
-
-# Notes
-This implementation is specialized for absolute polynomial functions and will need to be
-reimplemented for the general differentiable case.
-"""
-function directional_derivative(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S, T}) where S where T
+# This will need to be reimplented when we move to the general case. This is the hard thing to implement.
+# We use the fact that if locally in the direction of v, |f| = a_n r^n for some multi-index n, then we have
+# d_v |f| = - |n| * |a_n| * r^n where r is the radius of the basepoint of v.
+function directional_derivative(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S,T}) where S where T
     # Recover the variables of the polynomial ring we're working over
     x = gens(f.parent)
     # Compute the expansion of f around the direction a of the tangent vector v, i.e.
     # The coefficients a_n such that f = ∑_n a_n (T-a)^n. We do this by computing the
     # expansion around 0 of the polynomial g(T) = f(T+a).
     #p = [j != i ? point(v)[j] : x for j in eachindex(v.tangents)]
-    g = AbstractAlgebra.evaluate(f, x+v.direction)
+    g = AbstractAlgebra.evaluate(f, x + v.direction)
     # Next we need to compute the directional exponent of f along v
     n = first(directional_exponent(f, v))
     # Use the formula to get d_v
-    d_v = - sum(n) * padic_abs(coeff(g, n)) * (Float64(prime(v.point))^(-sum(v.point.radius .* n))) # prod(v.point.radius .^ n)
+    d_v = -sum(n) * padic_abs(coeff(g, n)) * (Float64(prime(v.point))^(-sum(v.point.radius .* n))) # prod(v.point.radius .^ n)
     return d_v
 end
 
-@doc raw"""
-    directional_derivative(fun::PolydiscFunction{S}, v::ValuationTangent{S, T}) where {S,T}
-
-Compute the directional derivative of a polydisc function along a tangent vector.
-
-For a function ``F = \sum_i |f_i|``, computes ``d_v F = \sum_i d_v |f_i|``.
-
-# Arguments
-- `fun::PolydiscFunction{S}`: The polydisc function (sum of absolute polynomials)
-- `v::ValuationTangent{S, T}`: The tangent vector direction
-
-# Returns
-`Float64`: The directional derivative value
-"""
-function directional_derivative(fun::PolydiscFunction{S}, v::ValuationTangent{S, T}) where S where T
+function directional_derivative(fun::PolydiscFunction{S}, v::ValuationTangent{S,T}) where S where T
     return sum([directional_derivative(f, v) for f in fun.polys])
 end
 
-@doc raw"""
-    grad(f, v::ValuationTangent{S, T}) where {S,T}
-
-Compute the gradient of a function at a tangent vector.
-
-Computes the gradient by taking directional derivatives along all standard basis directions.
-
-# Arguments
-- `f`: The function (polynomial or polydisc function)
-- `v::ValuationTangent{S, T}`: The tangent vector providing the basepoint
-
-# Returns
-`Vector{Float64}`: The gradient vector with components for each coordinate direction
-
-# Notes
-Currently references undefined variables `P` and `Q` - this may need to be fixed.
-"""
-function grad(f, v::ValuationTangent{S, T}) where S where T
+# Compute symbolical gradient of an absolute polynomial f evaluated at a polydisc P for the local direction given by
+# point Q.
+function grad(f, v::ValuationTangent{S,T}) where S where T
     return [directional_derivative(f, basis_vector(P, Q, i)) for i in Base.eachindex(Q)]
 end
 
-@doc raw"""
-    partial_gradient(f, v::ValuationTangent{S, T}, gradient_indices) where {S,T}
-
-Compute the partial gradient of a function for a subset of coordinate directions.
-
-Similar to `grad`, but only computes gradient components for the specified coordinate indices.
-
-# Arguments
-- `f`: The function (polynomial or polydisc function)
-- `v::ValuationTangent{S, T}`: The tangent vector providing the basepoint
-- `gradient_indices`: Collection of coordinate indices to include in the partial gradient
-
-# Returns
-`Vector{Float64}`: The partial gradient vector with components only for specified indices
-"""
-function partial_gradient(f, v::ValuationTangent{S, T}, gradient_indices) where S where T
+function partial_gradient(f, v::ValuationTangent{S,T}, gradient_indices) where S where T
     return [directional_derivative(f, basis_vector(v, i)) for i in gradient_indices]
-end
-
-@doc raw"""
-    eval_abs(fun::PolydiscFunction{S}, var::ValuationPolydisc{S, T}) where {S,T}
-
-Evaluate a polydisc function at a polydisc.
-
-For a function ``F = \sum_i |f_i|``, computes ``F(var) = \sum_i |f_i|(var)``.
-
-# Arguments
-- `fun::PolydiscFunction{S}`: The polydisc function (sum of absolute polynomials)
-- `var::ValuationPolydisc{S, T}`: The polydisc at which to evaluate
-
-# Returns
-`Float64`: The function value at the polydisc
-"""
-function eval_abs(fun::PolydiscFunction{S}, var::ValuationPolydisc{S, T}) where S where T
-    return sum([evaluate_abs(f, var) for f in fun.polys])
 end
