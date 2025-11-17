@@ -24,7 +24,6 @@ struct AbstractModel{S}
     param_info
 end
 
-<<<<<<< HEAD
 @doc raw"""
     Model{S, T}
 
@@ -42,11 +41,6 @@ The structure is mutable to allow parameter updates during optimization.
 - `T`: The type for radius/valuation values
 """
 mutable struct Model{S, T}
-=======
-# This structure captures a model, i.e. the underlying function, the
-# data of which variables are parameters, and values for each parameter
-mutable struct Model{S,T}
->>>>>>> origin/main
     fun::AbstractModel{S}
     # the values of the parameters
     param::ValuationPolydisc{S,T}
@@ -130,7 +124,6 @@ function getkeys(m::AbstractModel)
     return [m.param_info[i] ? findfirst(item -> item == i, vars) : findfirst(item -> item == i, param) for i in Base.eachindex(m.param_info)]
 end
 
-<<<<<<< HEAD
 @doc raw"""
     set_abstract_model_variable(m::AbstractModel{S}, val::ValuationPolydisc{S, T}, param::ValuationPolydisc{S, T}) where {S,T}
 
@@ -152,13 +145,6 @@ For model ``f(x, \theta, y, \phi)`` with data ``(x, y) = (1, 2)`` and parameters
 ``(\theta, \phi) = (3, 4)``, returns the point ``(1, 3, 2, 4)``.
 """
 function set_abstract_model_variable(m::AbstractModel{S}, val::ValuationPolydisc{S, T}, param::ValuationPolydisc{S, T}) where S where T
-=======
-# given a value for the parameters and for the data, this function outputs a point x that can be evaluated
-# using the evaluation mechanisms for absolute polynomials.
-# E.g. if the model is f(x, θ, y, ϕ) where the parameters is (θ, ϕ) are we are given (x, y) = (1, 2), (θ, ϕ) = (3, 4)
-# then the function will output (1, 3, 2, 4).
-function set_abstract_model_variable(m::AbstractModel{S}, val::ValuationPolydisc{S,T}, param::ValuationPolydisc{S,T}) where S where T
->>>>>>> origin/main
     keys = getkeys(m)
     abstract_model_variable_radius = Vector{T}([m.param_info[i] ? val.radius[keys[i]] : param.radius[keys[i]] for i in Base.eachindex(m.param_info)])
     abstract_model_variable_center = Vector{S}([m.param_info[i] ? val.center[keys[i]] : param.center[keys[i]] for i in Base.eachindex(m.param_info)])
@@ -166,7 +152,6 @@ function set_abstract_model_variable(m::AbstractModel{S}, val::ValuationPolydisc
     return ValuationPolydisc{S,T}(abstract_model_variable_center, abstract_model_variable_radius)
 end
 
-<<<<<<< HEAD
 @doc raw"""
     set_model_variable(m::Model{S, T}, val::ValuationPolydisc{S, T}) where {S,T}
 
@@ -183,13 +168,6 @@ parameter values.
 `ValuationPolydisc{S, T}`: Point with data and model parameters interleaved for evaluation
 """
 function set_model_variable(m::Model{S, T}, val::ValuationPolydisc{S, T}) where S where T
-=======
-# given a value for the parameters and for the data, this function outputs a point x that can be evaluated
-# using the evaluation mechanisms for absolute polynomials.
-# E.g. if the model is f(x, θ, y, ϕ) where the parameters is (θ, ϕ) are we are given (x, y) = (1, 2), (θ, ϕ) = (3, 4)
-# then the function will output (1, 3, 2, 4).
-function set_model_variable(m::Model{S,T}, val::ValuationPolydisc{S,T}) where S where T
->>>>>>> origin/main
     return set_abstract_model_variable(m.fun, val, m.param)
 end
 
@@ -296,9 +274,8 @@ function specialise_abstract_model_data(m::AbstractModel{S}, data::Vector{S})::P
     end
 end
 
-<<<<<<< HEAD
 @doc raw"""
-    eval_abs(m::AbstractModel, val, param)
+    evaluate(m::AbstractModel, val, param)
 
 Evaluate an abstract model at given data and parameter values.
 
@@ -314,20 +291,13 @@ Evaluate an abstract model at given data and parameter values.
 Current implementation is specific to absolute polynomial sums. Will need updates for
 more general model functions.
 """
-function eval_abs(m::AbstractModel, val, param)
-=======
-# Evaluate the abstract model (this is currently an implentation that is specific to
-# absolute polynomial sums and will need to be updated when we move to more general
-# functions for our models)
 function evaluate(m::AbstractModel, val, param)
->>>>>>> origin/main
     var = set_abstract_model_variable(m, val, param)
     return evaluate(m.fun, var)
 end
 
-<<<<<<< HEAD
 @doc raw"""
-    eval_abs(m::Model, val)
+    evaluate(m::Model, val)
 
 Evaluate a model at given data using the model's stored parameters.
 
@@ -338,11 +308,6 @@ Evaluate a model at given data using the model's stored parameters.
 # Returns
 `Float64`: The model evaluation result
 """
-function eval_abs(m::Model, val)
-    return eval_abs(m.fun, val, m.param)
-=======
-# Evaluate model `m` at a choice of input `val`
 function evaluate(m::Model, val)
     return evaluate(m.fun, val, m.param)
->>>>>>> origin/main
 end
