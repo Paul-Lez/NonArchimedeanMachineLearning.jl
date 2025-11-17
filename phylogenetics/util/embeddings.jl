@@ -102,10 +102,10 @@ mapped to the given basepoint and children mapped to child discs.
 - Internal nodes are mapped recursively: each child subtree is embedded in one of the
   child discs of the parent's basepoint
 """
-function disc_embedding(tree, basepoint::ValuationPolydisc{S, T}) where S where T
+function disc_embedding(tree, basepoint::ValuationPolydisc{S,T}) where S where T
     # If the tree only has one node then return a single node: the basepoint
     if isempty(tree.children)
-        return Node(basepoint, Vector{ValuationPolydisc{S, T}}([]))
+        return Node(basepoint, Vector{ValuationPolydisc{S,T}}([]))
     else
         pts = children(basepoint)
         node_embeddings = Vector()
@@ -126,7 +126,8 @@ end
 Embed a tree into the p-adic field (stub implementation).
 
 Currently unimplemented. This function is intended to provide an alternative embedding
-using field-based methods rather than disc-based methods.
+in the base field (i.e. embed the leafs so that the tree structure can be reconstructed
+from the joins of the leafs).
 
 # Arguments
 - `tree::Node`: The tree to embed
@@ -138,6 +139,6 @@ Currently returns `true` (placeholder)
 # TODO
 Full implementation needed.
 """
-function field_embedding(tree, basepoint::ValuationPolydisc{S, T}) where S where T
+function field_embedding(tree, basepoint::ValuationPolydisc{S,T}) where S where T
     return true
 end

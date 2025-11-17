@@ -22,7 +22,7 @@ abstract type PolydiscFunction{S} end
 A structure representing absolute polynomial sums.
 
 Represents a function as a sum of multivariate polynomials, where absolute values are
-taken to define the evaluation. This allows for non-Archimedean geometry.
+taken to define the evaluation at arbitrary polydiscs.
 
 # Fields
 - `polys::Vector{AbstractAlgebra.Generic.MPoly{S}}`: Vector of multivariate polynomials
@@ -64,7 +64,7 @@ end
 A structure representing a sum of linear polynomials.
 
 Composed of multiple linear polynomials, allowing for efficient evaluation and
-gradient computation in non-Archimedean spaces.
+gradient computation over polydisc spaces.
 
 # Fields
 - `polys::Vector{LinearPolynomial{S}}`: Vector of linear polynomials
@@ -91,6 +91,7 @@ function parent(F::PolydiscFunction{S}) where S
     return parent(F)
 end
 
+# TODO(Paul-Lez): I think this doesn't make sense?
 @doc raw"""
     parent(F::AbsolutePolynomialSum{S}) where S
 
@@ -138,6 +139,11 @@ function directional_derivative(f::PolydiscFunction{S}, v::ValuationTangent{S,T}
     return directional_derivative(f, v)
 end
 
+
+# TODO(Paul-Lez): there are various optimisations to be done here:
+# Profiling suggests that:
+# 1) There are some type instabilities
+# 2) Too much time is spent allocating memory, i.e AbstractAlgebra.evaluate is suboptimal here
 @doc raw"""
     evaluate_abs(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{S,T}) where S where T
 
@@ -233,7 +239,7 @@ For a linear polynomial ``a_1 T_1 + \cdots + a_n T_n + b``, computes
 function evaluate(poly::LinearPolynomial{S}, p::ValuationPolydisc{S,T}) where S where T
     # Evaluate the constant term plus the dot product of coefficients with center
     constant_term = poly.constant + sum(poly.coefficients[i] * p.center[i] for i in eachindex(poly.coefficients))
-
+    # TODO(Paul-Lez): it's probably more efficient to do this in terms of valuation?
     # Compute absolute values of all terms
     abs_values = [padic_abs(poly.coefficients[i]) * (Float64(prime(p))^(-p.radius[i])) for i in eachindex(poly.coefficients)]
     push!(abs_values, padic_abs(constant_term))

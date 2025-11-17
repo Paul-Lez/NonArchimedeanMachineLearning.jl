@@ -29,7 +29,6 @@ function greedy_descent(
     if strict
         below_nodes = children_along_branch(param, next_branch)
         next_branch = next_branch == dim(param) ? 1 : next_branch + 1
-        # println("$(next_branch)")
     else
         below_nodes = children(param, degree)
     end
@@ -39,11 +38,6 @@ function greedy_descent(
     loss_values = loss.eval(below_nodes)
     return (below_nodes[argmin(loss_values)], next_branch)
 end
-
-# function strict_greedy_descent(loss::Loss, param::ValuationPolydisc{S,T}, degree=1) where S where T
-
-
-# end
 
 @doc raw"""
     greedy_descent_init(param::ValuationPolydisc{S,T}, loss::Loss, next_branch::Int, settings::Tuple{Bool,Int}) where {S,T}

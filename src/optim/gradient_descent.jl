@@ -25,7 +25,7 @@ function gradient_param(
 ) where S where T
     # TODO: this doesn't allow arbitrary shapes for the variable of the model (i.e.
     # this only works if the parameters are the last variables.
-    # Do we really need to have something more general?
+    # Do we really need to have something more general?    
     new_base = concatenate(val, v.point)
     new_direction = [val.center; v.direction]
     new_v = ValuationTangent(new_base, new_direction, [zeros(T, dim(val)); v.magnitude])
@@ -33,6 +33,9 @@ function gradient_param(
     ## CHANGE ME!
     return partial_gradient(m.fun, new_v, grad_indices)
 end
+
+# TODO: Function below is generally less useful, but would be nice to have
+# for completness.
 
 @doc raw"""
     gradient_data(m::Model, data)

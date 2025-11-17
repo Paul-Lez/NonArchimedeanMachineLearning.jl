@@ -38,6 +38,8 @@ A polydisc over a p-adic field, where the radius is measured with respect to the
 Represents the product of p-adic discs where each disc is defined using the p-adic absolute value
 rather than valuation.
 
+Note: we generally prefer the valuation format.
+
 # Fields
 - `center::Vector{S}`: The center point of the polydisc in p-adic space
 - `radius::Vector{T}`: The radius vector measured in norm coordinates
@@ -187,23 +189,20 @@ function prime(p::ValuationPolydisc)
     return Nemo.prime(p.center[1].parent)
 end
 
-@doc raw"""
-    residue_size(p::ValuationPolydisc)
+# @doc raw"""
+#     residue_size(p::ValuationPolydisc)
 
-Get the size of the residue field of the underlying p-adic field.
+# Get the size of the residue field of the underlying p-adic field.
 
-# Arguments
-- `p::ValuationPolydisc`: The polydisc
+# # Arguments
+# - `p::ValuationPolydisc`: The polydisc
 
-# Returns
-The size of the residue field (currently unimplemented)
-
-# Note
-This currently only works for unramified extensions of the p-adic numbers.
-"""
-function residue_size(p::ValuationPolydisc)
-    return
-end
+# # Returns
+# The size of the residue field (currently unimplemented)
+# """
+# function residue_size(p::ValuationPolydisc)
+#     return
+# end
 
 @doc raw"""
     dim(p::ValuationPolydisc)
