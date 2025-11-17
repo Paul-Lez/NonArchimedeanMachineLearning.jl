@@ -17,6 +17,7 @@ struct AbsolutePolynomialSum{S} <: PolydiscFunction{S}
     polys::Vector{AbstractAlgebra.Generic.MPoly{S}}
 end
 
+# TODO: implement gradient computation for this datatype
 struct LinearPolynomial{S}
     # The array of coefficient of the variables
     coefficients::Vector{S}
@@ -69,7 +70,6 @@ function directional_derivative(fun::AbsolutePolynomialSum{S}, v::ValuationTange
     return sum([directional_derivative(f, v) for f in fun.polys])
 end
 
-## TODO Claude
 function evaluate(f::LinearAbsolutePolynomialSum{S}, p::ValuationPolydisc{S,T}) where S where T
     # Implementation: if f = a_1 T_1 + ... + a_n T _n + b then
     # the output is for a single f is max(abs(a_1) * r_1, ..., abs(a_n) * r_n, abs(b + a_1 * c_1 + ... + a_n * c_n))
