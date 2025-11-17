@@ -1,9 +1,24 @@
 ###### THIS SECTIONS DEFINES THE DATA TYPES NEEDED FOR DOING OPTIMISATION AND PROVIDES SOME BASIC API #####
 
+<<<<<<< HEAD
+@doc raw"""
+    Loss
+
+A loss function structure for optimization.
+
+Wraps both an evaluation function and a gradient function. Both functions should be
+closures that capture any necessary data (e.g., training data).
+
+# Fields
+- `eval::Function`: Function to evaluate the loss, signature: `(param) -> scalar`
+- `grad::Function`: Function to compute gradient, signature: `(tangent_vector) -> scalar`
+"""
+=======
 # Loss structure wraps an evaluation function and a gradient function
 # Both should be closures that capture any necessary data
 # eval should take a batch (array) of parameter points and return batch loss values (array)
 # grad should take a batch (array) of tangent vectors and return batch gradient values (array)
+>>>>>>> origin/main
 struct Loss
     eval::Function
     grad::Function
@@ -14,9 +29,27 @@ end
 # by assuming that the state type always has a method
 # "get_param!" available.  
 
-# OptimSetup is the structure that captures everything we need to do
-# optimisation. The loss function should already have data baked in as a closure.
-# The parameter can vary during optimisation since the structure is mutable.
+@doc raw"""
+    OptimSetup{S,T,U,V}
+
+Complete optimization setup containing loss, parameters, optimizer, and state.
+
+Mutable structure that captures everything needed for optimization. The loss function
+should have data baked in as a closure.
+
+# Fields
+- `loss::Loss`: Loss function (closure over data) with `eval: (param) -> scalar` and `grad: (tangent) -> scalar`
+- `param::ValuationPolydisc{S,T}`: Current parameter values (mutable during optimization)
+- `optimiser::Function`: Optimizer function `(loss, param, state, context) -> (new_param, new_state)`
+- `state::U`: Optimization state (e.g., previous steps, momentum, etc.)
+- `context::V`: Optimizer settings (e.g., learning rate, degree, etc.)
+
+# Type Parameters
+- `S`: Coefficient type (typically p-adic numbers)
+- `T`: Radius/valuation type
+- `U`: State type
+- `V`: Context type
+"""
 mutable struct OptimSetup{S,T,U,V}
     # The loss function (should be a closure over any data)
     # loss.eval should have type (param) -> scalar
@@ -30,18 +63,39 @@ mutable struct OptimSetup{S,T,U,V}
     optimiser::Function
     # The state is an optional field that records the state of the optimisation
     # process, e.g. previous steps that were made, etc.
-    # This is useful since some optimisation methods may depend on the state. 
+    # This is useful since some optimisation methods may depend on the state.
     state::U
     # The context type. This records things like settings for the optimiser, etc
     context::V
 end
 
-# Evaluate the loss with respect to the current choice of parameters.
+@doc raw"""
+    eval_loss(optim::OptimSetup)
+
+Evaluate the loss function at the current parameter values.
+
+# Arguments
+- `optim::OptimSetup`: The optimization setup
+
+# Returns
+Scalar value of the loss at the current parameters
+"""
 function eval_loss(optim::OptimSetup)
     return optim.loss.eval([optim.param])[1]
 end
 
-# Update the parameter in the OptimSetup structure
+@doc raw"""
+    update_param!(optim::OptimSetup{S,T,U,V}, param::ValuationPolydisc{S,T}) where {S,T,U,V}
+
+Update the parameter values in the optimization setup.
+
+# Arguments
+- `optim::OptimSetup{S,T,U,V}`: The optimization setup
+- `param::ValuationPolydisc{S,T}`: New parameter values
+
+# Notes
+Mutates the optimization setup in place.
+"""
 function update_param!(
     optim::OptimSetup{S,T,U,V},
     param::ValuationPolydisc{S,T}
@@ -49,12 +103,36 @@ function update_param!(
     optim.param = param
 end
 
+@doc raw"""
+    update_state!(optim::OptimSetup{S,T,U,V}, state::U) where {S,T,U,V}
+
+Update the optimizer state in the optimization setup.
+
+# Arguments
+- `optim::OptimSetup{S,T,U,V}`: The optimization setup
+- `state::U`: New state value
+
+# Notes
+Mutates the optimization setup in place.
+"""
 function update_state!(optim::OptimSetup{S,T,U,V}, state::U) where S where T where U where V
     optim.state = state
 end
 
-# Make a step in the direction given by the optimiser function of the OptimSetup structure.
-# This directly changes the param field of the OptimSetup structure (since OptimSetup is mutable)
+@doc raw"""
+    step!(optim_setup::OptimSetup)
+
+Perform one optimization step.
+
+Calls the optimizer function to compute new parameters and state, then updates the
+optimization setup accordingly.
+
+# Arguments
+- `optim_setup::OptimSetup`: The optimization setup
+
+# Notes
+Mutates the optimization setup by updating both parameters and state.
+"""
 function step!(optim_setup::OptimSetup)
     new_param, new_state = optim_setup.optimiser(
         optim_setup.loss,

@@ -1,7 +1,24 @@
 # This file provides tools for computing the Frechet mean
 # of a set X = {p1, ..., pm} of n-polydiscs.
 
-# Returns the Frechet mean of X wrt the ℓ¹-metric on ℬⁿ.
+@doc raw"""
+    frechet_mean(X::Vector{Vector{PadicFieldElem}})
+
+Compute the Fréchet mean of a collection of p-adic vectors.
+
+Computes the Fréchet mean with respect to the ``\ell^1``-metric on ``\mathcal{B}^n`` by
+minimizing ``\sum_{i} d(x, x_i)`` coordinatewise.
+
+# Arguments
+- `X::Vector{Vector{PadicFieldElem}}`: Collection of p-adic vectors
+
+# Returns
+`Vector{PadicFieldElem}`: The Fréchet mean vector
+
+# Algorithm
+For each coordinate, selects the sample point that minimizes the sum of distances to
+all other points in that coordinate.
+"""
 function frechet_mean(X::Vector{Vector{PadicFieldElem}})
     A = transpose(hcat(X...))
     mean = Vector{PadicFieldElem}()
@@ -14,11 +31,25 @@ function frechet_mean(X::Vector{Vector{PadicFieldElem}})
     return mean
 end
 
-# Computes the Frechet Mean of a set of discs.
-# Implementation note: the optimisation library is constructed in
-# terms of parametrised models, so here we end up having to contruct a bogus model
-# simply to be able to use the descent tools to minimise the Frechet loss.
-# This should be refactored eventually.
+@doc raw"""
+    frechet_mean(X::Vector{ValuationPolydisc{S, T}}, prec) where {S,T}
+
+Compute the Fréchet mean of a collection of polydiscs.
+
+Uses greedy descent optimization to minimize the sum of distances to all polydiscs.
+Starts from the join of all polydiscs and refines for a specified number of steps.
+
+# Arguments
+- `X::Vector{ValuationPolydisc{S, T}}`: Collection of polydiscs
+- `prec`: Number of optimization steps (precision/iterations)
+
+# Returns
+`ValuationPolydisc{S, T}`: The approximate Fréchet mean polydisc
+
+# Implementation Notes
+Uses a workaround by constructing a dummy model to leverage the optimization library.
+This should be refactored for a cleaner implementation.
+"""
 function frechet_mean(X::Vector{ValuationPolydisc{S, T}}, prec) where S where T
     mean_point = Vector{S}()
     mean_radius = Vector{T}()
