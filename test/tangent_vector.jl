@@ -3,10 +3,10 @@
 # This file demonstrates and tests tangent vector creation, operations,
 # and manipulations in polydisc space.
 
-include("../src/tangent_vector.jl")
+include("../src/basic/tangent_vector.jl")
 
 prec = 20
-K = PadicField(3,prec)
+K = PadicField(3, prec)
 
 a1 = [K(1), K(2)]
 r1 = [1.0, 2.0]

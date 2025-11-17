@@ -3,10 +3,10 @@
 # This file demonstrates and tests the fundamental polydisc operations
 # including creation, iteration, joining, and generating children.
 
-include("../src/polydisc.jl")
+include("../src/basic/polydisc.jl")
 
 prec = 20
-K = PadicField(3,prec)
+K = PadicField(3, prec)
 
 a1 = [K(1), K(2)]
 r1 = [1, 2]

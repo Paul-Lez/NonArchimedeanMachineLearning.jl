@@ -3,7 +3,7 @@
 # This file tests polynomial evaluation and directional derivative computation
 # on polydisc space, including absolute polynomial sums.
 
-include("../src/functions.jl")
+include("../src/basic/functions.jl")
 
 # Set up synthetic data
 prec = 20

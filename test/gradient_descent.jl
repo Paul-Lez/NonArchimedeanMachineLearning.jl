@@ -3,7 +3,7 @@
 # This file demonstrates and tests the gradient descent optimization algorithm
 # on a simple polynomial model in p-adic space.
 
-include("../src/gradient_descent.jl")
+include("../src/optim/gradient_descent.jl")
 
 # Set up synthetic data
 prec = 20
