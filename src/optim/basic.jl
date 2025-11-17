@@ -1,6 +1,5 @@
 ###### THIS SECTIONS DEFINES THE DATA TYPES NEEDED FOR DOING OPTIMISATION AND PROVIDES SOME BASIC API #####
 
-<<<<<<< HEAD
 @doc raw"""
     Loss
 
@@ -13,12 +12,6 @@ closures that capture any necessary data (e.g., training data).
 - `eval::Function`: Function to evaluate the loss, signature: `(param) -> scalar`
 - `grad::Function`: Function to compute gradient, signature: `(tangent_vector) -> scalar`
 """
-=======
-# Loss structure wraps an evaluation function and a gradient function
-# Both should be closures that capture any necessary data
-# eval should take a batch (array) of parameter points and return batch loss values (array)
-# grad should take a batch (array) of tangent vectors and return batch gradient values (array)
->>>>>>> origin/main
 struct Loss
     eval::Function
     grad::Function
