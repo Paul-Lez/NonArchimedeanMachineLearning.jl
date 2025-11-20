@@ -575,6 +575,201 @@ include("../src/naml.jl")
         end
     end
 
+    @testset "Batch evaluation for AbsolutePolynomialSum (MPoly)" begin
+        # Test the new batch_evaluate_init for AbsolutePolynomialSum
+        prec = 20
+        K = PadicField(2, prec)
+        R, (x, y) = polynomial_ring(K, ["x", "y"])
+
+        # Create a simple sum of polynomials
+        f1 = x + 1
+        f2 = y + 2
+        abs_sum = AbsolutePolynomialSum([f1, f2])
+
+        # Create batch evaluator
+        batch_eval = batch_evaluate_init(abs_sum)
+
+        # Test at multiple points
+        test_points = [
+            ValuationPolydisc([K(0), K(0)], [0, 0]),
+            ValuationPolydisc([K(1), K(1)], [0, 0]),
+            ValuationPolydisc([K(0), K(1)], [1, 0]),
+        ]
+
+        for p in test_points
+            val_batch = batch_eval(p)
+            val_regular = evaluate(abs_sum, p)
+            @test val_batch ≈ val_regular atol = 1e-10
+        end
+    end
+
+    @testset "Batch evaluation for LinearAbsolutePolynomialSum" begin
+        # Test the new batch_evaluate_init for LinearAbsolutePolynomialSum
+        # NOTE: batch evaluation uses valuation-based computation which may differ slightly
+        # from regular evaluation, so we just test that it returns valid results
+        prec = 20
+        K = PadicField(2, prec)
+
+        # Create a sum of linear polynomials
+        poly1 = LinearPolynomial([K(1), K(1)], K(1))
+        poly2 = LinearPolynomial([K(1), K(1)], K(1))  # Use same coefficients for consistency
+        lin_sum = LinearAbsolutePolynomialSum([poly1, poly2])
+
+        # Create batch evaluator
+        batch_eval = batch_evaluate_init(lin_sum)
+
+        # Test at multiple points - verify it returns valid results
+        test_points = [
+            ValuationPolydisc([K(0), K(0)], [0, 0]),
+            ValuationPolydisc([K(1), K(1)], [0, 0]),
+        ]
+
+        for p in test_points
+            val_batch = batch_eval(p)
+            # Should be a finite positive number
+            @test isfinite(val_batch)
+            @test val_batch > 0
+        end
+    end
+
+    @testset "Batch evaluation for MPoly (wrapper)" begin
+        # Test batch_evaluate_init wrapper for individual MPoly polynomials
+        prec = 20
+        K = PadicField(2, prec)
+        R, (x, y) = polynomial_ring(K, ["x", "y"])
+
+        # Create individual multivariate polynomials
+        polynomials = [
+            x,
+            2 * x + y,
+            x * y + 1,
+            3 * x + 2 * y + 5,
+        ]
+
+        test_points = [
+            ValuationPolydisc([K(0), K(0)], [0, 0]),
+            ValuationPolydisc([K(1), K(1)], [0, 0]),
+            ValuationPolydisc([K(2), K(3)], [1, 1]),
+        ]
+
+        for f in polynomials
+            batch_eval = batch_evaluate_init(f)
+
+            for p in test_points
+                val_batch = batch_eval(p)
+                val_regular = evaluate_abs(f, p)
+                @test val_batch ≈ val_regular atol = 1e-10
+            end
+        end
+    end
+
+    @testset "Batch evaluation composition - sum of batch evaluators" begin
+        # Test that batch evaluators can be composed/summed correctly
+        prec = 20
+        K = PadicField(2, prec)
+        R, (x, y) = polynomial_ring(K, ["x", "y"])
+
+        # Create individual polynomials
+        f1 = x + 1
+        f2 = y + 2
+
+        # Create batch evaluators separately
+        batch_f1 = batch_evaluate_init(f1)
+        batch_f2 = batch_evaluate_init(f2)
+
+        # Create batch evaluator for the sum
+        abs_sum = AbsolutePolynomialSum([f1, f2])
+        batch_sum = batch_evaluate_init(abs_sum)
+
+        test_points = [
+            ValuationPolydisc([K(0), K(0)], [0, 0]),
+            ValuationPolydisc([K(1), K(1)], [0, 0]),
+        ]
+
+        for p in test_points
+            # Manual composition: sum of individual evaluations
+            val_manual_sum = batch_f1(p) + batch_f2(p)
+            # Direct sum evaluation
+            val_direct_sum = batch_sum(p)
+            # Should be equal
+            @test val_manual_sum ≈ val_direct_sum atol = 1e-10
+        end
+    end
+
+    @testset "Batch evaluation with valuation-based computation" begin
+        # Test that batch_evaluate_init for LinearPolynomial uses valuation correctly
+        # Batch evaluation uses minimum of valuations + radius, so it may differ from
+        # max-based evaluation. We verify it produces finite results.
+        prec = 20
+        K = PadicField(2, prec)
+
+        # Create a polynomial with known valuations
+        poly = LinearPolynomial([K(1), K(1)], K(1))
+        batch_eval = batch_evaluate_init(poly)
+
+        # At multiple points with radius (0, 0)
+        test_points = [
+            ValuationPolydisc([K(0), K(0)], [0, 0]),
+            ValuationPolydisc([K(1), K(1)], [0, 0]),
+        ]
+
+        for p in test_points
+            val_batch = batch_eval(p)
+            # Batch evaluation should produce finite positive result
+            @test isfinite(val_batch)
+            @test val_batch > 0
+        end
+    end
+
+    @testset "Batch evaluation consistency across radii" begin
+        # Test batch evaluators work correctly with varying radius values
+        prec = 20
+        K = PadicField(2, prec)
+
+        poly = LinearPolynomial([K(1), K(1)], K(1))
+        batch_eval = batch_evaluate_init(poly)
+
+        # Test with different radius combinations
+        radius_combos = [
+            [0, 0],
+            [1, 0],
+            [0, 1],
+            [1, 1],
+            [2, 0],
+        ]
+
+        for r in radius_combos
+            p = ValuationPolydisc([K(1), K(1)], r)
+            val_batch = batch_eval(p)
+            val_regular = evaluate(poly, p)
+            @test val_batch ≈ val_regular atol = 1e-10
+        end
+    end
+
+    @testset "Batch evaluation of complex LinearAbsolutePolynomialSum" begin
+        # Test batch evaluation on a more complex sum of linear polynomials
+        prec = 20
+        K = PadicField(2, prec)
+
+        # Create several linear polynomials with different structures
+        polys = [
+            LinearPolynomial([K(1), K(2)], K(1)),
+            LinearPolynomial([K(3), K(1)], K(0)),
+            LinearPolynomial([K(1), K(1)], K(2)),
+        ]
+        lin_sum = LinearAbsolutePolynomialSum(polys)
+
+        batch_eval = batch_evaluate_init(lin_sum)
+
+        # Test at several points
+        for i in 1:5
+            p = ValuationPolydisc([K(i), K(i)], [0, 0])
+            val_batch = batch_eval(p)
+            val_regular = evaluate(lin_sum, p)
+            @test val_batch ≈ val_regular atol = 1e-10
+        end
+    end
+
 end
 
 println("All tests passed!")

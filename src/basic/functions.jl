@@ -142,8 +142,9 @@ end
 
 # TODO(Paul-Lez): there are various optimisations to be done here:
 # Profiling suggests that:
-# 1) There are some type instabilities
-# 2) Too much time is spent allocating memory, i.e AbstractAlgebra.evaluate is suboptimal here
+# 1) There are some type instabilities when this function is called by the optimisation part of the library
+# 2) Too much time is spent allocating memory, i.e AbstractAlgebra.evaluate is suboptimal here. In particular we
+#   may want to preallocate memory when computing the expansion at a given point
 @doc raw"""
     evaluate_abs(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{S,T}) where S where T
 
@@ -247,11 +248,11 @@ function evaluate(poly::LinearPolynomial{S}, p::ValuationPolydisc{S,T}) where S 
     return maximum(abs_values)
 end
 
-function batch_evaluate_init(f::PolydiscFunction{S}) where S
-    batch_evaluate(f)
+function batch_evaluate_init(f::PolydiscFunction{S})::Function where S
+    batch_evaluate_init(f)
 end
 
-function batch_evaluate_init(poly::LinearPolynomial{S}) where S
+function batch_evaluate_init(poly::LinearPolynomial{S})::Function where S
     abs_poly_coeffs = map(valuation, poly.coefficients)
     function eval(p::ValuationPolydisc{S,T}) where T
         constant_term = poly.constant + poly.coefficients ⋅ p.center
@@ -260,6 +261,34 @@ function batch_evaluate_init(poly::LinearPolynomial{S}) where S
         push!(abs_values, valuation(constant_term))
         # Compute the absolute value
         return Float64(prime(p))^minimum(abs_values)
+    end
+    return eval
+end
+
+function batch_evaluate_init(f::LinearAbsolutePolynomialSum{S})::Function where S
+    # Get the array of functions
+    evaluation_functions::Array{Function} = map(batch_evaluate_init, f.polys)
+    # Return the lambda function that sends `p`` to the sum of the evaluations of each element of `evaluation_functions` at `p`
+    function eval(p::ValuationPolydisc{S,T}) where T
+        return sum(
+            map(f -> f(p), evaluation_functions))
+    end
+    return eval
+end
+
+function batch_evaluate_init(f::AbstractAlgebra.Generic.MPoly{S})::Function where S
+    function eval(p::ValuationPolydisc{S,T}) where T
+        return evaluate_abs(f, p)
+    end
+    return eval
+end
+
+function batch_evaluate_init(f::AbsolutePolynomialSum{S})::Function where S
+    # Get the array of functions
+    evaluation_functions = map(batch_evaluate_init, f.polys)
+    # Return the lambda function that sends `p`` to the sum of the evaluations of each element of `evaluation_functions` at `p`
+    function eval(p::ValuationPolydisc{S,T}) where T
+        return sum(map(f -> f(p), evaluation_functions))
     end
     return eval
 end
