@@ -254,12 +254,11 @@ end
 function batch_evaluate_init(poly::LinearPolynomial{S}) where S
     abs_poly_coeffs = map(valuation, poly.coefficients)
     function eval(p::ValuationPolydisc{S,T}) where T
-        constant_term = poly.constant + sum(poly.coefficients[i] * p.center[i] for i in eachindex(poly.coefficients))
+        constant_term = poly.constant + poly.coefficients ⋅ p.center
         # Compute valuations of all terms
         abs_values = abs_poly_coeffs + p.radius
-        # abs_values = [abs_poly_coeffs[i] + (Float64(prime(p))^(-p.radius[i])) for i in eachindex(poly.coefficients)]
         push!(abs_values, valuation(constant_term))
-        # Return the maximum
+        # Compute the absolute value
         return Float64(prime(p))^minimum(abs_values)
     end
     return eval
