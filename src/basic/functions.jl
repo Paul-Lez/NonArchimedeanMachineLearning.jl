@@ -243,9 +243,25 @@ function evaluate(poly::LinearPolynomial{S}, p::ValuationPolydisc{S,T}) where S 
     # Compute absolute values of all terms
     abs_values = [padic_abs(poly.coefficients[i]) * (Float64(prime(p))^(-p.radius[i])) for i in eachindex(poly.coefficients)]
     push!(abs_values, padic_abs(constant_term))
-
     # Return the maximum
     return maximum(abs_values)
+end
+
+function batch_evaluate_init(f::PolydiscFunction{S}) where S
+    batch_evaluate(f)
+end
+
+function batch_evaluate_init(poly::LinearPolynomial{S}) where S
+    abs_poly_coeffs = map(valuation, poly.coefficients)
+    function eval(p::ValuationPolydisc{S,T}) where T
+        constant_term = poly.constant + poly.coefficients ⋅ p.center
+        # Compute valuations of all terms
+        abs_values = abs_poly_coeffs + p.radius
+        push!(abs_values, valuation(constant_term))
+        # Compute the absolute value
+        return Float64(prime(p))^minimum(abs_values)
+    end
+    return eval
 end
 
 # At the moment we work with multiple differential operators: the directional derivative along a tangent vector, and the gradient at a point.
