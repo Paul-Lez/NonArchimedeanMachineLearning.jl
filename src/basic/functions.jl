@@ -97,6 +97,10 @@ struct Comp{S} <: PolydiscFunction{S}
     right::PolydiscFunction{S}
 end
 
+struct Constant{S} <: PolydiscFunction{S}
+    value::Number
+end
+
 Base.:+(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Add(a, b)
 Base.:-(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Sub(a, b)
 Base.:*(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Mul(a, b)
@@ -381,6 +385,10 @@ function batch_evaluate_init(f::Comp{S})::Function where S
         return f.left(right_eval(p))
     end
     return eval
+end
+
+function batch_evaluate_init(f::Constant{S})::Function where S
+    return f.value
 end
 
 function batch_evaluate_init(f::LinearAbsolutePolynomialSum{S})::Function where S
