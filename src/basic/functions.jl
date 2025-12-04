@@ -58,10 +58,50 @@ struct LinearPolynomial{S}
     constant::S
 end
 
-struct LinearRationalFunction{S}
+# TODO: add macros (or custom notations) to parse things more easily.
+
+struct LinearRationalFunction{S} <: PolydiscFunction{S}
     num::LinearPolynomial{S}
     den::LinearPolynomial{S}
 end
+
+struct Add{S} <: PolydiscFunction{S}
+    left::PolydiscFunction{S}
+    right::PolydiscFunction{S}
+end
+
+struct Mul{S} <: PolydiscFunction{S}
+    left::PolydiscFunction{S}
+    right::PolydiscFunction{S}
+end
+
+struct Sub{S} <: PolydiscFunction{S}
+    left::PolydiscFunction{S}
+    right::PolydiscFunction{S}
+end
+
+struct Div{S} <: PolydiscFunction{S}
+    top::PolydiscFunction{S}
+    bottom::PolydiscFunction{S}
+end
+
+# Scalar multiplication
+struct SMul{S} <: PolydiscFunction{S}
+    left::Number
+    right::PolydiscFunction{S}
+end
+
+# Composition of a polydisc function with a real function
+struct Comp{S} <: PolydiscFunction{S}
+    left::Function
+    right::PolydiscFunction{S}
+end
+
+Base.:+(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Add(a, b)
+Base.:-(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Sub(a, b)
+Base.:*(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Mul(a, b)
+Base.:/(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Div(a, b)
+Base.:*(a::Number, b::PolydiscFunction{S}) where S = SMul(a, b)
 
 @doc raw"""
     LinearAbsolutePolynomialSum{S}
@@ -177,6 +217,30 @@ function evaluate_abs(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{
     return max
 end
 
+function evaluate(fun::Add{S}, var::ValuationPolydisc{S,T}) where S where T
+    return evaluate(fun.left, var) + evaluate(fun.right, var)
+end
+
+function evaluate(fun::Mul{S}, var::ValuationPolydisc{S,T}) where S where T
+    return evaluate(fun.left, var) * evaluate(fun.right, var)
+end
+
+function evaluate(fun::Sub{S}, var::ValuationPolydisc{S,T}) where S where T
+    return evaluate(fun.left, var) - evaluate(fun.right, var)
+end
+
+function evaluate(fun::Div{S}, var::ValuationPolydisc{S,T}) where S where T
+    return evaluate(fun.top, var) / evaluate(fun.bottom, var)
+end
+
+function evaluate(fun::SMul{S}, var::ValuationPolydisc{S,T}) where S where T
+    return fun.left * evaluate(fun.right, var)
+end
+
+function evaluate(fun::Comp{S}, var::ValuationPolydisc{S,T}) where S where T
+    return fun.left(evaluate(fun.right, var))
+end
+
 @doc raw"""
     evaluate(fun::AbsolutePolynomialSum{S}, var::ValuationPolydisc{S,T}) where S where T
 
@@ -266,7 +330,7 @@ function evaluate(poly::LinearPolynomial{S}, p::ValuationPolydisc{S,T}) where S 
 end
 
 function batch_evaluate_init(f::PolydiscFunction{S})::Function where S
-    batch_evaluate_init(f)
+    return batch_evaluate_init(f)
 end
 
 function batch_evaluate_init(poly::LinearPolynomial{S})::Function where S
@@ -278,6 +342,43 @@ function batch_evaluate_init(poly::LinearPolynomial{S})::Function where S
         push!(abs_values, valuation(constant_term))
         # Compute the absolute value
         return Float64(prime(p))^minimum(abs_values)
+    end
+    return eval
+end
+
+function batch_evaluate_init(f::Add{S})::Function where S
+    left_eval = batch_evaluate_init(f.left)
+    right_eval = batch_evaluate_init(f.right)
+    return left_eval + right_eval
+end
+
+function batch_evaluate_init(f::Mul{S})::Function where S
+    left_eval = batch_evaluate_init(f.left)
+    right_eval = batch_evaluate_init(f.right)
+    return left_eval * right_eval
+end
+
+function batch_evaluate_init(f::Sub{S})::Function where S
+    left_eval = batch_evaluate_init(f.left)
+    right_eval = batch_evaluate_init(f.right)
+    return left_eval - right_eval
+end
+
+function batch_evaluate_init(f::Div{S})::Function where S
+    left_eval = batch_evaluate_init(f.left)
+    right_eval = batch_evaluate_init(f.right)
+    return left_eval / right_eval
+end
+
+function batch_evaluate_init(f::SMul{S})::Function where S
+    right_eval = batch_evaluate_init(f.right)
+    return f.left * right_eval
+end
+
+function batch_evaluate_init(f::Comp{S})::Function where S
+    right_eval = batch_evaluate_init(f.right)
+    function eval(p::ValuationPolydisc{S,T}) where T
+        return f.left(right_eval(p))
     end
     return eval
 end
