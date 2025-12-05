@@ -107,6 +107,28 @@ Base.:*(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Mul(a, b)
 Base.:/(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Div(a, b)
 Base.:*(a::Number, b::PolydiscFunction{S}) where S = SMul(a, b)
 
+# Scalar operations
+Base.:-(a::PolydiscFunction{S}, b::Number) where S = Sub(a, Constant{S}(b))
+Base.:-(a::Number, b::PolydiscFunction{S}) where S = Sub(Constant{S}(a), b)
+Base.:+(a::PolydiscFunction{S}, b::Number) where S = Add(a, Constant{S}(b))
+Base.:+(a::Number, b::PolydiscFunction{S}) where S = Add(Constant{S}(a), b)
+Base.:*(a::PolydiscFunction{S}, b::Number) where S = SMul(b, a)
+Base.:/(a::PolydiscFunction{S}, b::Number) where S = SMul(1 / b, a)
+
+# TODO: implement this in a smarter way!
+function Base.:^(a::PolydiscFunction{S}, b::Int) where S
+    if b == 0
+        return 1
+    elseif b > 0
+        return a * (a^(b - 1))
+    elseif b < 0
+        return 1 / (a^b)
+    end
+end
+
+comp(f::Function, g::PolydiscFunction{S}) where S = Comp(f, g)
+# function smul(a::Number, b::PolydiscFunction{S})
+
 @doc raw"""
     LinearAbsolutePolynomialSum{S}
 
@@ -245,6 +267,10 @@ function evaluate(fun::Comp{S}, var::ValuationPolydisc{S,T}) where S where T
     return fun.left(evaluate(fun.right, var))
 end
 
+function evaluate(c::Constant{S}, var::ValuationPolydisc{S,T}) where S where T
+    return c.value
+end
+
 @doc raw"""
     evaluate(fun::AbsolutePolynomialSum{S}, var::ValuationPolydisc{S,T}) where S where T
 
@@ -285,6 +311,39 @@ Compute the directional derivative of a polynomial sum along a tangent direction
 """
 function directional_derivative(fun::AbsolutePolynomialSum{S}, v::ValuationTangent{S,T}) where S where T
     return sum([directional_derivative(f, v) for f in fun.polys])
+end
+
+function directional_derivative(fun::Add{S}, v::ValuationTangent{S,T}) where S where T
+    return directional_derivative(fun.left, v) + directional_derivative(fun.right, v)
+end
+
+function directional_derivative(fun::Sub{S}, v::ValuationTangent{S,T}) where S where T
+    return directional_derivative(fun.left, v) - directional_derivative(fun.right, v)
+end
+
+function directional_derivative(fun::Mul{S}, v::ValuationTangent{S,T}) where S where T
+    # Product rule: (f*g)' = f'*g + f*g'
+    return directional_derivative(fun.left, v) * evaluate(fun.right, v.point) + evaluate(fun.left, v.point) * directional_derivative(fun.right, v)
+end
+
+function directional_derivative(fun::Div{S}, v::ValuationTangent{S,T}) where S where T
+    # Quotient rule: (f/g)' = (f'*g - f*g') / g²
+    f = fun.top
+    g = fun.bottom
+    f_val = evaluate(f, v.point)
+    g_val = evaluate(g, v.point)
+    f_deriv = directional_derivative(f, v)
+    g_deriv = directional_derivative(g, v)
+    return (f_deriv * g_val - f_val * g_deriv) / (g_val^2)
+end
+
+function directional_derivative(fun::SMul{S}, v::ValuationTangent{S,T}) where S where T
+    return fun.left * directional_derivative(fun.right, v)
+end
+
+function directional_derivative(c::Constant{S}, v::ValuationTangent{S,T}) where S where T
+    # Constant functions have zero derivative
+    return 0.0
 end
 
 @doc raw"""
@@ -339,10 +398,12 @@ end
 
 function batch_evaluate_init(poly::LinearPolynomial{S})::Function where S
     abs_poly_coeffs = map(valuation, poly.coefficients)
+    num_coeffs = length(poly.coefficients)
     function eval(p::ValuationPolydisc{S,T}) where T
-        constant_term = poly.constant + poly.coefficients ⋅ p.center
+        # Only use the first num_coeffs coordinates (in case the polydisc is higher dimensional)
+        constant_term = poly.constant + sum(poly.coefficients[i] * p.center[i] for i in 1:num_coeffs)
         # Compute valuations of all terms
-        abs_values = abs_poly_coeffs + p.radius
+        abs_values = [abs_poly_coeffs[i] + p.radius[i] for i in 1:num_coeffs]
         push!(abs_values, valuation(constant_term))
         # Compute the absolute value
         return Float64(prime(p))^minimum(abs_values)
@@ -353,30 +414,30 @@ end
 function batch_evaluate_init(f::Add{S})::Function where S
     left_eval = batch_evaluate_init(f.left)
     right_eval = batch_evaluate_init(f.right)
-    return left_eval + right_eval
+    return p -> left_eval(p) + right_eval(p)
 end
 
 function batch_evaluate_init(f::Mul{S})::Function where S
     left_eval = batch_evaluate_init(f.left)
     right_eval = batch_evaluate_init(f.right)
-    return left_eval * right_eval
+    return p -> left_eval(p) * right_eval(p)
 end
 
 function batch_evaluate_init(f::Sub{S})::Function where S
     left_eval = batch_evaluate_init(f.left)
     right_eval = batch_evaluate_init(f.right)
-    return left_eval - right_eval
+    return p -> left_eval(p) - right_eval(p)
 end
 
 function batch_evaluate_init(f::Div{S})::Function where S
     left_eval = batch_evaluate_init(f.left)
     right_eval = batch_evaluate_init(f.right)
-    return left_eval / right_eval
+    return p -> left_eval(p) / right_eval(p)
 end
 
 function batch_evaluate_init(f::SMul{S})::Function where S
     right_eval = batch_evaluate_init(f.right)
-    return f.left * right_eval
+    return p -> f.left * right_eval(p)
 end
 
 function batch_evaluate_init(f::Comp{S})::Function where S
@@ -388,7 +449,10 @@ function batch_evaluate_init(f::Comp{S})::Function where S
 end
 
 function batch_evaluate_init(f::Constant{S})::Function where S
-    return f.value
+    function eval(p::ValuationPolydisc{S,T}) where T
+        return f.value
+    end
+    return eval
 end
 
 function batch_evaluate_init(f::LinearAbsolutePolynomialSum{S})::Function where S

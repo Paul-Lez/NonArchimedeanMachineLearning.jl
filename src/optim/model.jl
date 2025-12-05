@@ -200,7 +200,7 @@ function set_model_variable(m::Model{S,T}, val::ValuationPolydisc{S,T}) where S 
 end
 
 @doc raw"""
-    specialise_abstract_model_parameter(m::AbstractModel{S}, val::Vector{S})::PolydiscFunction{S} where S
+    specialise(m::AbstractModel{S}, val::Vector{S})::PolydiscFunction{S} where S
 
 Specialize a model by substituting data variable values.
 
@@ -227,19 +227,83 @@ For a model with data variables x, y and parameters θ, φ:
 - Original: ``f(x, \theta, y, \phi)``
 - After specialization with `val = [x_0, y_0]`: ``f_specialized(\theta, \phi)``
 """
-function specialise_abstract_model_parameter(m::AbstractModel{S}, val::Vector{S})::PolydiscFunction{S} where S
-    # Dispatch to type-specific implementations
-    if isa(m.fun, AbsolutePolynomialSum)
-        return specialise_absolute_polynomial_sum(m.fun, m.param_info, val)
-    elseif isa(m.fun, LinearAbsolutePolynomialSum)
-        return specialise_linear_absolute_polynomial_sum(m.fun, m.param_info, val)
-    else
-        error("specialise_abstract_model_parameter only implemented for AbsolutePolynomialSum and LinearAbsolutePolynomialSum")
-    end
+function specialise(
+    m::AbstractModel{S},
+    val::Vector{S}
+)::PolydiscFunction{S} where S
+    # Dispatch to the standalone specialise function for the function type
+    return specialise(m.fun, m.param_info, val)
+end
+
+function specialise(
+    m::Add{S},
+    param_info,
+    val::Vector{S}
+)::Add{S} where S
+    left = specialise(AbstractModel(m.left, param_info), val)
+    right = specialise(AbstractModel(m.right, param_info), val)
+    return Add(left, right)
+end
+
+function specialise(
+    m::Sub{S},
+    param_info,
+    val::Vector{S}
+)::Sub{S} where S
+    left = specialise(AbstractModel(m.left, param_info), val)
+    right = specialise(AbstractModel(m.right, param_info), val)
+    return Sub(left, right)
+end
+
+function specialise(
+    m::Mul{S},
+    param_info,
+    val::Vector{S}
+)::Mul{S} where S
+    left = specialise(AbstractModel(m.left, param_info), val)
+    right = specialise(AbstractModel(m.right, param_info), val)
+    return Mul(left, right)
+end
+
+function specialise(
+    m::Div{S},
+    param_info,
+    val::Vector{S}
+)::Div{S} where S
+    top = specialise(AbstractModel(m.top, param_info), val)
+    bottom = specialise(AbstractModel(m.bottom, param_info), val)
+    return Div(top, bottom)
+end
+
+function specialise(
+    m::SMul{S},
+    param_info,
+    val::Vector{S}
+)::SMul{S} where S
+    right = specialise(AbstractModel(m.right, param_info), val)
+    return SMul(m.left, right)
+end
+
+function specialise(
+    m::Comp{S},
+    param_info,
+    val::Vector{S}
+)::Comp{S} where S
+    right = specialise(AbstractModel(m.right, param_info), val)
+    return Comp(m.left, right)
+end
+
+function specialise(
+    c::Constant{S},
+    param_info,
+    val::Vector{S}
+)::Constant{S} where S
+    # Constant functions don't depend on any variables
+    return c
 end
 
 @doc raw"""
-    specialise_absolute_polynomial_sum(f::AbsolutePolynomialSum{S}, param_info, val::Vector{S})::AbsolutePolynomialSum{S} where S
+    specialise(f::AbsolutePolynomialSum{S}, param_info, val::Vector{S})::AbsolutePolynomialSum{S} where S
 
 Specialize an AbsolutePolynomialSum by substituting data variable values.
 
@@ -258,7 +322,11 @@ homomorphisms to substitute data values into each polynomial.
 Uses ring homomorphisms to correctly substitute values while maintaining the polynomial
 structure in the new parameter-only ring.
 """
-function specialise_absolute_polynomial_sum(f::AbsolutePolynomialSum{S}, param_info, val::Vector{S})::AbsolutePolynomialSum{S} where S
+function specialise(
+    f::AbsolutePolynomialSum{S},
+    param_info,
+    val::Vector{S}
+)::AbsolutePolynomialSum{S} where S
     # Get the original polynomial ring and variables
     R = f.polys[1].parent
     x = gens(R)
@@ -294,7 +362,7 @@ function specialise_absolute_polynomial_sum(f::AbsolutePolynomialSum{S}, param_i
 end
 
 @doc raw"""
-    specialise_linear_absolute_polynomial_sum(f::LinearAbsolutePolynomialSum{S}, param_info, val::Vector{S})::LinearAbsolutePolynomialSum{S} where S
+    specialise(f::LinearAbsolutePolynomialSum{S}, param_info, val::Vector{S})::LinearAbsolutePolynomialSum{S} where S
 
 Specialize a LinearAbsolutePolynomialSum by substituting data variable values.
 
@@ -308,17 +376,17 @@ Applies specialization to each linear polynomial in the sum.
 # Returns
 `LinearAbsolutePolynomialSum{S}`: A linear polynomial sum depending only on parameters
 """
-function specialise_linear_absolute_polynomial_sum(
+function specialise(
     f::LinearAbsolutePolynomialSum{S},
     param_info,
     val::Vector{S}
 )::LinearAbsolutePolynomialSum{S} where S
-    new_polys = [specialise_linear_polynomial_data(poly, param_info, val) for poly in f.polys]
+    new_polys = [specialise(poly, param_info, val) for poly in f.polys]
     return LinearAbsolutePolynomialSum(new_polys)
 end
 
 @doc raw"""
-    specialise_linear_polynomial_data(poly::LinearPolynomial{S}, param_info, val::Vector{S})::LinearPolynomial{S} where S
+    specialise(poly::LinearPolynomial{S}, param_info, val::Vector{S})::LinearPolynomial{S} where S
 
 Specialize a single LinearPolynomial by substituting data variable values.
 
@@ -339,7 +407,7 @@ For ``3x + 2\theta + 5y + 1`` with `x, y` as data and `\theta` as parameter:
 - Substitute `x=1, y=2`: ``3(1) + 2\theta + 5(2) + 1 = 2\theta + 14``
 - Returns: `LinearPolynomial([2], 14)`
 """
-function specialise_linear_polynomial_data(
+function specialise(
     poly::LinearPolynomial{S},
     param_info,
     val::Vector{S}
@@ -370,7 +438,7 @@ function specialise_linear_polynomial_data(
 end
 
 @doc raw"""
-    specialise_abstract_model_data(m::AbstractModel{S}, data::Vector{S})::PolydiscFunction{S} where S
+    specialise(m::AbstractModel{S}, data::Vector{Vector{S}})::PolydiscFunction{S} where S
 
 Specialize a model at multiple data points and combine the results.
 
@@ -379,7 +447,7 @@ polynomials into a single function. This is useful for constructing batch loss f
 
 # Arguments
 - `m::AbstractModel{S}`: The abstract model
-- `data::Vector{S}`: Data points at which to specialize the model
+- `data::Vector{Vector{S}}`: Data points at which to specialize the model
 
 # Returns
 `PolydiscFunction{S}`: A combined polydisc function with all specializations
@@ -388,9 +456,12 @@ polynomials into a single function. This is useful for constructing batch loss f
 Concatenates polynomial vectors from each specialization. Supports
 `AbsolutePolynomialSum` and `LinearAbsolutePolynomialSum` types.
 """
-function specialise_abstract_model_data(m::AbstractModel{S}, data::Vector{S})::PolydiscFunction{S} where S
+function specialise(m::AbstractModel{S}, data::Vector{Vector{S}})::PolydiscFunction{S} where S
     # Specialize the model at each data point
-    specialized_funcs = [specialise_abstract_model_parameter(m, [val]) for val in data]
+    specialized_funcs = [specialise(m, val) for val in data]
+
+    # TODO: we don't need this anymore because we can now add
+    # arbitrary polydisc functions. But perhaps there are speed considerations?
 
     # Combine by appending polynomials
     if isa(specialized_funcs[1], AbsolutePolynomialSum)
@@ -400,7 +471,7 @@ function specialise_abstract_model_data(m::AbstractModel{S}, data::Vector{S})::P
         combined_polys = reduce(vcat, [f.polys for f in specialized_funcs])
         return LinearAbsolutePolynomialSum(combined_polys)
     else
-        error("specialise_abstract_model_data only implemented for AbsolutePolynomialSum and LinearAbsolutePolynomialSum")
+        error("specialise only implemented for AbsolutePolynomialSum and LinearAbsolutePolynomialSum")
     end
 end
 
