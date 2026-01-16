@@ -223,24 +223,6 @@ function dim(p::ValuationPolydisc)
 end
 
 @doc raw"""
-    padic_abs(a::padic)
-
-Compute the p-adic absolute value of a p-adic number.
-
-For a p-adic number ``a`` with valuation ``v(a)``, returns ``p^{-v(a)}``.
-
-# Arguments
-- `a::padic`: A p-adic number
-
-# Returns
-`Float64`: The p-adic absolute value ``|a|_p = p^{-v(a)}``
-"""
-function padic_abs(a::padic)
-    v = valuation(a)
-    return Float64(Nemo.prime(a.parent))^(-v)
-end
-
-@doc raw"""
     join(b1::ValuationPolydisc{S,T}, b2::ValuationPolydisc{S,T}) where {S,T}
 
 Compute the join (smallest common ancestor) of two polydiscs in the Bruhat-Tits tree.

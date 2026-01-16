@@ -74,7 +74,7 @@ function MSE_loss_init(model::AbstractModel{S}, data::Vector{Tuple{S,U}}) where 
     batch_evals = [batch_evaluate_init(specialized_models[i]) for i in eachindex(specialized_models)]
 
     # Convert outputs to Float64 (p-adic absolute values)
-    out_values = [padic_abs(out) for (_, out) in data]
+    out_values = [abs(out) for (_, out) in data]
 
     # Create a closure that computes the MSE for a batch of parameter values
     function MSE_compute(params::Vector{ValuationPolydisc{S,T}}) where S where T
@@ -111,7 +111,7 @@ then uses batch evaluation for improved performance.
 function MSE_loss_init_new(model::AbstractModel{S}, data::Vector{Tuple{S,U}}) where S where U
     # Specialize the model at each data point
     specialized_model = 1 / length(data) * sum([
-        (specialise(model, [val]) - padic_abs(out))^2 for (val, out) in data
+        (specialise(model, [val]) - abs(out))^2 for (val, out) in data
     ])
 
     # Initialize batch evaluation for each specialized model

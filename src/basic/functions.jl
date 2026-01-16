@@ -239,7 +239,7 @@ function evaluate_abs(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{
     t = gens(f.parent)
     vec = [t[i] + p.center[i] for i in eachindex(p.center)]
     g = AbstractAlgebra.evaluate(f, vec)
-    max, _ = findmax([padic_abs(Nemo.coeff(g, v)) * (Float64(prime(p))^(-sum(p.radius .* v))) for v in Nemo.exponent_vectors(g)])
+    max, _ = findmax([abs(Nemo.coeff(g, v)) * (Float64(prime(p))^(-sum(p.radius .* v))) for v in Nemo.exponent_vectors(g)])
     return max
 end
 
@@ -386,8 +386,8 @@ function evaluate(poly::LinearPolynomial{S}, p::ValuationPolydisc{S,T}) where S 
     constant_term = poly.constant + sum(poly.coefficients[i] * p.center[i] for i in eachindex(poly.coefficients))
     # TODO(Paul-Lez): it's probably more efficient to do this in terms of valuation?
     # Compute absolute values of all terms
-    abs_values = [padic_abs(poly.coefficients[i]) * (Float64(prime(p))^(-p.radius[i])) for i in eachindex(poly.coefficients)]
-    push!(abs_values, padic_abs(constant_term))
+    abs_values = [abs(poly.coefficients[i]) * (Float64(prime(p))^(-p.radius[i])) for i in eachindex(poly.coefficients)]
+    push!(abs_values, abs(constant_term))
     # Return the maximum
     return maximum(abs_values)
 end
@@ -504,7 +504,7 @@ all maximum exponents, returns the minimal ones in terms of sum of components.
 function directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S,T}) where S where T
     t = gens(f.parent)
     g = AbstractAlgebra.evaluate(f, t + v.direction)
-    abs_terms = [padic_abs(Nemo.coeff(g, n)) * prod(v.point.radius .^ n) for n in Nemo.exponent_vectors(g)]
+    abs_terms = [abs(Nemo.coeff(g, n)) * prod(v.point.radius .^ n) for n in Nemo.exponent_vectors(g)]
     # Find all exponents at which the max is attained
     max_exponents = findall(a -> a == maximum(abs_terms), abs_terms)
     # In principle this if clause isn't necessary (the "else" part works for all possible cases)
@@ -543,7 +543,7 @@ function directional_derivative(f::AbstractAlgebra.Generic.MPoly{S}, v::Valuatio
     # Next we need to compute the directional exponent of f along v
     n = first(directional_exponent(f, v))
     # Use the formula to get d_v
-    d_v = -sum(n) * padic_abs(coeff(g, n)) * (Float64(prime(v.point))^(-sum(v.point.radius .* n)))
+    d_v = -sum(n) * abs(coeff(g, n)) * (Float64(prime(v.point))^(-sum(v.point.radius .* n)))
     return d_v
 end
 
