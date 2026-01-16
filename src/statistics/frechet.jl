@@ -50,11 +50,11 @@ Starts from the join of all polydiscs and refines for a specified number of step
 Uses a workaround by constructing a dummy model to leverage the optimization library.
 This should be refactored for a cleaner implementation.
 """
-function frechet_mean(X::Vector{ValuationPolydisc{S, T}}, prec) where S where T
+function frechet_mean(X::Vector{ValuationPolydisc{S, T}}, prec) where {S, T}
     mean_point = Vector{S}()
     mean_radius = Vector{T}()
     # Define the Frechet loss for batches
-    function loss_eval(params::Vector{ValuationPolydisc{S, T}}) where S where T
+    function loss_eval(params::Vector{ValuationPolydisc{S, T}}) where {S, T}
         return [sum([dist(x, param) for x in X]) for param in params]
     end
     loss = Loss(loss_eval, x -> ones(length(x)))

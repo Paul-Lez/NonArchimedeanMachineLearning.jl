@@ -238,7 +238,7 @@ of polydisc ``j`` and ``c_j^i`` is the ``i``-th center coordinate.
 # Returns
 `ValuationPolydisc{S,T}`: The join polydisc with center from `b1` and computed radii
 """
-function join(b1::ValuationPolydisc{S,T}, b2::ValuationPolydisc{S,T}) where S where T
+function join(b1::ValuationPolydisc{S,T}, b2::ValuationPolydisc{S,T}) where {S, T}
     r = [min(b1.radius[i], valuation(b1.center[i] - b2.center[i]), b2.radius[i]) for i in Base.eachindex(b1)]
     # check correctness (max vs min)
     return ValuationPolydisc(b1.center, r)
@@ -261,7 +261,7 @@ where ``r_j^i`` is the radius of the join in coordinate ``i``.
 # Returns
 `Float64`: The distance between the two polydiscs
 """
-function dist(b1::ValuationPolydisc{S,T}, b2::ValuationPolydisc{S,T}) where S where T
+function dist(b1::ValuationPolydisc{S,T}, b2::ValuationPolydisc{S,T}) where {S, T}
     p = prime(b1)
     b = Float64(p)
     j = join(b1, b2)
@@ -289,7 +289,7 @@ coordinates and adjusting centers according to residue classes. For `degree=1`, 
 - Currently only works for ``\mathbb{Q}_p`` (not general extensions)
 - Enumerates residue classes as `0:prime(p)-1`
 """
-function children(p::ValuationPolydisc{S,T}, degree=1) where S where T
+function children(p::ValuationPolydisc{S,T}, degree=1) where {S, T}
     @req dim(p) >= degree "degree exceeding dimension of polydisc"
     output = Vector{ValuationPolydisc{S,T}}()
     # The point p has prime(p)^degree children.
@@ -328,7 +328,7 @@ Produces ``p`` children (where ``p`` is the prime) by increasing the radius in c
 function children_along_branch(
     p::ValuationPolydisc{S,T},
     branch_index::Int
-) where S where T
+) where {S, T}
     # @req dim(p)>=degree "degree exceeding dimension of polydisc"
     output = Vector{ValuationPolydisc{S,T}}()
     # The point p has prime(p) children below branch i
@@ -364,23 +364,23 @@ polydisc, returns the ``(n+m)``-dimensional polydisc ``B((a, a'), (r, r'))``.
 # Returns
 `ValuationPolydisc{S,T}`: The concatenated polydisc with `dim(p) + dim(q)` dimensions
 """
-function concatenate(p::ValuationPolydisc{S,T}, q::ValuationPolydisc{S,T}) where S where T
+function concatenate(p::ValuationPolydisc{S,T}, q::ValuationPolydisc{S,T}) where {S, T}
     new_center = [p.center; q.center]
     new_radius = [p.radius; q.radius]
     return ValuationPolydisc(new_center, new_radius)
 end
 
-# function aggregate(p::ValuationPolydisc{S, T}, q::ValuationPolydisc{S, T}, p_coords::Vector{Bool}) where S where T
+# function aggregate(p::ValuationPolydisc{S, T}, q::ValuationPolydisc{S, T}, p_coords::Vector{Bool}) where {S, T}
 #     new_center = Vector{T}
 # end
 
-function subdisc(p::ValuationPolydisc{S,T}, idx::Array{Int})::ValuationPolydisc{S,T} where S where T
+function subdisc(p::ValuationPolydisc{S,T}, idx::Array{Int})::ValuationPolydisc{S,T} where {S, T}
     new_center = p.center[idx]
     new_radius = p.radius[idx]
     return ValuationPolydisc(new_center, new_radius)
 end
 
-function components(p::ValuationPolydisc{S,T})::Array{ValuationPolydisc{S,T}} where S where T
+function components(p::ValuationPolydisc{S,T})::Array{ValuationPolydisc{S,T}} where {S, T}
     # There will be a less cursed implementation for this:)
     return map(i -> subdisc(p, [i]), 1:length(p.center))
 end

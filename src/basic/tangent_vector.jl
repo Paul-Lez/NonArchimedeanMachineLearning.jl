@@ -53,7 +53,7 @@ Create the zero tangent vector at a polydisc pointing in a specified direction.
 # Returns
 `ValuationTangent{S, T}`: Zero tangent vector at `P` in direction of segment `[P, Q]`
 """
-function zero(P::ValuationPolydisc{S, T}, Q::Vector{S}) where S where T
+function zero(P::ValuationPolydisc{S, T}, Q::Vector{S}) where {S, T}
     return ValuationTangent(P, Q, [Oscar.zero(T) for i in eachindex(Q)])
 end
 
@@ -68,7 +68,7 @@ Create the zero tangent vector with the same basepoint and direction as a given 
 # Returns
 `ValuationTangent{S, T}`: Zero tangent vector with same basepoint and direction as `v`
 """
-function zero(v::ValuationTangent{S, T}) where S where T
+function zero(v::ValuationTangent{S, T}) where {S, T}
     return zero(v.point, v.direction)
 end 
 
@@ -85,7 +85,7 @@ Create the i-th standard basis tangent vector.
 # Returns
 `ValuationTangent{S, T}`: Standard basis vector with magnitude 1 in coordinate `i` and 0 elsewhere
 """
-function basis_vector(P::ValuationPolydisc{S, T}, Q::Vector{S}, i) where S where T
+function basis_vector(P::ValuationPolydisc{S, T}, Q::Vector{S}, i) where {S, T}
     return ValuationTangent(P, Q, [j == i ? Oscar.one(T) : Oscar.zero(T) for j in Base.eachindex(Q)])
 end 
 
@@ -101,7 +101,7 @@ Create the i-th standard basis vector with the same basepoint and direction as a
 # Returns
 `ValuationTangent{S, T}`: Standard basis vector with same basepoint and direction as `v`
 """
-function basis_vector(v::ValuationTangent{S, T}, i) where S where T
+function basis_vector(v::ValuationTangent{S, T}, i) where {S, T}
     return basis_vector(v.point, v.direction, i)
 end 
 
@@ -117,7 +117,7 @@ Add two tangent vectors at the same basepoint and direction.
 # Returns
 `ValuationTangent{S, T}`: Sum of the two tangent vectors (magnitudes are added componentwise)
 """
-function Base.:+(P::ValuationTangent{S, T}, Q::ValuationTangent{S, T}) where S where T
+function Base.:+(P::ValuationTangent{S, T}, Q::ValuationTangent{S, T}) where {S, T}
     return ValuationTangent(P.point, P.direction, P.magnitude + Q.magnitude)
 end
 
@@ -136,7 +136,7 @@ Create a tangent vector corresponding to the straight line from polydisc P to po
 # Notes
 Currently returns the zero tangent - full implementation is TODO.
 """
-function ValuationTangent(P::ValuationPolydisc{S, T}, Q::ValuationPolydisc{S, T}) where S where T
+function ValuationTangent(P::ValuationPolydisc{S, T}, Q::ValuationPolydisc{S, T}) where {S, T}
     # TODO: implement this!
     return zero(P, Q.center)
 end 
