@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  naml:
+    build: .
+    image: naml:latest
+    container_name: naml-sandbox
+    volumes:
+      # Mount code for agent development (read-write for editing and testing)
+      - .:/app
+    ports:
+      # Jupyter notebook
+      - "8888:8888"
+    environment:
+      - JULIA_NUM_THREADS=auto
+    # Override for interactive Julia REPL
+    stdin_open: true
+    tty: true
+    # Security settings for sandbox
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    read_only: false
+    tmpfs:
+      - /tmp
+
+  # Jupyter service for notebook work
+  jupyter:
+    build: .
+    image: naml:latest
+    container_name: naml-jupyter
+    volumes:
+      - .:/app
+    ports:
+      - "8888:8888"
+    command: >
+      julia -e '
+      using IJulia;
+      notebook(dir="/app", host="0.0.0.0", port=8888, detached=false)
+      '
+    environment:
+      - JULIA_NUM_THREADS=auto
