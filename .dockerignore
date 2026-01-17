@@ -1,0 +1,41 @@
+# Git files
+.git
+.gitignore
+.github
+
+# Julia compilation artifacts
+*.ji
+*.o
+*.so
+
+# Jupyter checkpoints
+.ipynb_checkpoints
+**/.ipynb_checkpoints
+
+# Build artifacts
+*.exe
+*.dll
+*.dylib
+
+# Development directories
+naml-dev/
+naml-experiments/
+
+# Archive (legacy code not needed in container)
+archive/
+
+# Documentation
+CLAUDE.md
+README.md
+
+# Docker files (no need to copy these into the image)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Outputs (will be mounted separately)
+outputs/
+
+# OS files
+.DS_Store
+Thumbs.db

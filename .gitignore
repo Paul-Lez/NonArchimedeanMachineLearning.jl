@@ -1,2 +1,19 @@
 *.sage.py
 *.json
+
+# Docker outputs
+outputs/*
+!outputs/.gitkeep
+
+# Jupyter checkpoints
+.ipynb_checkpoints
+**/.ipynb_checkpoints
+
+# Julia artifacts
+*.ji
+*.o
+*.so
+
+# OS files
+.DS_Store
+Thumbs.db
