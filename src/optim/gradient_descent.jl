@@ -22,7 +22,7 @@ function gradient_param(
     m::AbstractModel{S},
     val::ValuationPolydisc{S,T},
     v::ValuationTangent{S,T}
-) where S where T
+) where {S, T}
     # TODO: this doesn't allow arbitrary shapes for the variable of the model (i.e.
     # this only works if the parameters are the last variables.
     # Do we really need to have something more general?    
@@ -78,7 +78,7 @@ function gradient_descent(
     param::ValuationPolydisc{S,T},
     state::U,
     degree::Int
-) where S where T where U
+) where {S, T, U}
     # Compute the children of the point param
     below_nodes = children(param, degree)
     # Get the corresponding tangent vectors
@@ -112,7 +112,7 @@ function gradient_descent_init(
     loss::Loss,
     state::U,
     degree=1
-) where S where T where U
+) where {S, T, U}
     return OptimSetup(
         loss,
         param,

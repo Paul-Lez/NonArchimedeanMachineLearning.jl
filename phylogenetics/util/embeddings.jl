@@ -83,7 +83,7 @@ function parse_newick(str::String)
 end
 
 @doc raw"""
-    disc_embedding(tree, basepoint::ValuationPolydisc{S, T}) where S where T
+    disc_embedding(tree, basepoint::ValuationPolydisc{S, T}) where {S, T}
 
 Recursively embed a phylogenetic tree into disc (polydisc) space.
 
@@ -102,7 +102,7 @@ mapped to the given basepoint and children mapped to child discs.
 - Internal nodes are mapped recursively: each child subtree is embedded in one of the
   child discs of the parent's basepoint
 """
-function disc_embedding(tree, basepoint::ValuationPolydisc{S,T}) where S where T
+function disc_embedding(tree, basepoint::ValuationPolydisc{S,T}) where {S, T}
     # If the tree only has one node then return a single node: the basepoint
     if isempty(tree.children)
         return Node(basepoint, Vector{ValuationPolydisc{S,T}}([]))
@@ -121,7 +121,7 @@ function disc_embedding(tree, basepoint::ValuationPolydisc{S,T}) where S where T
 end
 
 @doc raw"""
-    field_embedding(tree, basepoint::ValuationPolydisc{S, T}) where S where T
+    field_embedding(tree, basepoint::ValuationPolydisc{S, T}) where {S, T}
 
 Embed a tree into the p-adic field (stub implementation).
 
@@ -139,6 +139,6 @@ Currently returns `true` (placeholder)
 # TODO
 Full implementation needed.
 """
-function field_embedding(tree, basepoint::ValuationPolydisc{S,T}) where S where T
+function field_embedding(tree, basepoint::ValuationPolydisc{S,T}) where {S, T}
     return true
 end

@@ -24,7 +24,7 @@ function greedy_descent(
     param::ValuationPolydisc{S,T},
     next_branch::Int,
     settings::Tuple{Bool,Int}
-) where S where T
+) where {S, T}
     (strict, degree) = settings
     if strict
         below_nodes = children_along_branch(param, next_branch)
@@ -60,7 +60,7 @@ function greedy_descent_init(
     loss::Loss,
     next_branch::Int,
     settings::Tuple{Bool,Int}
-) where S where T
+) where {S, T}
     return OptimSetup(
         loss,
         param,

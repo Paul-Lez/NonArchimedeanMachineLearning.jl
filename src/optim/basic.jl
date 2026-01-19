@@ -92,7 +92,7 @@ Mutates the optimization setup in place.
 function update_param!(
     optim::OptimSetup{S,T,U,V},
     param::ValuationPolydisc{S,T}
-) where S where T where U where V
+) where {S, T, U, V}
     optim.param = param
 end
 
@@ -108,7 +108,7 @@ Update the optimizer state in the optimization setup.
 # Notes
 Mutates the optimization setup in place.
 """
-function update_state!(optim::OptimSetup{S,T,U,V}, state::U) where S where T where U where V
+function update_state!(optim::OptimSetup{S,T,U,V}, state::U) where {S, T, U, V}
     optim.state = state
 end
 
