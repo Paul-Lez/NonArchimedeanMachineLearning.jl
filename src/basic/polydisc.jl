@@ -154,6 +154,10 @@ function Base.:(==)(p::ValuationPolydisc, q::ValuationPolydisc)
     return radius(p) == radius(q) && all(valuation.(center(p) .- center(q)) .> radius(p))
 end
 
+function Base.eachindex(p::ValuationPolydisc)
+    return Base.eachindex(p.center)
+end
+
 @doc raw"""
     Base.hash(m::ValuationPolydisc, h::UInt)
 
@@ -383,4 +387,8 @@ end
 function components(p::ValuationPolydisc{S,T})::Array{ValuationPolydisc{S,T}} where {S, T}
     # There will be a less cursed implementation for this:)
     return map(i -> subdisc(p, [i]), 1:length(p.center))
+end
+
+function Base.:<=(p::ValuationPolydisc{S,T}, q::ValuationPolydisc{S,T})::Bool where S where T
+    return all(p.radius .>= q.radius) && all(valuation.(p.center .- q.center) .>= q.radius)
 end

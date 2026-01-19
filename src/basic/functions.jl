@@ -101,6 +101,10 @@ struct Constant{S} <: PolydiscFunction{S}
     value::Number
 end
 
+struct Lambda{S} <: PolydiscFunction{S}
+    func::Function
+end
+
 Base.:+(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Add(a, b)
 Base.:-(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Sub(a, b)
 Base.:*(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Mul(a, b)
@@ -114,6 +118,11 @@ Base.:+(a::PolydiscFunction{S}, b::Number) where S = Add(a, Constant{S}(b))
 Base.:+(a::Number, b::PolydiscFunction{S}) where S = Add(Constant{S}(a), b)
 Base.:*(a::PolydiscFunction{S}, b::Number) where S = SMul(b, a)
 Base.:/(a::PolydiscFunction{S}, b::Number) where S = SMul(1 / b, a)
+Base.:-(a::PolydiscFunction{S}) where S = SMul(-1, a)
+
+Base.zero(::Type{PolydiscFunction{S}}) where S = Constant{S}(0)
+Base.zero(::PolydiscFunction{S}) where S = Constant{S}(0)
+
 
 # TODO: implement this in a smarter way!
 function Base.:^(a::PolydiscFunction{S}, b::Int) where S
@@ -269,6 +278,10 @@ end
 
 function evaluate(c::Constant{S}, var::ValuationPolydisc{S,T}) where {S, T}
     return c.value
+end
+
+function evaluate(l::Lambda{S}, var::ValuationPolydisc{S,T}) where S where T
+    return l.func(var)
 end
 
 @doc raw"""
@@ -430,9 +443,9 @@ function batch_evaluate_init(f::Sub{S})::Function where S
 end
 
 function batch_evaluate_init(f::Div{S})::Function where S
-    left_eval = batch_evaluate_init(f.left)
-    right_eval = batch_evaluate_init(f.right)
-    return p -> left_eval(p) / right_eval(p)
+    top_eval = batch_evaluate_init(f.top)
+    bottom_eval = batch_evaluate_init(f.bottom)
+    return p -> top_eval(p) / bottom_eval(p)
 end
 
 function batch_evaluate_init(f::SMul{S})::Function where S
@@ -453,6 +466,10 @@ function batch_evaluate_init(f::Constant{S})::Function where S
         return f.value
     end
     return eval
+end
+
+function batch_evaluate_init(l::Lambda{S})::Function where S
+    return l.func
 end
 
 function batch_evaluate_init(f::LinearAbsolutePolynomialSum{S})::Function where S
