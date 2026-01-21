@@ -1,5 +1,5 @@
 ## This file will contain the code for tangent vectors
-include("polydisc.jl")
+## Note: polydisc.jl is included by the main NAML module before this file
 
 @doc raw"""
     ValuationTangent{S, T}

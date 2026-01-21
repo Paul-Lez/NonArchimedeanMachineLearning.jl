@@ -218,10 +218,11 @@ Evaluate the directional derivative of a polydisc function at a tangent vector.
 
 # Returns
 `Float64`: The directional derivative in the direction of `v`
+#
+# Note: The actual implementation for PolydiscFunction is defined later in this file
+# after the specific implementations for AbsolutePolynomialSum and other subtypes.
 """
-function directional_derivative(f::PolydiscFunction{S}, v::ValuationTangent{S,T}) where {S, T}
-    return directional_derivative(f, v)
-end
+# Removed duplicate stub definition - see line ~562 for actual implementation
 
 
 # TODO(Paul-Lez): there are various optimisations to be done here:
