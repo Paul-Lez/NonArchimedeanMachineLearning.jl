@@ -6,14 +6,25 @@ polydisc space over a non-Archimedean field).
 
 ## Content
 
-- Basic structures (polydisc, tangent vectors, absolute polynomials) and API are implemented in the files in folder `src/basic`
-- The folder `src/optim` contains the infrastructure for training non-Archimedean models. 
-    - `basic.jl` develops some objects and API for setting up and training models,
-    - `loss.jl` implements several "standard" loss functions,
-    - `greedy_descent.jl` implements a "greedy" descent algorithm,
-    - `gradient_descent.jl` implements a version of gradient descent.
+- Basic structures (polydisc, tangent vectors, functions) and API are implemented in the files in folder `src/basic`:
+    - `valuation.jl` provides generic valuation and absolute value implementations
+    - `polydisc.jl` defines polydiscs and their operations
+    - `tangent_vector.jl` implements tangent vectors on polydisc spaces
+    - `functions.jl` provides a compositional function algebra for building complex functions
+- The folder `src/optimization` contains the infrastructure for training non-Archimedean models:
+    - `optim_setup.jl` develops core objects and API for setting up and training models
+    - `loss.jl` implements several "standard" loss functions (MSE, MPE)
+    - `model.jl` defines AbstractModel and Model structures
+    - `optimizers/` subdirectory contains optimization algorithms:
+        - `greedy_descent.jl` implements a "greedy" descent algorithm
+        - `gradient_descent.jl` implements a version of gradient descent
+        - `tree_search/` contains tree search algorithms (MCTS, UCT, HOO, etc.)
+- The folder `src/statistics` contains statistical tools like Frechet mean computation
 
 ## See how this works
 
-To see this in practice, run the demo in `test/cubic_learning_experiment.ipynb`. This notebook contains code for learning the roots (which depend on some parameter `a`) of a cubic.
-Another demo experiment can be found in the file `test/polynomial_learning.ipynb`. This second experiment contains code for learning the roots of "random" polynomials of arbitrary degree.
+To see this in practice, run the demos in the `experiments/` directory:
+- `cubic_learning_experiment.ipynb` - learn the roots (which depend on some parameter `a`) of a cubic
+- `polynomial_learning.ipynb` - learn the roots of "random" polynomials of arbitrary degree
+- `linear_learning_experiment.ipynb` - linear learning experiments
+- `tree_colouring_learning.ipynb` - tree coloring task demonstration

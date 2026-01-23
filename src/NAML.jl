@@ -9,16 +9,16 @@ include("basic/valuation.jl")
 include("basic/polydisc.jl")
 include("basic/tangent_vector.jl")
 include("basic/functions.jl")
-include("optim/model.jl")
-include("optim/basic.jl")
-include("optim/gradient_descent.jl")
-include("optim/greedy_descent.jl")
-include("optim/loss.jl")
-include("optim/mcts/hoo.jl")
-include("optim/mcts/mcts.jl")
-include("optim/mcts/uct.jl")
-include("optim/mcts/modified_uct.jl")
-include("optim/mcts/flat_ucb.jl")
+include("optimization/model.jl")
+include("optimization/optim_setup.jl")
+include("optimization/optimizers/gradient_descent.jl")
+include("optimization/optimizers/greedy_descent.jl")
+include("optimization/loss.jl")
+include("optimization/optimizers/tree_search/hoo.jl")
+include("optimization/optimizers/tree_search/mcts.jl")
+include("optimization/optimizers/tree_search/uct.jl")
+include("optimization/optimizers/tree_search/modified_uct.jl")
+include("optimization/optimizers/tree_search/flat_ucb.jl")
 include("statistics/frechet.jl")
 
 # Export types and functions
@@ -41,42 +41,42 @@ export PolydiscFunction, AbsolutePolynomialSum
 export evaluate_abs, directional_exponent, directional_derivative, grad, eval_abs
 # Note: evaluate not exported to avoid conflicts with Oscar/AbstractAlgebra - use NAML.evaluate
 
-# From optim/model.jl
+# From optimization/model.jl
 export AbstractModel, Model
 export var_indices, param_indices, set_abstract_model_variable, batch_evaluate_init
 
-# From optim/basic.jl
+# From optimization/optim_setup.jl
 export Loss, OptimSetup
 export eval_loss, update_param!, step!
 
-# From optim/loss.jl
+# From optimization/loss.jl
 export MSE_loss_init, MPE_loss_init
 
-# From optim/greedy_descent.jl
+# From optimization/optimizers/greedy_descent.jl
 export greedy_descent, greedy_descent_init
 
-# From optim/gradient_descent.jl
+# From optimization/optimizers/gradient_descent.jl
 export gradient_param, gradient_descent, gradient_descent_init
 
-# From optim/mcts/hoo.jl
+# From optimization/optimizers/tree_search/hoo.jl
 export HOONode, HOOConfig, HOOState
 export hoo_descent, hoo_descent_init
 export get_tree_size, get_visited_nodes, get_leaf_nodes
 
-# From optim/mcts/mcts.jl
+# From optimization/optimizers/tree_search/mcts.jl
 export MCTSNode, MCTSConfig, MCTSState
 export SelectionMode, VisitCount, BestValue
 export mcts_descent, mcts_descent_init
 
-# From optim/mcts/uct.jl
+# From optimization/optimizers/tree_search/uct.jl
 export UCTNode, UCTConfig, UCTState
 export uct_descent, uct_descent_init
 
-# From optim/mcts/modified_uct.jl
+# From optimization/optimizers/tree_search/modified_uct.jl
 export ModifiedUCTNode, ModifiedUCTConfig, ModifiedUCTState
 export modified_uct_descent, modified_uct_descent_init
 
-# From optim/mcts/flat_ucb.jl
+# From optimization/optimizers/tree_search/flat_ucb.jl
 export FlatUCBNode, FlatUCBConfig, FlatUCBState
 export flat_ucb_descent, flat_ucb_descent_init
 
