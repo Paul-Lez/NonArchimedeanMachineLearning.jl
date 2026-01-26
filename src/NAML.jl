@@ -37,8 +37,8 @@ export ValuationTangent
 # Note: zero and basis_vector not exported to avoid conflicts with Base - use NAML.zero, NAML.basis_vector
 
 # From basic/functions.jl
-export PolydiscFunction, AbsolutePolynomialSum
-export evaluate_abs, directional_exponent, directional_derivative, grad, eval_abs
+export PolydiscFunction, AbsolutePolynomialSum, LinearAbsolutePolynomialSum, LinearPolynomial
+export directional_exponent, directional_derivative, grad, eval_abs
 # Note: evaluate not exported to avoid conflicts with Oscar/AbstractAlgebra - use NAML.evaluate
 
 # From optimization/model.jl

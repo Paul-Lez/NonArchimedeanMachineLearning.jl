@@ -21,17 +21,31 @@ using NAML
 
     # Create polynomial ring
     R, (x, y) = polynomial_ring(K, ["x", "y"])
+    # Define polynomials
+    f = 3 * x
+    g = 2 * y
+
+    f_fun = AbsolutePolynomialSum([f])
+    g_fun = AbsolutePolynomialSum([g])
+
+    f_as_linear = LinearPolynomial([K(3), K(0)], K(0))
+    f_as_linear = LinearAbsolutePolynomialSum([f_as_linear])
 
     @testset "Polynomial Creation" begin
-        # Define polynomials
-        f = 3 * x
-        g = 2 * y
+
         # Absolute polynomial sum: |f| + |g| = |3x| + |2y|
         fun = AbsolutePolynomialSum([f, g])
 
         @test fun isa AbsolutePolynomialSum
         @test length(fun.polys) == 2
     end
+
+    @testset "Polynomial Evaluation" begin
+        @test NAML.evaluate(f_fun, p1) == 1 / 3
+        @test NAML.evaluate(f_as_linear, p1) == 1 / 3
+        @test NAML.evaluate(g_fun, p2) == 1
+
+    end 
 
     @testset "Directional Derivative" begin
         f = 3 * x

@@ -231,7 +231,7 @@ Evaluate the directional derivative of a polydisc function at a tangent vector.
 # 2) Too much time is spent allocating memory, i.e AbstractAlgebra.evaluate is suboptimal here. In particular we
 #   may want to preallocate memory when computing the expansion at a given point
 @doc raw"""
-    evaluate_abs(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{S,T}) where {S, T}
+    evaluate(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{S,T}) where {S, T}
 
 Evaluate the absolute value of a multivariate polynomial at a polydisc.
 
@@ -245,7 +245,7 @@ and finding the maximum absolute value term weighted by the radius.
 # Returns
 `Float64`: The absolute value of the polynomial at the polydisc
 """
-function evaluate_abs(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{S,T}) where {S, T}
+function evaluate(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{S,T}) where {S, T}
     t = gens(f.parent)
     vec = [t[i] + p.center[i] for i in eachindex(p.center)]
     g = AbstractAlgebra.evaluate(f, vec)
@@ -300,7 +300,7 @@ Computes the sum of absolute values of each polynomial in the sum evaluated at t
 `Float64`: The sum of polynomial evaluations
 """
 function evaluate(fun::AbsolutePolynomialSum{S}, var::ValuationPolydisc{S,T}) where {S, T}
-    return sum([evaluate_abs(f, var) for f in fun.polys])
+    return sum([evaluate(f, var) for f in fun.polys])
 end
 
 function evaluate(f::LinearRationalFunction{S}, var::ValuationPolydisc{S,T}) where {S, T}
@@ -420,7 +420,7 @@ function batch_evaluate_init(poly::LinearPolynomial{S})::Function where S
         abs_values = [abs_poly_coeffs[i] + p.radius[i] for i in 1:num_coeffs]
         push!(abs_values, valuation(constant_term))
         # Compute the absolute value
-        return Float64(prime(p))^minimum(abs_values)
+        return Float64(prime(p))^(- minimum(abs_values))
     end
     return eval
 end
@@ -486,7 +486,7 @@ end
 
 function batch_evaluate_init(f::AbstractAlgebra.Generic.MPoly{S})::Function where S
     function eval(p::ValuationPolydisc{S,T}) where T
-        return evaluate_abs(f, p)
+        return evaluate(f, p)
     end
     return eval
 end
