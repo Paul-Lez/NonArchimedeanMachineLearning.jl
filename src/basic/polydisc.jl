@@ -189,6 +189,10 @@ function prime(p::ValuationPolydisc)
     return Nemo.prime(p.center[1].parent)
 end
 
+function base_field(p::ValuationPolydisc)
+    return p.center[1].parent
+end
+
 # @doc raw"""
 #     residue_size(p::ValuationPolydisc)
 
@@ -269,6 +273,8 @@ function dist(b1::ValuationPolydisc{S,T}, b2::ValuationPolydisc{S,T}) where {S, 
 
 end
 
+# TODO: this should also work when the valuation is negative...
+
 @doc raw"""
     children(p::ValuationPolydisc{S,T}, degree=1) where {S,T}
 
@@ -310,6 +316,8 @@ function children(p::ValuationPolydisc{S,T}, degree=1) where {S, T}
     return output
 end
 
+# TODO: this should also work when the valuation is negative...
+
 @doc raw"""
     children_along_branch(p::ValuationPolydisc{S,T}, branch_index::Int) where {S,T}
 
@@ -339,10 +347,13 @@ function children_along_branch(
     # measure of the radius by 1
     new_radius = copy(p.radius)
     new_radius[branch_index] += 1
+    K = base_field(p)
     # We can shrink along various centers so we need to be sure to include them all
     for residue_class in 0:Int(prime(p))-1
         new_center = copy(p.center)
-        new_center[branch_index] += residue_class * (prime(p)^p.radius[branch_index])
+        # TODO: make less hacky
+        prime_as_padic = O(K, prime(p))
+        new_center[branch_index] += residue_class * (prime_as_padic ^ p.radius[branch_index])
         push!(output, ValuationPolydisc(new_center, new_radius))
     end
     return output

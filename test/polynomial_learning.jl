@@ -73,7 +73,7 @@ using NAML
 
         # Test that loss decreased
         final_loss = eval_loss(greedy_optim)
-        @test final_loss <= initial_loss
+        @test final_loss < initial_loss
 
         # Test that parameters were updated
         @test greedy_optim.param isa ValuationPolydisc
