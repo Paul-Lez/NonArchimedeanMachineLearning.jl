@@ -10,9 +10,9 @@ f = AbstractModel(g, [true, false, false])
 
 # Setting up data points through which we want to fit f
 # (high valuation = small disk, low valuation = large disk)
-p1 = ValuationPolydisc([K(p^0)], Vector{Int}([prec]))
-p2 = ValuationPolydisc([K(p^1)], Vector{Int}([prec]))
-p3 = ValuationPolydisc([K(p^2)], Vector{Int}([prec]))
+p1 = ValuationPolydisc((K(p^0),), (prec,))
+p2 = ValuationPolydisc((K(p^1),), (prec,))
+p3 = ValuationPolydisc((K(p^2),), (prec,))
 # data = [(p1, 1), (p2, 0), (p3, 0)]
 data = [(p2, 0), (p3, 0)]
 
@@ -20,7 +20,7 @@ data = [(p2, 0), (p3, 0)]
 ell = MPE_loss_init(f, data, 2)
 
 # Setting up initial parameters
-model = Model(f, ValuationPolydisc([K(0), K(0)], [0, 0]))
+model = Model(f, ValuationPolydisc((K(0), K(0)), (0, 0)))
 
 parameterSpaceRoot = model.param
 parameterSpaceLayers = [[parameterSpaceRoot]]

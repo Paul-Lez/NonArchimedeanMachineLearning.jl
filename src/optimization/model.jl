@@ -33,7 +33,7 @@ struct AbstractModel{S}
 end
 
 @doc raw"""
-    Model{S,T}
+    Model{S,T,N}
 
 A complete model with specified parameter values.
 
@@ -42,11 +42,12 @@ values. The structure is mutable to allow parameters to be updated during optimi
 
 # Fields
 - `fun::AbstractModel{S}`: The abstract model encoding the function structure and parameter layout
-- `param::ValuationPolydisc{S,T}`: The current parameter values in polydisc space
+- `param::ValuationPolydisc{S,T,N}`: The current parameter values in polydisc space
 
 # Type Parameters
 - `S`: The coefficient type (typically p-adic numbers)
 - `T`: The type for radius/valuation values (typically `Int`)
+- `N`: The dimension of the parameter space
 
 # Example
 ```julia
@@ -60,10 +61,10 @@ model = Model(f, params)
 Models are mutable so that optimization algorithms can update `param` in place.
 Use `update_weights!` to modify parameter values.
 """
-mutable struct Model{S,T}
+mutable struct Model{S,T,N}
     fun::AbstractModel{S}
     # Current parameter values
-    param::ValuationPolydisc{S,T}
+    param::ValuationPolydisc{S,T,N}
 end
 
 @doc raw"""
@@ -170,15 +171,15 @@ For model ``f(x, \theta, y, \phi)`` with `param_info = [true, false, true, false
 The returned polydisc has the same dimension as the original polynomial ring and can be
 directly passed to polynomial evaluation functions.
 """
-function set_abstract_model_variable(m::AbstractModel{S}, val::ValuationPolydisc{S,T}, param::ValuationPolydisc{S,T}) where {S, T}
+function set_abstract_model_variable(m::AbstractModel{S}, val::ValuationPolydisc{S,T,N1}, param::ValuationPolydisc{S,T,N2}) where {S, T, N1, N2}
     keys = getkeys(m)
     abstract_model_variable_radius = Vector{T}([m.param_info[i] ? val.radius[keys[i]] : param.radius[keys[i]] for i in Base.eachindex(m.param_info)])
     abstract_model_variable_center = Vector{S}([m.param_info[i] ? val.center[keys[i]] : param.center[keys[i]] for i in Base.eachindex(m.param_info)])
-    return ValuationPolydisc{S,T}(abstract_model_variable_center, abstract_model_variable_radius)
+    return ValuationPolydisc(abstract_model_variable_center, abstract_model_variable_radius)
 end
 
 @doc raw"""
-    set_model_variable(m::Model{S,T}, val::ValuationPolydisc{S,T}) where {S,T}
+    set_model_variable(m::Model{S,T,N}, val::ValuationPolydisc{S,T,M}) where {S,T,N,M}
 
 Construct an evaluation point using a model's stored parameter values and given data.
 
@@ -186,16 +187,16 @@ Convenience wrapper around `set_abstract_model_variable` that uses the model's c
 parameter values rather than requiring them as an argument.
 
 # Arguments
-- `m::Model{S,T}`: The model (containing stored parameters)
-- `val::ValuationPolydisc{S,T}`: The data variable values
+- `m::Model{S,T,N}`: The model (containing stored parameters)
+- `val::ValuationPolydisc{S,T,M}`: The data variable values
 
 # Returns
-`ValuationPolydisc{S,T}`: A polydisc point with all variables interleaved in model order
+A polydisc point with all variables interleaved in model order
 
 # See Also
 - `set_abstract_model_variable`: The underlying function with explicit parameters
 """
-function set_model_variable(m::Model{S,T}, val::ValuationPolydisc{S,T}) where {S, T}
+function set_model_variable(m::Model{S,T,N}, val::ValuationPolydisc{S,T,M}) where {S, T, N, M}
     return set_abstract_model_variable(m.fun, val, m.param)
 end
 

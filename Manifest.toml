@@ -2,7 +2,7 @@
 
 julia_version = "1.12.2"
 manifest_format = "2.0"
-project_hash = "4208b5a4e0dc71c49ece8a3e42ca2af255c052e7"
+project_hash = "6c9f3c8456c14e3f5fb22405b6fea2d367752367"
 
 [[deps.ASL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -37,6 +37,12 @@ version = "1.11.0"
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 version = "1.11.0"
+
+[[deps.BenchmarkTools]]
+deps = ["Compat", "JSON", "Logging", "Printf", "Profile", "Statistics", "UUIDs"]
+git-tree-sha1 = "7fecfb1123b8d0232218e2da0c213004ff15358d"
+uuid = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+version = "1.6.3"
 
 [[deps.BinaryWrappers]]
 deps = ["JLLWrappers", "Scratch"]
@@ -519,7 +525,7 @@ uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 version = "2025.5.20"
 
 [[deps.NAML]]
-deps = ["AbstractAlgebra", "LinearAlgebra", "Nemo", "Oscar", "Test"]
+deps = ["AbstractAlgebra", "LinearAlgebra", "Nemo", "Oscar", "Printf", "Test"]
 path = "."
 uuid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 version = "0.1.0"
@@ -635,6 +641,11 @@ deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 version = "1.11.0"
 
+[[deps.Profile]]
+deps = ["StyledStrings"]
+uuid = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
+version = "1.11.0"
+
 [[deps.ProgressMeter]]
 deps = ["Distributed", "Printf"]
 git-tree-sha1 = "fbb92c6c56b34e1a2c4c36058f68f332bec840e7"
@@ -740,6 +751,16 @@ version = "1.9.16"
 git-tree-sha1 = "6ab403037779dae8c514bad259f32a447262455a"
 uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
 version = "1.4.4"
+
+[[deps.Statistics]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "ae3bb1eb3bba077cd276bc5cfc337cc65c3075c0"
+uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+version = "1.11.1"
+weakdeps = ["SparseArrays"]
+
+    [deps.Statistics.extensions]
+    SparseArraysExt = ["SparseArrays"]
 
 [[deps.StructTypes]]
 deps = ["Dates", "UUIDs"]

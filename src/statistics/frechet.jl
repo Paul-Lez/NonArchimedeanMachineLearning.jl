@@ -32,7 +32,7 @@ function frechet_mean(X::Vector{Vector{PadicFieldElem}})
 end
 
 @doc raw"""
-    frechet_mean(X::Vector{ValuationPolydisc{S, T}}, prec) where {S,T}
+    frechet_mean(X::Array{ValuationPolydisc{S, T, N}, 1}, prec) where {S,T,N}
 
 Compute the Fréchet mean of a collection of polydiscs.
 
@@ -40,21 +40,21 @@ Uses greedy descent optimization to minimize the sum of distances to all polydis
 Starts from the join of all polydiscs and refines for a specified number of steps.
 
 # Arguments
-- `X::Vector{ValuationPolydisc{S, T}}`: Collection of polydiscs
+- `X::Array{ValuationPolydisc{S, T, N}, 1}`: Collection of polydiscs
 - `prec`: Number of optimization steps (precision/iterations)
 
 # Returns
-`ValuationPolydisc{S, T}`: The approximate Fréchet mean polydisc
+`ValuationPolydisc{S, T, N}`: The approximate Fréchet mean polydisc
 
 # Implementation Notes
 Uses a workaround by constructing a dummy model to leverage the optimization library.
 This should be refactored for a cleaner implementation.
 """
-function frechet_mean(X::Vector{ValuationPolydisc{S, T}}, prec) where {S, T}
+function frechet_mean(X::Array{ValuationPolydisc{S, T, N}, 1}, prec) where {S, T, N}
     mean_point = Vector{S}()
     mean_radius = Vector{T}()
     # Define the Frechet loss for batches
-    function loss_eval(params::Vector{ValuationPolydisc{S, T}}) where {S, T}
+    function loss_eval(params::Vector{ValuationPolydisc{S, T, N}}) where {S, T, N}
         return [sum([dist(x, param) for x in X]) for param in params]
     end
     loss = Loss(loss_eval, x -> ones(length(x)))

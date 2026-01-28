@@ -50,7 +50,7 @@ using NAML
     @testset "Directional Derivative" begin
         f = 3 * x
         # Create tangent vector
-        v = NAML.basis_vector(p1, p1.center, 1)
+        v = NAML.basis_vector(p1, collect(p1.center), 1)
 
         # Test: Directional derivative
         dd = directional_derivative(f, v)

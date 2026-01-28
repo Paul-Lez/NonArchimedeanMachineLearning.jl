@@ -9,7 +9,7 @@
 ##################################################
 
 @doc raw"""
-    ValuationPolydisc{S,T}
+    ValuationPolydisc{S,T,N}
 
 A polydisc over a p-adic field, where the radius is measured with respect to valuation.
 
@@ -17,17 +17,25 @@ Represents the product of p-adic discs ``B(c_1, r_1) \times \cdots \times B(c_n,
 where each disc ``B(c_i, r_i) = \{x : v(x - c_i) \geq r_i\}`` with ``v`` the p-adic valuation.
 
 # Fields
-- `center::Vector{S}`: The center point of the polydisc in p-adic space
-- `radius::Vector{T}`: The radius vector measured in valuation coordinates
+- `center::NTuple{N,S}`: The center point of the polydisc in p-adic space
+- `radius::NTuple{N,T}`: The radius vector measured in valuation coordinates
 
 # Type Parameters
 - `S`: The type of the center coordinates (typically p-adic numbers)
 - `T`: The type of the radius values (typically integers or rationals)
+- `N`: The dimension of the polydisc
 """
-struct ValuationPolydisc{S,T}
-    center::Vector{S}
+struct ValuationPolydisc{S,T,N}
+    center::NTuple{N,S}
     # For valued points, the radius is measured with respect to the valuation
-    radius::Vector{T}
+    radius::NTuple{N,T}
+end
+
+# Convenience constructor that accepts vectors and converts to tuples
+function ValuationPolydisc(center::Vector{S}, radius::Vector{T}) where {S,T}
+    N = length(center)
+    @assert length(radius) == N "center and radius must have the same length"
+    return ValuationPolydisc{S,T,N}(tuple(center...), tuple(radius...))
 end
 
 @doc raw"""
@@ -147,7 +155,7 @@ the same point in the polydisc space).
 # Returns
 `Bool`: `true` if the polydiscs are equal, `false` otherwise
 """
-function Base.:(==)(p::ValuationPolydisc, q::ValuationPolydisc)
+function Base.:(==)(p::ValuationPolydisc{S,T,N}, q::ValuationPolydisc{S,T,N}) where {S,T,N}
     # check whether the radii coincide
     # and if yes, check whether coordinate-wise difference of centers
     # has lower valuation than radii
@@ -242,10 +250,10 @@ of polydisc ``j`` and ``c_j^i`` is the ``i``-th center coordinate.
 # Returns
 `ValuationPolydisc{S,T}`: The join polydisc with center from `b1` and computed radii
 """
-function join(b1::ValuationPolydisc{S,T}, b2::ValuationPolydisc{S,T}) where {S, T}
-    r = [min(b1.radius[i], valuation(b1.center[i] - b2.center[i]), b2.radius[i]) for i in Base.eachindex(b1)]
+function join(b1::ValuationPolydisc{S,T,N}, b2::ValuationPolydisc{S,T,N}) where {S, T, N}
+    r = tuple([min(b1.radius[i], valuation(b1.center[i] - b2.center[i]), b2.radius[i]) for i in Base.eachindex(b1)]...)
     # check correctness (max vs min)
-    return ValuationPolydisc(b1.center, r)
+    return ValuationPolydisc{S,T,N}(b1.center, r)
 end
 
 @doc raw"""
@@ -265,7 +273,7 @@ where ``r_j^i`` is the radius of the join in coordinate ``i``.
 # Returns
 `Float64`: The distance between the two polydiscs
 """
-function dist(b1::ValuationPolydisc{S,T}, b2::ValuationPolydisc{S,T}) where {S, T}
+function dist(b1::ValuationPolydisc{S,T,N}, b2::ValuationPolydisc{S,T,N}) where {S, T, N}
     p = prime(b1)
     b = Float64(p)
     j = join(b1, b2)
@@ -295,22 +303,34 @@ coordinates and adjusting centers according to residue classes. For `degree=1`, 
 - Currently only works for ``\mathbb{Q}_p`` (not general extensions)
 - Enumerates residue classes as `0:prime(p)-1`
 """
-function children(p::ValuationPolydisc{S,T}, degree=1) where {S, T}
+function children(p::ValuationPolydisc{S,T,N}, degree=1) where {S, T, N}
     @req dim(p) >= degree "degree exceeding dimension of polydisc"
-    output = Vector{ValuationPolydisc{S,T}}()
+    output = Vector{ValuationPolydisc{S,T,N}}()
     # The point p has prime(p)^degree children.
     sizehint!(output, Int(prime(p))^degree)
     # iterate over all possible lists that have precisely degree times the value 1 and 0 everywhere else
     for coordinatesToShrink in AbstractAlgebra.combinations(dim(p), degree)
         # a "unit shrink" along a radius is the same as increasing the valuation
         # measure of the radius by 1
-        new_radius = copy(p.radius)
-        new_radius[coordinatesToShrink] .+= 1
+        new_radius = ntuple(N) do i
+            if i in coordinatesToShrink
+                p.radius[i] + 1
+            else
+                p.radius[i]
+            end
+        end
+
         # We can shrink along various centers so we need to be sure to include them all
         for radius_changes in Iterators.product([0:Int(prime(p))-1 for i in coordinatesToShrink]...)
-            new_center = copy(p.center)
-            new_center[coordinatesToShrink] .+= radius_changes .* (prime(p) .^ p.radius[coordinatesToShrink])
-            push!(output, ValuationPolydisc(new_center, new_radius))
+            new_center = ntuple(N) do i
+                idx_in_shrink = findfirst(==(i), coordinatesToShrink)
+                if idx_in_shrink !== nothing
+                    p.center[i] + radius_changes[idx_in_shrink] * (prime(p) ^ p.radius[i])
+                else
+                    p.center[i]
+                end
+            end
+            push!(output, ValuationPolydisc{S,T,N}(new_center, new_radius))
         end
     end
     return output
@@ -334,27 +354,31 @@ Produces ``p`` children (where ``p`` is the prime) by increasing the radius in c
 `Vector{ValuationPolydisc{S,T}}`: All child polydiscs along this branch (of length `prime(p)`)
 """
 function children_along_branch(
-    p::ValuationPolydisc{S,T},
+    p::ValuationPolydisc{S,T,N},
     branch_index::Int
-) where {S, T}
+) where {S, T, N}
     # @req dim(p)>=degree "degree exceeding dimension of polydisc"
-    output = Vector{ValuationPolydisc{S,T}}()
+    output = Vector{ValuationPolydisc{S,T,N}}()
     # The point p has prime(p) children below branch i
     sizehint!(output, Int(prime(p)))
     # iterate over all possible lists that have precisely degree times the value 1 and 0 everywhere else
     # for coordinatesToShrink in 0::(Int(prime(p))-1)
     # a "unit shrink" along a radius is the same as increasing the valuation
     # measure of the radius by 1
-    new_radius = copy(p.radius)
-    new_radius[branch_index] += 1
+    new_radius = ntuple(i -> i == branch_index ? p.radius[i] + 1 : p.radius[i], N)
     K = base_field(p)
     # We can shrink along various centers so we need to be sure to include them all
     for residue_class in 0:Int(prime(p))-1
-        new_center = copy(p.center)
         # TODO: make less hacky
         prime_as_padic = O(K, prime(p))
-        new_center[branch_index] += residue_class * (prime_as_padic ^ p.radius[branch_index])
-        push!(output, ValuationPolydisc(new_center, new_radius))
+        new_center = ntuple(N) do i
+            if i == branch_index
+                p.center[i] + residue_class * (prime_as_padic ^ p.radius[branch_index])
+            else
+                p.center[i]
+            end
+        end
+        push!(output, ValuationPolydisc{S,T,N}(new_center, new_radius))
     end
     return output
 end
@@ -375,27 +399,27 @@ polydisc, returns the ``(n+m)``-dimensional polydisc ``B((a, a'), (r, r'))``.
 # Returns
 `ValuationPolydisc{S,T}`: The concatenated polydisc with `dim(p) + dim(q)` dimensions
 """
-function concatenate(p::ValuationPolydisc{S,T}, q::ValuationPolydisc{S,T}) where {S, T}
-    new_center = [p.center; q.center]
-    new_radius = [p.radius; q.radius]
-    return ValuationPolydisc(new_center, new_radius)
+function concatenate(p::ValuationPolydisc{S,T,N1}, q::ValuationPolydisc{S,T,N2}) where {S, T, N1, N2}
+    new_center = (p.center..., q.center...)
+    new_radius = (p.radius..., q.radius...)
+    return ValuationPolydisc{S,T,N1+N2}(new_center, new_radius)
 end
 
 # function aggregate(p::ValuationPolydisc{S, T}, q::ValuationPolydisc{S, T}, p_coords::Vector{Bool}) where {S, T}
 #     new_center = Vector{T}
 # end
 
-function subdisc(p::ValuationPolydisc{S,T}, idx::Array{Int})::ValuationPolydisc{S,T} where {S, T}
-    new_center = p.center[idx]
-    new_radius = p.radius[idx]
+function subdisc(p::ValuationPolydisc{S,T,N}, idx::Array{Int}) where {S, T, N}
+    new_center = [p.center[i] for i in idx]
+    new_radius = [p.radius[i] for i in idx]
     return ValuationPolydisc(new_center, new_radius)
 end
 
-function components(p::ValuationPolydisc{S,T})::Array{ValuationPolydisc{S,T}} where {S, T}
+function components(p::ValuationPolydisc{S,T,N}) where {S, T, N}
     # There will be a less cursed implementation for this:)
-    return map(i -> subdisc(p, [i]), 1:length(p.center))
+    return [subdisc(p, [i]) for i in 1:length(p.center)]
 end
 
-function Base.:<=(p::ValuationPolydisc{S,T}, q::ValuationPolydisc{S,T})::Bool where S where T
+function Base.:<=(p::ValuationPolydisc{S,T,N}, q::ValuationPolydisc{S,T,N})::Bool where {S, T, N}
     return all(p.radius .>= q.radius) && all(valuation.(p.center .- q.center) .>= q.radius)
 end
