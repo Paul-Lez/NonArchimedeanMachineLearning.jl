@@ -308,6 +308,8 @@ function children(p::ValuationPolydisc{S,T,N}, degree=1) where {S, T, N}
     output = Vector{ValuationPolydisc{S,T,N}}()
     # The point p has prime(p)^degree children.
     sizehint!(output, Int(prime(p))^degree)
+    K = base_field(p)
+    prime_as_padic = K(prime(p))
     # iterate over all possible lists that have precisely degree times the value 1 and 0 everywhere else
     for coordinatesToShrink in AbstractAlgebra.combinations(dim(p), degree)
         # a "unit shrink" along a radius is the same as increasing the valuation
@@ -325,7 +327,7 @@ function children(p::ValuationPolydisc{S,T,N}, degree=1) where {S, T, N}
             new_center = ntuple(N) do i
                 idx_in_shrink = findfirst(==(i), coordinatesToShrink)
                 if idx_in_shrink !== nothing
-                    p.center[i] + radius_changes[idx_in_shrink] * (prime(p) ^ p.radius[i])
+                    p.center[i] + radius_changes[idx_in_shrink] * (prime_as_padic ^ p.radius[i])
                 else
                     p.center[i]
                 end
@@ -367,10 +369,10 @@ function children_along_branch(
     # measure of the radius by 1
     new_radius = ntuple(i -> i == branch_index ? p.radius[i] + 1 : p.radius[i], N)
     K = base_field(p)
+    # TODO: make less hacky
+    prime_as_padic = K(prime(p))
     # We can shrink along various centers so we need to be sure to include them all
     for residue_class in 0:Int(prime(p))-1
-        # TODO: make less hacky
-        prime_as_padic = O(K, prime(p))
         new_center = ntuple(N) do i
             if i == branch_index
                 p.center[i] + residue_class * (prime_as_padic ^ p.radius[branch_index])
