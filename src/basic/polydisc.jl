@@ -173,9 +173,61 @@ function Base.:(==)(p::ValuationPolydisc{S,T,N}, q::ValuationPolydisc{S,T,N}) wh
 end
 
 @doc raw"""
+    Base.isequal(p::ValuationPolydisc, q::ValuationPolydisc)
+
+Check equality of two polydiscs for use in hash-based collections (Dict, Set).
+
+This must be consistent with `hash`: if `isequal(p, q)` then `hash(p) == hash(q)`.
+We use the same definition as `==` to ensure Dict lookups work correctly.
+
+# Note
+Julia's Dict uses `isequal` (not `==`) for key comparison. Without this definition,
+Dict would use `===` (identity), which is too strict for our purposes.
+"""
+function Base.isequal(p::ValuationPolydisc{S,T,N}, q::ValuationPolydisc{S,T,N}) where {S,T,N}
+    return p == q
+end
+
+@doc raw"""
+    canonical_center(p::ValuationPolydisc)
+
+Compute a canonical representation of the polydisc center for hashing purposes.
+
+For each coordinate i, computes `center[i] mod p^radius[i]` as an integer tuple.
+This ensures that polydiscs representing the same region (same radius and
+centers differing by elements with valuation > radius) have the same canonical form.
+
+# Arguments
+- `p::ValuationPolydisc`: The polydisc
+
+# Returns
+`NTuple{N, BigInt}`: Canonical integer representation of the center
+"""
+function canonical_center(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+    pr = Int(prime(p))
+    return ntuple(N) do i
+        # Get the center as a rational and extract the p-adic digits up to radius[i]
+        # The canonical form is center mod p^radius[i]
+        c = p.center[i]
+        r = p.radius[i]
+        # Compute p^r as the modulus
+        modulus = BigInt(pr)^r
+        # Lift the p-adic number to an integer (truncated to precision)
+        # For p-adic numbers, we can use lift to get the representative integer
+        lifted = BigInt(lift(ZZ, c))
+        # Take mod to get canonical form
+        mod(lifted, modulus)
+    end
+end
+
+@doc raw"""
     Base.hash(m::ValuationPolydisc, h::UInt)
 
 Compute a hash value for a polydisc for use in hash-based collections.
+
+Uses a canonical representation based on radius and center mod p^radius to ensure
+that equivalent polydiscs (same radius, centers differing by high-valuation elements)
+hash to the same value. This is essential for transposition table lookups in DAG-MCTS.
 
 # Arguments
 - `m::ValuationPolydisc`: The polydisc to hash
@@ -184,8 +236,11 @@ Compute a hash value for a polydisc for use in hash-based collections.
 # Returns
 `UInt`: The hash value
 """
-function Base.hash(m::ValuationPolydisc, h::UInt)
-    return hash(h)
+function Base.hash(m::ValuationPolydisc{S,T,N}, h::UInt) where {S,T,N}
+    # Hash based on radius and canonical center representation
+    # Two polydiscs are equal iff they have same radius and centers differ
+    # by elements with valuation > radius, so canonical_center captures this
+    return hash((m.radius, canonical_center(m)), h)
 end
 
 

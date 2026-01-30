@@ -23,6 +23,10 @@ using NAML
         include("gradient_descent.jl")
         include("polynomial_learning.jl")
     end
+
+    @testset "Tree Search Algorithms" begin
+        include("dag_mcts.jl")
+    end
 end
 
 println("\n✓ All tests completed successfully!")

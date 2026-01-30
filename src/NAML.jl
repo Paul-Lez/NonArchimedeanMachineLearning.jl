@@ -19,6 +19,7 @@ include("optimization/optimizers/tree_search/mcts.jl")
 include("optimization/optimizers/tree_search/uct.jl")
 include("optimization/optimizers/tree_search/modified_uct.jl")
 include("optimization/optimizers/tree_search/flat_ucb.jl")
+include("optimization/optimizers/tree_search/dag_mcts.jl")
 include("statistics/frechet.jl")
 include("statistics/least_squares.jl")
 include("visualization/loss_landscape.jl")
@@ -33,6 +34,7 @@ export ValuationPolydisc, AbsPolydisc
 export center, radius, dim, prime
 # Note: join is not exported to avoid conflict with Base.join - use NAML.join explicitly
 export dist, children, children_along_branch, concatenate
+export canonical_center  # For computing canonical polydisc representation (used by hash)
 
 # From basic/tangent_vector.jl
 export ValuationTangent
@@ -81,6 +83,11 @@ export modified_uct_descent, modified_uct_descent_init
 # From optimization/optimizers/tree_search/flat_ucb.jl
 export FlatUCBNode, FlatUCBConfig, FlatUCBState
 export flat_ucb_descent, flat_ucb_descent_init
+
+# From optimization/optimizers/tree_search/dag_mcts.jl
+export DAGMCTSNode, DAGMCTSConfig, DAGMCTSState
+export dag_mcts_descent, dag_mcts_descent_init
+export get_dag_stats, print_dag_stats, verify_transposition_table
 
 # From statistics/frechet.jl
 export frechet_mean
