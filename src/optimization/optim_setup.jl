@@ -17,6 +17,13 @@ struct Loss
     grad::Function
 end
 
+function Base.:+(f::Loss, g::Loss)
+    eval = x -> f.eval(x) + g.eval(x)
+    grad = x -> f.grad(x) + g.grad(x)
+    return Loss(eval, grad)
+end
+
+
 # TODO: possible refactor:
 # We can bundle the value of param in the state, 
 # by assuming that the state type always has a method
@@ -74,6 +81,8 @@ Evaluate the loss function at the current parameter values.
 Scalar value of the loss at the current parameters
 """
 function eval_loss(optim::OptimSetup)
+    # @show methods(optim.loss.eval)
+    # @show typeof([optim.param])
     return optim.loss.eval([optim.param])[1]
 end
 

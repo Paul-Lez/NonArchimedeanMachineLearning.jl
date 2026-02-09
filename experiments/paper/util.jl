@@ -5,7 +5,9 @@ This module provides:
 1. Random p-adic number generation with configurable exponent ranges
 2. General loss function creation with cutoff functions
 3. Polynomial-to-linear problem transformation
-4. Gauss point generation
+4. Cross-entropy loss functions for smooth optimization
+5. MSE loss functions
+6. Gauss point generation
 """
 
 using Oscar
@@ -52,6 +54,53 @@ Create a step function that returns 0 below cutoff_val and 1 above.
 """
 function mk_cutoff(cutoff_val::Float64)::Function
     return x -> x < cutoff_val ? 0 : 1
+end
+
+
+"""
+    sigmoid(x::Float64, threshold::Float64, scale::Float64) -> Float64
+
+Smooth sigmoid function centered at threshold with given scale.
+
+Maps R → (0, 1) with:
+- sigmoid(threshold, threshold, scale) = 0.5
+- sigmoid → 0 as x → -∞
+- sigmoid → 1 as x → +∞
+
+The scale parameter controls steepness (smaller = steeper).
+"""
+function sigmoid(x::Float64, threshold::Float64, scale::Float64)::Float64
+    return 1.0 / (1.0 + exp(-(x - threshold) / scale))
+end
+
+
+"""
+    binary_cross_entropy(p::Float64, y::Float64) -> Float64
+
+Binary cross-entropy loss: -[y * log(p) + (1-y) * log(1-p)]
+
+Arguments:
+- p: Predicted probability in (0, 1)
+- y: True label in {0, 1}
+
+Returns:
+- Cross-entropy loss value (non-negative)
+
+Note: Uses log with epsilon clipping to avoid log(0).
+"""
+function binary_cross_entropy(p::Float64, y::Float64)::Float64
+    # Clip p to avoid log(0)
+    eps = 1e-10
+    p_clipped = clamp(p, eps, 1.0 - eps)
+
+    if y == 1.0
+        return -log(p_clipped)
+    elseif y == 0.0
+        return -log(1.0 - p_clipped)
+    else
+        # General case (though y should be 0 or 1)
+        return -(y * log(p_clipped) + (1.0 - y) * log(1.0 - p_clipped))
+    end
 end
 
 
@@ -106,7 +155,9 @@ function make_cutoff_loss(f::NAML.PolydiscFunction{S},
 
     # Create batch evaluator
     batch_eval = NAML.batch_evaluate_init(total_loss)
-    batch_fn = (params) -> map(batch_eval, params)
+    batch_fn = function(params::Vector{NAML.ValuationPolydisc{S, Int64, M}}) where M 
+        return map(batch_eval, params)
+    end
 
     return NAML.Loss(batch_fn, x -> 0)
 end
@@ -188,7 +239,9 @@ function polynomial_to_linear_loss(data::Vector{Tuple{S, T}},
 
         total_loss = sum(loss_terms)
         batch_eval = NAML.batch_evaluate_init(total_loss)
-        batch_fn = (params) -> map(batch_eval, params)
+        batch_fn = function(params::Vector{NAML.ValuationPolydisc{S, Int64, M}}) where M
+            return map(batch_eval, params)
+        end
 
         return NAML.Loss(batch_fn, x -> 0)
     else
@@ -209,10 +262,235 @@ function polynomial_to_linear_loss(data::Vector{Tuple{S, T}},
 
         total_loss = sum(loss_terms)
         batch_eval = NAML.batch_evaluate_init(total_loss)
-        batch_fn = (params) -> map(batch_eval, params)
+        batch_fn = function(params::Vector{NAML.ValuationPolydisc{S, Int64, M}}) where M
+            map(batch_eval, params)
+        end
 
         return NAML.Loss(batch_fn, x -> 0)
     end
+end
+
+
+"""
+    polynomial_to_crossentropy_loss(data::Vector{Tuple{S, T}},
+                                     degree::Int,
+                                     threshold::Float64,
+                                     scale::Float64 = 0.01) where {S<:PadicFieldElem, T<:Real}
+                                     -> NAML.Loss
+
+Create a cross-entropy loss function for polynomial learning.
+
+Instead of using a binary cutoff, this uses:
+1. Map |f(x)| to probability: p = sigmoid(|f(x)|, threshold, scale)
+2. Compute cross-entropy: L = -[y * log(p) + (1-y) * log(1-p)]
+
+This provides a SMOOTH loss landscape compared to the binary cutoff.
+
+# Arguments
+- `data::Vector{Tuple{S, T}}`: Training data as (x, y) pairs where y ∈ {0, 1}
+- `degree::Int`: Degree of the polynomial to fit
+- `threshold::Float64`: Center point of sigmoid (similar to cutoff_val)
+- `scale::Float64`: Steepness of sigmoid (default: 0.01, smaller = steeper)
+
+# Returns
+- A `NAML.Loss` struct suitable for optimization
+
+# Example
+```julia
+K = PadicField(2, 20)
+data = [(K(1), 0.0), (K(2), 1.0)]
+loss = polynomial_to_crossentropy_loss(data, 3, 0.25, 0.01)
+```
+"""
+function polynomial_to_crossentropy_loss(
+    data::Vector{Tuple{S, T}},
+    degree::Int,
+    threshold::Float64,
+    scale::Float64 = 0.01
+) where {S<:PadicFieldElem, T<:Real}
+
+    @assert length(data) > 0 "Empty training data"
+    @assert all(y -> y == 0.0 || y == 1.0, [y for (x, y) in data]) "y values must be 0.0 or 1.0"
+
+    # Transform data: (x, y) -> ([1, x, x², ..., x^degree], y)
+    transformed_data = Vector{Tuple{Vector{S}, T}}()
+    for (x, y) in data
+        x_powers = [x^i for i in 0:degree]
+        push!(transformed_data, (x_powers, y))
+    end
+
+    K = parent(data[1][1])
+
+    # Create LinearAbsolutePolynomialSum for each data point
+    # and compose with sigmoid and cross-entropy
+
+    # For cross-entropy loss, we need to:
+    # 1. Evaluate |a₀ + a₁x + ... + aₙx^n|
+    # 2. Apply sigmoid to get probability
+    # 3. Compute cross-entropy with target y
+
+    # Since we need to compose non-p-adic functions (sigmoid, log),
+    # we'll use NAML.Comp and create a custom composition
+
+    loss_terms = Vector{NAML.PolydiscFunction{S}}()
+
+    for (x_powers, y) in transformed_data
+        # Create linear polynomial: a₀·1 + a₁·x + ... + aₙ·x^n
+        linear_poly = NAML.LinearPolynomial(x_powers, K(0))
+        linear_sum = NAML.LinearAbsolutePolynomialSum([linear_poly])
+
+        # Create composition: cross_entropy(sigmoid(|poly|))
+        # We need to create a custom function that does this
+        sigmoid_crossent = function(abs_val::Float64)
+            p = sigmoid(abs_val, threshold, scale)
+            return binary_cross_entropy(p, y)
+        end
+
+        # Compose with the linear sum
+        term = NAML.Comp(sigmoid_crossent, linear_sum)
+        push!(loss_terms, term)
+    end
+
+    # Sum all loss terms
+    total_loss = sum(loss_terms)
+
+    # Create batch evaluator
+    batch_eval = NAML.batch_evaluate_init(total_loss)
+    batch_fn = function(params::Vector{NAML.ValuationPolydisc{S, Int64, M}}) where M
+        return map(batch_eval, params)
+    end
+
+    return NAML.Loss(batch_fn, x -> 0)
+end
+
+function polynomial_to_valuation_crossentropy_loss(
+    data::Vector{Tuple{S, T}},
+    degree::Int,
+    prime::Int,
+    threshold::Float64,
+    scale::Float64 = 0.01
+) where {S<:PadicFieldElem, T<:Real}
+
+    @assert length(data) > 0 "Empty training data"
+    @assert all(y -> y == 0.0 || y == 1.0, [y for (x, y) in data]) "y values must be 0.0 or 1.0"
+
+    # Transform data: (x, y) -> ([1, x, x², ..., x^degree], y)
+    transformed_data = Vector{Tuple{Vector{S}, T}}()
+    for (x, y) in data
+        x_powers = [x^i for i in 0:degree]
+        push!(transformed_data, (x_powers, y))
+    end
+
+    K = parent(data[1][1])
+
+    # Create LinearAbsolutePolynomialSum for each data point
+    # and compose with sigmoid and cross-entropy
+
+    # For cross-entropy loss, we need to:
+    # 1. Evaluate |a₀ + a₁x + ... + aₙx^n|
+    # 2. Apply sigmoid to get probability
+    # 3. Compute cross-entropy with target y
+
+    # Since we need to compose non-p-adic functions (sigmoid, log),
+    # we'll use NAML.Comp and create a custom composition
+
+    loss_terms = Vector{NAML.PolydiscFunction{S}}()
+
+    for (x_powers, y) in transformed_data
+        # Create linear polynomial: a₀·1 + a₁·x + ... + aₙ·x^n
+        linear_poly = NAML.LinearPolynomial(x_powers, K(0))
+        linear_sum = NAML.LinearAbsolutePolynomialSum([linear_poly])
+        valuative_linear_sum = NAML.Comp(x -> log(1/prime, x), linear_sum)
+
+        # Create composition: cross_entropy(sigmoid(|poly|))
+        # We need to create a custom function that does this
+        sigmoid_crossent = function(abs_val::Float64)
+            p = sigmoid(abs_val, threshold, scale)
+            return binary_cross_entropy(p, y)
+        end
+
+        # Compose with the linear sum
+        term = NAML.Comp(sigmoid_crossent, valuative_linear_sum)
+        push!(loss_terms, term)
+    end
+
+    # Sum all loss terms
+    total_loss = sum(loss_terms)
+
+    # Create batch evaluator
+    batch_eval = NAML.batch_evaluate_init(total_loss)
+    batch_fn = function(params::Vector{NAML.ValuationPolydisc{S, Int64, M}}) where M
+        return map(batch_eval, params)
+    end
+
+    return NAML.Loss(batch_fn, x -> 0)
+end
+
+
+"""
+    polynomial_to_mse_loss(data::Vector{Tuple{S, T}},
+                          degree::Int) where {S<:PadicFieldElem, T<:Real}
+                          -> NAML.Loss
+
+Create a simple MSE loss function for polynomial learning.
+
+This is a smooth alternative that directly minimizes:
+L = Σᵢ (|a₀ + a₁xᵢ + ... + aₙxᵢⁿ| - yᵢ)²
+
+# Arguments
+- `data::Vector{Tuple{S, T}}`: Training data as (x, y) pairs
+- `degree::Int`: Degree of the polynomial to fit
+
+# Returns
+- A `NAML.Loss` struct suitable for optimization
+
+# Example
+```julia
+K = PadicField(2, 20)
+data = [(K(1), 0.5), (K(2), 1.0)]
+loss = polynomial_to_mse_loss(data, 3)
+```
+"""
+function polynomial_to_mse_loss(
+    data::Vector{Tuple{S, T}},
+    degree::Int
+) where {S<:PadicFieldElem, T<:Real}
+
+    @assert length(data) > 0 "Empty training data"
+
+    # Transform data
+    transformed_data = Vector{Tuple{Vector{S}, T}}()
+    for (x, y) in data
+        x_powers = [x^i for i in 0:degree]
+        push!(transformed_data, (x_powers, y))
+    end
+
+    K = parent(data[1][1])
+    loss_terms = Vector{NAML.PolydiscFunction{S}}()
+
+    for (x_powers, y) in transformed_data
+        # Create linear polynomial
+        linear_poly = NAML.LinearPolynomial(x_powers, K(0))
+        linear_sum = NAML.LinearAbsolutePolynomialSum([linear_poly])
+
+        # Create MSE term: (|poly| - y)²
+        mse_func = function(abs_val::Float64)
+            return (abs_val - y)^2
+        end
+
+        term = NAML.Comp(mse_func, linear_sum)
+        push!(loss_terms, term)
+    end
+
+    # Sum all loss terms
+    total_loss = sum(loss_terms)
+
+    # Create batch evaluator
+    batch_eval = NAML.batch_evaluate_init(total_loss)
+    batch_fn = function(params::Vector{NAML.ValuationPolydisc{S, Int64, M}}) where M
+        return map(batch_eval, params)
+    end 
+    return NAML.Loss(batch_fn, x -> 0)
 end
 
 
@@ -239,9 +517,7 @@ gauss = generate_gauss_point(5, K)
 ```
 """
 function generate_gauss_point(n::Int, K::PadicField)
-    center = ntuple(i -> K(1), n)
-    radius = ntuple(i -> 0, n)
-    return NAML.ValuationPolydisc(center, radius)
+    return NAML.ValuationPolydisc(ntuple(i -> K(0), n), ntuple(i -> 0, n))
 end
 
 
@@ -265,9 +541,35 @@ gauss = generate_gauss_point(5, K, Float64)
 ```
 """
 function generate_gauss_point(n::Int, K::PadicField, T::Type)
-    center = ntuple(i -> K(1), n)
-    radius = ntuple(i -> zero(T), n)
-    return NAML.ValuationPolydisc(center, radius)
+    return NAML.ValuationPolydisc(ntuple(i -> K(0), n), ntuple(i -> zero(0), n))
+end
+
+
+"""
+    generate_gauss_point(n_dims::Int, K::PadicField, radius_val::Int) -> NAML.ValuationPolydisc
+
+Generate a Gauss point with custom radius value.
+
+The Gauss point is centered at (1, 1, ..., 1) but with all radii equal to the specified value.
+This is useful for starting optimization at different scales.
+
+# Arguments
+- `n_dims::Int`: Number of dimensions
+- `K::PadicField`: The p-adic field
+- `radius_val::Int`: The radius value for all coordinates
+
+# Returns
+- A `ValuationPolydisc` with center [1, 1, ..., 1] and radius [radius_val, radius_val, ..., radius_val]
+
+# Example
+```julia
+K = PadicField(2, 20)
+gauss = generate_gauss_point(5, K, 3)
+# Returns: Polydisc with center [1, 1, 1, 1, 1] and radius [3, 3, 3, 3, 3]
+```
+"""
+function generate_gauss_point(n::Int, K::PadicField, radius_val::Int)
+    return NAML.ValuationPolydisc(ntuple(i -> K(0), n), ntuple(i -> radius_val, n))
 end
 
 
@@ -385,4 +687,74 @@ function generate_polynomial_learning_data(p::Int, prec::Int, n_points::Int,
     y_values = generate_random_binary_function(n_points)
 
     return [(x, y) for (x, y) in zip(x_values, y_values)]
+end
+
+
+"""
+    compute_classification_accuracy(model::NAML.AbstractModel,
+                                     data::Vector{Tuple{S, Float64}},
+                                     param::NAML.ValuationPolydisc,
+                                     threshold::Float64,
+                                     scale::Float64) where {S}
+                                     -> Float64
+
+Compute classification accuracy for binary classification with sigmoid threshold.
+
+Evaluates the model at each data point with given parameters, applies sigmoid
+transformation, and classifies based on 0.5 probability threshold.
+
+# Arguments
+- `model::NAML.AbstractModel`: The model to evaluate
+- `data::Vector{Tuple{S, Float64}}`: Training data as (input, label) pairs where label ∈ {0, 1}
+- `param::NAML.ValuationPolydisc`: Current parameter values
+- `threshold::Float64`: Threshold for sigmoid transformation
+- `scale::Float64`: Scale for sigmoid transformation
+
+# Returns
+- Accuracy as percentage (0.0 to 100.0)
+
+# Example
+```julia
+K = PadicField(3, 20)
+R, (x, a) = polynomial_ring(K, ["x", "a"])
+fun = NAML.AbsolutePolynomialSum([x - a])
+model = NAML.AbstractModel(fun, [true, false])
+data = [(K(1), 0.0), (K(2), 1.0)]
+param = NAML.ValuationPolydisc([K(1)], [0])
+acc = compute_classification_accuracy(model, data, param, 0.7, 2.0)
+```
+"""
+function compute_classification_accuracy(
+    model::NAML.AbstractModel,
+    data::Vector{Tuple{S, Float64}},
+    param::NAML.ValuationPolydisc,
+    threshold::Float64,
+    scale::Float64
+) where {S}
+    # Specialize the model at each data point
+    specialized_models = [NAML.specialise(model, [val]) for (val, _) in data]
+
+    # Initialize batch evaluation for each specialized model
+    batch_evals = [NAML.batch_evaluate_init(specialized_models[i]) for i in eachindex(specialized_models)]
+
+    # Count correct predictions
+    correct = 0
+    for (i, (_, y)) in enumerate(data)
+        # Evaluate model at current parameters
+        pred_float = Float64(batch_evals[i](param))
+
+        # Apply sigmoid transformation (sigmoid already handles the z transformation)
+        prob = sigmoid(pred_float, threshold, scale)
+
+        # Classify based on 0.5 threshold
+        pred_label = prob >= 0.5 ? 1.0 : 0.0
+
+        # Check if correct
+        if pred_label == y
+            correct += 1
+        end
+    end
+
+    # Return accuracy as percentage
+    return 100.0 * correct / length(data)
 end
