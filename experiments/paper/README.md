@@ -1,183 +1,94 @@
-# Paper Experiments - Utility API and Clean Implementations
+# Paper Experiments - Benchmarks and Utilities
 
-This directory contains clean implementations and utilities for polynomial function learning experiments using the NAML library.
+This directory contains benchmark infrastructure, experiment utilities, and organized subdirectories for paper-ready experiments using the NAML library.
 
-## Files
+## Directory Structure
 
-### Core Utilities
+```
+experiments/paper/
+├── util.jl                          # Shared utility functions
+├── test_util.jl                     # Tests for utilities
+├── polynomial_learning/             # Polynomial interpolation experiments
+├── absolute_sum_minimization/       # Absolute sum optimization experiments
+└── function_learning/               # Binary classification experiments
+```
 
-- **`util.jl`**: Clean utility API for experiments
-  - `generate_random_padic()`: Generate random p-adic numbers with configurable exponent range
-  - `polynomial_to_linear_loss()`: Transform polynomial learning problems into linear optimization
-  - `generate_gauss_point()`: Create Gauss points with generic dimensions/types
-  - `generate_polynomial_learning_data()`: Generate training data with **guaranteed distinct x values**
-  - Helper functions for data transformation and loss creation
+## Core Utilities
 
-### Experiments
+### `util.jl` - Shared Experiment API
 
-- **`function_learning_clean.jl`**: Standalone script for polynomial function learning
-  - Clean reimplementation of `function_learning.ipynb`
-  - Well-documented with progress reporting
-  - Demonstrates learning polynomials with binary outputs
+Provides reusable functions for all experiments:
 
-- **`function_learning_clean.ipynb`**: Interactive Jupyter notebook version
-  - Same functionality as the script
-  - Includes markdown documentation
-  - Easy to experiment with different parameters
+- **`generate_random_padic(p, prec, min_exp, num_terms)`**: Generate random p-adic numbers with configurable exponent range
+- **`polynomial_to_linear_loss(data, degree, cutoff_val)`**: Transform polynomial learning into linear optimization
+  - Handles both p-adic outputs (`cutoff_val=nothing`) and real outputs (with cutoff)
+- **`polynomial_to_crossentropy_loss(data, degree, threshold, scale)`**: Smooth binary classification loss
+- **`polynomial_to_valuation_crossentropy_loss(data, degree, prime, threshold, scale)`**: Classification with p-adic valuation
+- **`polynomial_to_mse_loss(data, degree)`**: Direct MSE regression
+- **`generate_gauss_point(n, K)`**: Create Gauss points (standard starting point)
+- **`generate_polynomial_learning_data(p, prec, n_points)`**: Generate training data with **guaranteed distinct x values**
+- **`compute_classification_accuracy(model, data, param, threshold, scale)`**: Compute classification accuracy
 
-### Testing
+### `test_util.jl` - Test Suite
 
-- **`test_util.jl`**: Comprehensive test suite for all utilities
-  - Tests random p-adic generation (including negative exponents)
-  - Verifies uniqueness of generated data points
-  - Tests both p-adic and real output loss functions
-  - Includes end-to-end optimization example
+Comprehensive tests for all utility functions:
+- Random p-adic generation (including negative exponents)
+- Uniqueness of generated data points
+- Loss function creation (p-adic and real outputs)
+- End-to-end optimization examples
 
-## Quick Start
+## Experiment Subdirectories
 
-### Run Tests
+### `polynomial_learning/` - **Production-Ready Benchmark** (NEW)
+
+Polynomial interpolation experiments with multi-sample averaging and LaTeX table generation.
+
+**Files:**
+- `run_experiments.jl` - Main launcher with JSON output
+- `config.jl` - Experiment configurations (degree sweep, prime sweep, comprehensive)
+- `generate_tables.jl` - LaTeX table generator (5 table types)
+- `polynomial_learning.ipynb` - Interactive Jupyter notebook
+- `README.md` - Documentation
+
+**Features:**
+- Multi-sample averaging (mean, std, min, max)
+- 6 optimizers: Greedy, MCTS-50/100, DAG-MCTS-100, UCT, HOO
+- Hyperparameters stored in JSON
+- Aggregate statistics across samples
+- Paper-ready LaTeX tables
+
+**Quick Start:**
 ```bash
-cd experiments/paper
-julia test_util.jl
+julia --project=. experiments/paper/polynomial_learning/run_experiments.jl --quick --save
+julia --project=. experiments/paper/polynomial_learning/generate_tables.jl <results.json> --stdout
 ```
 
-### Run Function Learning Experiment
-```bash
-julia function_learning_clean.jl
-```
+See [`polynomial_learning/README.md`](polynomial_learning/README.md) for details.
 
-### Interactive Exploration
-```bash
-jupyter notebook function_learning_clean.ipynb
-```
+### `absolute_sum_minimization/`
 
-## Key Features
+Minimize sums of absolute polynomials: |f₁(x)| + |f₂(x)| + ... + |fₙ(x)|
 
-### 1. Guaranteed Distinct Data Points
+**Files:**
+- `run_experiments.jl` - Main launcher
+- `config.jl`, `paper_config.jl` - Experiment configurations
+- `util.jl` - Problem-specific utilities
+- `test_setup.jl` - Setup testing
 
-The `generate_polynomial_learning_data()` function now ensures all x values are distinct:
+**Features:**
+- Multi-sample averaging
+- Random problem generation
+- Optimizers: Random, Greedy, MCTS (50/100/200)
 
-```julia
-data = generate_polynomial_learning_data(2, 20, 10)
-# Generates 10 data points with guaranteed distinct x values
-```
+### `function_learning/`
 
-**How it works:**
-- Generates random p-adic numbers
-- Checks for duplicates before adding to dataset
-- Continues until requested number of distinct points is reached
-- Raises an error if too many collisions occur (suggests adjusting parameters)
+Binary classification tasks using polynomial functions.
 
-### 2. Full Precision P-adic Numbers
+**Files:**
+- `function_learning.ipynb` - Large-scale notebook experiments
+- `learn_zero_function.jl` - Learn constant 0 function
+- `learn_one_function.jl` - Learn constant 1 function (uses DAG-MCTS)
 
-Fixed precision issue in `generate_random_padic()`:
-- **Before**: Used `O(K, p)` which limited precision to O(p^1)
-- **After**: Uses `K(p)` which preserves full precision O(p^prec)
-
-This means generated numbers now have full precision (e.g., O(2^20) instead of O(2^1)), vastly increasing the space of possible distinct values.
-
-### 3. Polynomial-to-Linear Transformation
-
-The `polynomial_to_linear_loss()` function automatically handles two cases:
-
-**Case 1: P-adic outputs**
-```julia
-data = [(K(1), K(2)), (K(2), K(5))]  # y is p-adic
-loss = polynomial_to_linear_loss(data, degree, nothing)
-```
-Uses `LinearAbsolutePolynomialSum` directly for loss: |a₀ + a₁x + ... + aₙx^n - y|²
-
-**Case 2: Real outputs with cutoff**
-```julia
-data = [(K(1), 0.0), (K(2), 1.0)]  # y is real
-loss = polynomial_to_linear_loss(data, degree, 0.25)
-```
-Uses cutoff composition for loss: |cutoff(|a₀ + a₁x + ... + aₙx^n|) - y|²
-
-## Example Usage
-
-```julia
-include("../../src/NAML.jl")
-include("util.jl")
-
-using Oscar
-using .NAML
-
-# Setup
-prec = 20
-p = 2
-K = PadicField(p, prec)
-
-# Generate distinct training data
-data = generate_polynomial_learning_data(p, prec, 10)
-
-# Create loss function
-loss = polynomial_to_linear_loss(data, degree=6, cutoff_val=0.25)
-
-# Initialize at Gauss point
-param = generate_gauss_point(7, K)
-
-# Optimize
-optim = NAML.greedy_descent_init(param, loss, 1, (true, 0))
-for i in 1:20
-    NAML.step!(optim)
-    println("Epoch $i: loss = $(NAML.eval_loss(optim))")
-end
-```
-
-## Parameter Recommendations
-
-### For `generate_random_padic(p, prec, min_exp, num_terms)`
-
-- **More distinct values**: Increase `num_terms` (space size ≈ p^num_terms)
-- **Smaller numbers**: Use `min_exp=0` (default)
-- **Fractional p-adic numbers**: Use `min_exp<0` (e.g., -2)
-
-Typical values:
-- `num_terms=10`: Up to ~1000 distinct values for p=2
-- `num_terms=15`: Up to ~32000 distinct values for p=2
-
-### For `generate_polynomial_learning_data(p, prec, n_points, min_exp, num_terms)`
-
-Default parameters work well for most experiments:
-- `min_exp=0`: Start from integers (not fractions)
-- `num_terms=10`: Enough for dozens of distinct points
-
-For larger datasets:
-```julia
-# Generate 100 distinct points
-data = generate_polynomial_learning_data(2, 20, 100, 0, 15)
-```
-
-## Improvements Over Original Notebook
-
-1. **Modular design**: Utilities separated from experiments
-2. **Guaranteed uniqueness**: No duplicate x values in training data
-3. **Full precision**: P-adic numbers use complete precision
-4. **Better documentation**: Clear docstrings and examples
-5. **Automatic type handling**: Handles p-adic and real outputs seamlessly
-6. **Progress reporting**: Clear output during optimization
-7. **Comprehensive tests**: Full test coverage for all utilities
-
-## Troubleshooting
-
-### "Could not generate N distinct p-adic numbers"
-
-**Solution**: Increase `num_terms` parameter
-```julia
-# Instead of:
-data = generate_polynomial_learning_data(2, 20, 100, 0, 10)  # May fail
-
-# Use:
-data = generate_polynomial_learning_data(2, 20, 100, 0, 15)  # More distinct values possible
-```
-
-### Low precision in generated numbers
-
-**Issue**: Getting O(p^1) instead of O(p^20)
-
-**Cause**: Using `O(K, p)` instead of `K(p)` - this has been fixed in `util.jl`
-
-### Loss not improving
-
-This is expected behavior! The optimization is exploring the parameter space, not necessarily improving the loss at every step. Greedy descent progressively refines each coordinate to find regions with better loss values.
+**Features:**
+- Cross-entropy loss with sigmoid
+- Classification accuracy computation
