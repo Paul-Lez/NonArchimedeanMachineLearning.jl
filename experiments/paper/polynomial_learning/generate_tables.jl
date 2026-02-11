@@ -2,37 +2,38 @@
 LaTeX Table Generator for Polynomial Learning Results
 
 Reads JSON results from run_experiments.jl and produces LaTeX tables
-suitable for inclusion in a paper.
+in a single unified document suitable for inclusion in a paper.
 
 Usage:
     julia --project=. experiments/paper/polynomial_learning/generate_tables.jl <results.json>
-    julia --project=. experiments/paper/polynomial_learning/generate_tables.jl <results.json> --output tables/
+    julia --project=. experiments/paper/polynomial_learning/generate_tables.jl <results.json> --output tables.tex
     julia --project=. experiments/paper/polynomial_learning/generate_tables.jl <results.json> --stdout
 
 Flags:
-    --output DIR  Write .tex files to DIR (default: same directory as input JSON)
-    --stdout      Print tables to stdout instead of writing files
+    --output FILE Write to specified .tex file (default: polynomial_learning_tables.tex)
+    --stdout      Print tables to stdout instead of writing file
 """
 
 using JSON
 using Printf
+using Dates
 
 # ============================================================================
 # Parse arguments
 # ============================================================================
 
 if length(ARGS) < 1
-    println("Usage: julia generate_tables.jl <results.json> [--output DIR] [--stdout]")
+    println("Usage: julia generate_tables.jl <results.json> [--output FILE] [--stdout]")
     exit(1)
 end
 
 json_file = ARGS[1]
 print_stdout = "--stdout" in ARGS
 
-output_dir = dirname(json_file)
+output_file = "polynomial_learning_tables.tex"
 for (i, arg) in enumerate(ARGS)
     if arg == "--output" && i < length(ARGS)
-        global output_dir = ARGS[i+1]
+        global output_file = ARGS[i+1]
     end
 end
 
@@ -434,32 +435,72 @@ function generate_timing_table(experiments, optimizer_order)
 end
 
 # ============================================================================
-# Generate all tables
+# Generate unified document
 # ============================================================================
 
-tables = Dict(
-    "summary" => generate_summary_table(experiments, optimizer_order),
-    "detailed" => generate_detailed_table(experiments, optimizer_order),
-    "degree_sweep" => generate_degree_sweep_table(experiments, optimizer_order),
-    "prime_sweep" => generate_prime_sweep_table(experiments, optimizer_order),
-    "timing" => generate_timing_table(experiments, optimizer_order),
-)
+function generate_unified_document(experiments, optimizer_order)
+    lines = String[]
 
-if print_stdout
-    for (name, tex) in sort(collect(tables))
-        println("% === $name ===")
-        println(tex)
-        println()
-    end
-else
-    mkpath(output_dir)
-    for (name, tex) in tables
-        filepath = joinpath(output_dir, "table_$(name).tex")
-        open(filepath, "w") do f
-            write(f, tex)
-        end
-        println("Wrote: $filepath")
-    end
+    # Document header
+    push!(lines, "% ============================================================================")
+    push!(lines, "% LaTeX Tables for Polynomial Learning Experiment")
+    push!(lines, "% Generated: $(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))")
+    push!(lines, "%")
+    push!(lines, "% This file contains all tables for the polynomial learning experiments.")
+    push!(lines, "% Include in your paper with: \\input{polynomial_learning_tables.tex}")
+    push!(lines, "%")
+    push!(lines, "% Required packages: booktabs")
+    push!(lines, "% ============================================================================")
+    push!(lines, "")
+
+    # Generate all tables
+    push!(lines, "% ----------------------------------------------------------------------------")
+    push!(lines, "% Table: Summary (mean final loss)")
+    push!(lines, "% ----------------------------------------------------------------------------")
+    push!(lines, "")
+    push!(lines, generate_summary_table(experiments, optimizer_order))
+
+    push!(lines, "% ----------------------------------------------------------------------------")
+    push!(lines, "% Table: Detailed results")
+    push!(lines, "% ----------------------------------------------------------------------------")
+    push!(lines, "")
+    push!(lines, generate_detailed_table(experiments, optimizer_order))
+
+    push!(lines, "% ----------------------------------------------------------------------------")
+    push!(lines, "% Table: Degree sweep")
+    push!(lines, "% ----------------------------------------------------------------------------")
+    push!(lines, "")
+    push!(lines, generate_degree_sweep_table(experiments, optimizer_order))
+
+    push!(lines, "% ----------------------------------------------------------------------------")
+    push!(lines, "% Table: Prime sweep")
+    push!(lines, "% ----------------------------------------------------------------------------")
+    push!(lines, "")
+    push!(lines, generate_prime_sweep_table(experiments, optimizer_order))
+
+    push!(lines, "% ----------------------------------------------------------------------------")
+    push!(lines, "% Table: Timing comparison")
+    push!(lines, "% ----------------------------------------------------------------------------")
+    push!(lines, "")
+    push!(lines, generate_timing_table(experiments, optimizer_order))
+
+    return join(lines, "\n")
 end
 
-println("\nDone. Generated $(length(tables)) tables.")
+# ============================================================================
+# Main execution
+# ============================================================================
+
+document = generate_unified_document(experiments, optimizer_order)
+
+if print_stdout
+    println(document)
+else
+    filepath = joinpath(dirname(json_file), output_file)
+    open(filepath, "w") do f
+        write(f, document)
+    end
+    println("✓ Wrote unified tables to: $filepath")
+end
+
+println("\nDone!")

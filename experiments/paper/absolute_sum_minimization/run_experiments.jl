@@ -128,6 +128,21 @@ function get_optimizer_configs(K, opt_degree)
                 NAML.mcts_descent_init(param, loss, config)
             end
         ),
+        "DOO" => Dict(
+            "init" => (param, loss) -> begin
+                # Get prime from field K
+                p = Float64(Oscar.prime(K))
+                # Delta function: p^(-h) for depth h
+                delta = h -> p^(-h)
+                config = NAML.DOOConfig(
+                    delta=delta,
+                    max_depth=quick_mode ? 10 : 15,
+                    degree=opt_degree,
+                    strict=false
+                )
+                NAML.doo_descent_init(param, loss, 1, config)
+            end
+        ),
     )
 end
 
@@ -225,7 +240,7 @@ function run_single_experiment(config::Dict)
 
             # Print brief summary
             println(@sprintf("    Initial: %.6e", sample_result["initial_loss"]))
-            for opt_name in ["Random", "Greedy", "MCTS-50", "MCTS-100", "MCTS-200"]
+            for opt_name in ["Random", "Greedy", "MCTS-50", "MCTS-100", "MCTS-200", "DOO"]
                 if haskey(sample_result["optimizers"], opt_name)
                     opt_result = sample_result["optimizers"][opt_name]
                     if !haskey(opt_result, "error")
@@ -352,7 +367,7 @@ for (i, result) in enumerate(all_results)
             "Optimizer", "Mean Final", "Mean Improv.", "Improv. %", "Time (s)"))
         println("  " * "-"^75)
 
-        for opt_name in ["Random", "Greedy", "MCTS-50", "MCTS-100", "MCTS-200"]
+        for opt_name in ["Random", "Greedy", "MCTS-50", "MCTS-100", "MCTS-200", "DOO"]
             if haskey(result["aggregate"], opt_name)
                 agg = result["aggregate"][opt_name]
                 println(@sprintf("  %-15s %15.6e %15.6e %14.1f%% %12.2f",

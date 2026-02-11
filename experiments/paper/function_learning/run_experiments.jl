@@ -1,11 +1,11 @@
 """
-Polynomial Learning Experiment Runner
+Function Learning Experiment Runner
 
-Learn polynomial coefficients (a₀, ..., aₙ) via p-adic optimization, comparing
-multiple optimizers across varying hyperparameters. Results are saved to JSON.
+Learn polynomial approximations to target functions (zero, one, or custom) over p-adic fields.
+Compare multiple optimizers across varying hyperparameters and polynomial degrees.
 
 Usage:
-    julia --project=. experiments/paper/polynomial_learning/run_experiments.jl [flags]
+    julia --project=. experiments/paper/function_learning/run_experiments.jl [flags]
 
 Flags:
     --quick     Reduced epochs (5) and simulations (10) for quick testing
@@ -15,9 +15,9 @@ Flags:
     --output F  Specify output JSON filename
 
 Examples:
-    julia --project=. experiments/paper/polynomial_learning/run_experiments.jl --quick --save
-    julia --project=. experiments/paper/polynomial_learning/run_experiments.jl --config --save
-    julia --project=. experiments/paper/polynomial_learning/run_experiments.jl --epochs 50 --save --output results.json
+    julia --project=. experiments/paper/function_learning/run_experiments.jl --quick --save
+    julia --project=. experiments/paper/function_learning/run_experiments.jl --config --save
+    julia --project=. experiments/paper/function_learning/run_experiments.jl --epochs 50 --save --output results.json
 """
 
 include("../../../src/NAML.jl")
@@ -63,12 +63,12 @@ if use_config_file
 else
     # Default configurations
     configs = [
-        Dict("name" => "2adic_deg2_3pts", "prime" => 2, "prec" => 20,
-             "degree" => 2, "n_points" => 3, "num_samples" => 3),
-        Dict("name" => "2adic_deg3_4pts", "prime" => 2, "prec" => 20,
-             "degree" => 3, "n_points" => 4, "num_samples" => 3),
-        Dict("name" => "3adic_deg3_4pts", "prime" => 3, "prec" => 15,
-             "degree" => 3, "n_points" => 4, "num_samples" => 3),
+        Dict("name" => "zero_fn_deg3_2adic", "prime" => 2, "prec" => 20,
+             "degree" => 3, "n_points" => 4, "target_fn" => "zero",
+             "num_samples" => 3, "threshold" => 0.5, "scale" => 1.0),
+        Dict("name" => "one_fn_deg3_2adic", "prime" => 2, "prec" => 20,
+             "degree" => 3, "n_points" => 4, "target_fn" => "one",
+             "num_samples" => 3, "threshold" => 0.5, "scale" => 1.0),
     ]
 end
 
@@ -80,7 +80,6 @@ end
 Return a dict of optimizer name => initializer function.
 
 Each initializer takes (param, loss) and returns an OptimSetup.
-The optimizer names encode the hyperparameters used.
 """
 function get_optimizer_configs(; quick::Bool=false)
     return Dict(
@@ -89,6 +88,13 @@ function get_optimizer_configs(; quick::Bool=false)
             "params" => Dict("strict" => false, "degree" => 1),
             "init" => (param, loss) -> begin
                 NAML.greedy_descent_init(param, loss, 1, (false, 1))
+            end
+        ),
+        "Greedy-deg2" => Dict(
+            "type" => "Greedy",
+            "params" => Dict("strict" => false, "degree" => 2),
+            "init" => (param, loss) -> begin
+                NAML.greedy_descent_init(param, loss, 1, (false, 2))
             end
         ),
         "MCTS-50" => Dict(
@@ -108,7 +114,7 @@ function get_optimizer_configs(; quick::Bool=false)
         "MCTS-100" => Dict(
             "type" => "MCTS",
             "params" => Dict("num_simulations" => quick ? 20 : 100,
-                             "exploration_constant" => 2, "degree" => 1),
+                             "exploration_constant" => 1.41, "degree" => 1),
             "init" => (param, loss) -> begin
                 config = NAML.MCTSConfig(
                     num_simulations=quick ? 20 : 100,
@@ -149,19 +155,6 @@ function get_optimizer_configs(; quick::Bool=false)
                 NAML.uct_descent_init(param, loss, config)
             end
         ),
-        "HOO" => Dict(
-            "type" => "HOO",
-            "params" => Dict("rho" => 0.5, "nu1" => 0.1,
-                             "max_depth" => quick ? 10 : 15),
-            "init" => (param, loss) -> begin
-                config = NAML.HOOConfig(
-                    rho=0.5,
-                    nu1=0.1,
-                    max_depth=quick ? 10 : 15
-                )
-                NAML.hoo_descent_init(param, loss, config)
-            end
-        ),
         "DOO" => Dict(
             "type" => "DOO",
             "params" => Dict("max_depth" => quick ? 10 : 15, "degree" => 1),
@@ -183,7 +176,82 @@ function get_optimizer_configs(; quick::Bool=false)
 end
 
 # Canonical ordering for display
-const OPTIMIZER_ORDER = ["Greedy", "MCTS-50", "MCTS-100", "DAG-MCTS-100", "UCT", "HOO", "DOO"]
+const OPTIMIZER_ORDER = ["Greedy", "Greedy-deg2", "MCTS-50", "MCTS-100", "DAG-MCTS-100", "UCT", "DOO"]
+
+# ============================================================================
+# Create target function loss
+# ============================================================================
+
+"""
+Create a loss function for learning a target function using polynomial approximation.
+
+Uses cross-entropy loss with sigmoid activation for smooth optimization.
+"""
+function create_function_learning_loss(K, degree, n_points, target_fn, threshold, scale)
+    # Generate random test points
+    p = Int(Oscar.prime(K))
+    prec = Oscar.precision(K)
+    x_values = [generate_random_padic(p, prec, 0, 8) for _ in 1:n_points]
+
+    # Target values based on target function
+    if target_fn == "zero"
+        y_values = [0.0 for _ in 1:n_points]
+    elseif target_fn == "one"
+        y_values = [1.0 for _ in 1:n_points]
+    else
+        error("Unknown target function: $target_fn")
+    end
+
+    data = collect(zip(x_values, y_values))
+
+    # Simple polynomial evaluation function
+    # Evaluates a0 + a1*x + a2*x^2 + ... + an*x^n
+    function eval_polynomial(coeffs, x)
+        result = coeffs[1]  # a0
+        x_power = x
+        for i in 2:length(coeffs)
+            result += coeffs[i] * x_power
+            x_power *= x
+        end
+        return result
+    end
+
+    function eval_fn(param_vector::Vector{<:NAML.ValuationPolydisc})
+        return [begin
+            loss = 0.0
+            # Extract coefficient values from parameter polydisc
+            coeffs = [NAML.unwrap(c) for c in NAML.center(param)]
+
+            for (x, y) in data
+                # Evaluate polynomial at x
+                poly_val = eval_polynomial(coeffs, x)
+                val_float = Float64(abs(poly_val))
+
+                # Cross-entropy: -[y*log(p) + (1-y)*log(1-p)]
+                # where p = sigmoid((val - threshold)/scale)
+                z = (val_float - threshold) / scale
+                prob = 1.0 / (1.0 + exp(-z))
+
+                # Clip probabilities to avoid log(0)
+                prob = max(min(prob, 0.9999), 0.0001)
+
+                if y > 0.5  # y = 1
+                    loss += -log(prob)
+                else  # y = 0
+                    loss += -log(1 - prob)
+                end
+            end
+            loss
+        end for param in param_vector]
+    end
+
+    # Dummy gradient (not used by greedy descent)
+    function grad_fn(vs::Vector{<:NAML.ValuationTangent})
+        return [0.0 for _ in vs]
+    end
+
+    return NAML.Loss(eval_fn, grad_fn), data
+end
 
 # ============================================================================
 # Run a single sample (one random problem instance)
@@ -194,33 +262,18 @@ function run_single_sample(config::Dict, sample_num::Int)
     prec = config["prec"]
     degree = config["degree"]
     n_points = config["n_points"]
+    target_fn = config["target_fn"]
+    threshold = config["threshold"]
+    scale = config["scale"]
 
     K = PadicField(p, prec)
 
-    # Generate distinct random x values
-    x_values = Vector{PadicFieldElem}()
-    max_attempts = n_points * 100
-    attempts = 0
-    while length(x_values) < n_points && attempts < max_attempts
-        x = generate_random_padic(p, prec, 0, 8)
-        if !any(existing_x -> existing_x == x, x_values)
-            push!(x_values, x)
-        end
-        attempts += 1
-    end
-    if length(x_values) < n_points
-        error("Could not generate $n_points distinct points")
-    end
+    # Create loss function
+    loss, data = create_function_learning_loss(K, degree, n_points, target_fn, threshold, scale)
 
-    # Generate random y values (p-adic)
-    y_values = [generate_random_padic(p, prec, 0, 8) for _ in 1:n_points]
-    data = collect(zip(x_values, y_values))
-
-    # Create loss (p-adic output, no cutoff)
-    loss = polynomial_to_linear_loss(data, degree, nothing)
-
-    # Initial parameters at Gauss point
-    initial_param = generate_gauss_point(degree + 1, K)
+    # Initialize parameters at origin with radius 0
+    param_center = [K(0) for _ in 1:degree+1]
+    initial_param = NAML.ValuationPolydisc(param_center, [0 for _ in 1:degree+1])
     initial_loss = loss.eval([initial_param])[1]
 
     # Get optimizer configs
@@ -233,14 +286,18 @@ function run_single_sample(config::Dict, sample_num::Int)
 
     # Store data info (as floats for JSON serializability)
     sample_results["data"] = Dict(
-        "x_abs_values" => [Float64(abs(x)) for x in x_values],
-        "y_abs_values" => [Float64(abs(y)) for y in y_values],
+        "x_abs_values" => [Float64(abs(x)) for (x, _) in data],
+        "y_values" => [y for (_, y) in data],
     )
 
     sample_results["optimizers"] = Dict{String, Any}()
 
     # Run each optimizer
     for opt_name in OPTIMIZER_ORDER
+        if !haskey(opt_configs, opt_name)
+            continue
+        end
+
         opt_setup = opt_configs[opt_name]
         try
             optim = opt_setup["init"](initial_param, loss)
@@ -287,7 +344,8 @@ function run_single_experiment(config::Dict)
     println("Experiment: $(config["name"])")
     println("="^70)
     println("  Prime: $(config["prime"]), Degree: $(config["degree"]), " *
-            "Points: $(config["n_points"]), Samples: $(config["num_samples"])")
+            "Points: $(config["n_points"]), Target: $(config["target_fn"])")
+    println("  Samples: $(config["num_samples"]), Threshold: $(config["threshold"]), Scale: $(config["scale"])")
     println("-"^70)
 
     results = Dict{String, Any}()
@@ -382,7 +440,7 @@ end
 # ============================================================================
 
 println("\n" * "="^70)
-println("POLYNOMIAL LEARNING EXPERIMENT RUNNER")
+println("FUNCTION LEARNING EXPERIMENT RUNNER")
 println("="^70)
 println("Start time: $(Dates.now())")
 println("Number of experiments: $(length(configs))")
@@ -423,7 +481,7 @@ for (i, result) in enumerate(all_results)
     config = result["config"]
     println("\nExperiment $(i): $(config["name"])")
     println("  p=$(config["prime"]), degree=$(config["degree"]), " *
-            "points=$(config["n_points"]), samples=$(config["num_samples"])")
+            "points=$(config["n_points"]), target=$(config["target_fn"])")
 
     if haskey(result, "aggregate") && !haskey(result["aggregate"], "error")
         println()
@@ -484,7 +542,7 @@ if save_results
         # Determine filename
         if isnothing(output_filename)
             timestamp = Dates.format(Dates.now(), "yyyymmdd_HHMMSS")
-            global output_filename = "poly_learning_results_$(timestamp).json"
+            global output_filename = "function_learning_results_$(timestamp).json"
         end
         filepath = joinpath(@__DIR__, output_filename)
 
