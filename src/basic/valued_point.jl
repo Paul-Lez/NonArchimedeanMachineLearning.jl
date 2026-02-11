@@ -376,6 +376,22 @@ function lift(R::ZZRing, x::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S}
 end
 
 @doc raw"""
+    lift(R::ZZRing, x::S) where S<:PadicFieldElem
+
+Lift a plain p-adic field element to the integer ring ZZ.
+This handles polydiscs with unwrapped PadicFieldElem centers.
+
+# Example
+```julia
+K = PadicField(2, 20)
+lifted = lift(ZZ, K(5))  # ZZRingElem
+```
+"""
+function lift(R::ZZRing, x::S) where S<:PadicFieldElem
+    return Oscar.lift(R, x)
+end
+
+@doc raw"""
     lift(x::ValuedFieldPoint{P,Prec,S})
 
 Scalar lift for `ValuedFieldPoint` (delegates to underlying element).

@@ -37,18 +37,18 @@ save_results = "--save" in ARGS
 use_config_file = "--config" in ARGS
 
 # Parse --epochs N
-n_epochs = quick_mode ? 5 : 20
+global n_epochs = quick_mode ? 5 : 20
 for (i, arg) in enumerate(ARGS)
     if arg == "--epochs" && i < length(ARGS)
-        n_epochs = parse(Int, ARGS[i+1])
+        global n_epochs = parse(Int, ARGS[i+1])
     end
 end
 
 # Parse --output filename
-output_filename = nothing
+global output_filename = nothing
 for (i, arg) in enumerate(ARGS)
     if arg == "--output" && i < length(ARGS)
-        output_filename = ARGS[i+1]
+        global output_filename = ARGS[i+1]
     end
 end
 
@@ -467,7 +467,7 @@ if save_results
         # Determine filename
         if isnothing(output_filename)
             timestamp = Dates.format(Dates.now(), "yyyymmdd_HHMMSS")
-            output_filename = "poly_learning_results_$(timestamp).json"
+            global output_filename = "poly_learning_results_$(timestamp).json"
         end
         filepath = joinpath(@__DIR__, output_filename)
 

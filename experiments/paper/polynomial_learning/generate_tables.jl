@@ -32,7 +32,7 @@ print_stdout = "--stdout" in ARGS
 output_dir = dirname(json_file)
 for (i, arg) in enumerate(ARGS)
     if arg == "--output" && i < length(ARGS)
-        output_dir = ARGS[i+1]
+        global output_dir = ARGS[i+1]
     end
 end
 
@@ -66,9 +66,9 @@ function latex_sci(x::Float64; digits::Int=2)
     exp = floor(Int, log10(abs(x)))
     mantissa = x / 10.0^exp
     if exp == 0
-        return @sprintf("%.$(digits)f", x)
+        return Printf.format(Printf.Format("%.$(digits)f"), x)
     else
-        return @sprintf("%.$(digits)f \\times 10^{%d}", mantissa, exp)
+        return Printf.format(Printf.Format("%.$(digits)f \\times 10^{%d}"), mantissa, exp)
     end
 end
 
@@ -79,9 +79,9 @@ function latex_sci_compact(x::Float64; digits::Int=1)
     exp = floor(Int, log10(abs(x)))
     mantissa = x / 10.0^exp
     if exp == 0
-        return @sprintf("%.$(digits)f", x)
+        return Printf.format(Printf.Format("%.$(digits)f"), x)
     else
-        return @sprintf("%.$(digits)f{\\scriptstyle\\times 10^{%d}}", mantissa, exp)
+        return Printf.format(Printf.Format("%.$(digits)f{\\scriptstyle\\times 10^{%d}}"), mantissa, exp)
     end
 end
 

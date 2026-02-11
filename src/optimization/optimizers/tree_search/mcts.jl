@@ -534,7 +534,7 @@ function mcts_descent_init(
 ) where {S,T,N}
     # Initialize state
     root = MCTSNode(param)
-    state = MCTSState{S,T}(root, 1, 0)
+    state = MCTSState{S,T,N}(root, 1, 0)
 
     return OptimSetup(
         loss,
