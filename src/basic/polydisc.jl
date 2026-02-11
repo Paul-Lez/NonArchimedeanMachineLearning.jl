@@ -277,15 +277,10 @@ function canonical_center(p::ValuationPolydisc{S,T,N}) where {S,T,N}
         # The canonical form is center mod p^radius[i]
         c = p.center[i]
         r = p.radius[i]
-        # Lift the p-adic number to an integer (truncated to precision)
-        lifted = BigInt(lift(ZZ, c))
-        # Special case: radius=0 means a single point, use full lifted value
-        # Otherwise mod by p^r to get canonical form
-        if r == 0
-            lifted
+        if c.v >= r
+            0
         else
-            modulus = BigInt(pr)^r
-            mod(lifted, modulus)
+            pr ^ c.v * mod(c.u, pr ^ (r - c.v))
         end
     end
 end
