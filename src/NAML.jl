@@ -21,6 +21,7 @@ include("optimization/optimizers/tree_search/mcts.jl")
 include("optimization/optimizers/tree_search/uct.jl")
 include("optimization/optimizers/tree_search/modified_uct.jl")
 include("optimization/optimizers/tree_search/flat_ucb.jl")
+include("optimization/optimizers/tree_search/doo.jl")
 include("optimization/optimizers/tree_search/dag_mcts.jl")
 include("statistics/frechet.jl")
 include("statistics/least_squares.jl")
@@ -98,6 +99,11 @@ export modified_uct_descent, modified_uct_descent_init
 # From optimization/optimizers/tree_search/flat_ucb.jl
 export FlatUCBNode, FlatUCBConfig, FlatUCBState
 export flat_ucb_descent, flat_ucb_descent_init
+
+# From optimization/optimizers/tree_search/doo.jl
+export DOONode, DOOConfig, DOOState
+export doo_descent, doo_descent_init
+export get_best_node, get_best_value, get_leaf_count, get_all_leaves
 
 # From optimization/optimizers/tree_search/dag_mcts.jl
 export DAGMCTSNode, DAGMCTSConfig, DAGMCTSState

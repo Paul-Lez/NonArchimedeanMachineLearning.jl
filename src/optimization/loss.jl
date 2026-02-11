@@ -36,13 +36,13 @@ function MSE_loss_init(model::AbstractModel{S}, data::Vector{Tuple{ValuationPoly
     model_eval = batch_evaluate_init(model, ValuationPolydisc{S,T,full_dim})
 
     # Create a closure that computes the MSE for a batch of parameter values
-    function MSE_compute(params::Vector{<:ValuationPolydisc})
-        return [1 / length(data) * sum([(model_eval(val, param) - out)^2 for (val, out) in data]) for param in params]
+    function MSE_compute(params::Vector{<:ValuationPolydisc{S,T,N}})
+        return [1 / length(data) * sum([(model_batch_eval(val, param) - out)^2 for (val, out) in data]) for param in params]
     end
     # Create a closure that computes the gradient of the loss along a batch of tangent directions
     # The gradient is evaluated at each tangent's base point (v.point)
-    function MSE_grad(vs::Vector{<:ValuationTangent})
-        return [1 / length(data) * sum([2 * (model_eval(val, v.point) - out) * gradient_param(model, val, v) for (val, out) in data]) for v in vs]
+    function MSE_grad(vs::Vector{<:ValuationTangent{S,T,N}})
+        return [1 / length(data) * sum([2 * (model_batch_eval(val, v.point) - out) * gradient_param(model, val, v) for (val, out) in data]) for v in vs]
     end
     return Loss(MSE_compute, MSE_grad)
 end
@@ -83,11 +83,11 @@ function MSE_loss_init(model::AbstractModel{S}, data::Vector{Tuple{S,U}}) where 
     out_values = [abs(out) for (_, out) in data]
 
     # Create a closure that computes the MSE for a batch of parameter values
-    function MSE_compute(params::Vector{<:ValuationPolydisc})
+    function MSE_compute(params::Vector{ValuationPolydisc{S,T,N}}) where {S, T, N}
         return 1 / length(data) * [sum([(batch_evals[i](param) - out_values[i])^2 for i in eachindex(data)]) for param in params]
     end
     # Create a closure that computes the gradient of the loss along a batch of tangent directions
-    function MSE_grad(vs::Vector{<:ValuationTangent})
+    function MSE_grad(vs::Vector{ValuationTangent{S,T,N}}) where {S, T, N}
         return 1 / length(data) * [sum([2 * (batch_evals[i](v.point) - out_values[i]) * directional_derivative(specialized_models[i], v) for i in eachindex(data)]) for v in vs]
     end
     return Loss(MSE_compute, MSE_grad)
@@ -172,13 +172,13 @@ function MPE_loss_init(model::AbstractModel{S}, data::Vector{Tuple{ValuationPoly
     model_eval = batch_evaluate_init(model, ValuationPolydisc{S,T,full_dim})
 
     # Create a closure that computes the MPE for a batch of parameter values
-    function MPE_compute(params::Vector{<:ValuationPolydisc})
-        return [1 / length(data) * sum([(model_eval(val, param) - out)^p for (val, out) in data]) for param in params]
+    function MPE_compute(params::Vector{<:ValuationPolydisc{S,T,N}})
+        return [1 / length(data) * sum([(model_batch_eval(val, param) - out)^p for (val, out) in data]) for param in params]
     end
     # Create a closure that computes the gradient of the loss along a batch of tangent directions
     # The gradient is evaluated at each tangent's base point (v.point)
-    function MPE_grad(vs::Vector{<:ValuationTangent})
-        return [1 / length(data) * sum([p * (model_eval(val, v.point) - out)^(p - 1) * gradient_param(model, val, v) for (val, out) in data]) for v in vs]
+    function MPE_grad(vs::Vector{<:ValuationTangent{S,T,N}})
+        return [1 / length(data) * sum([p * (model_batch_eval(val, v.point) - out)^(p - 1) * gradient_param(model, val, v) for (val, out) in data]) for v in vs]
     end
     return Loss(MPE_compute, MPE_grad)
 end
@@ -218,11 +218,11 @@ function MPE_loss_init(model::AbstractModel{S}, data::Vector{Tuple{S,U}}, p::Int
     batch_evals = [batch_evaluate_init(specialized_models[i], ValuationPolydisc{S,Int,param_dim}) for i in eachindex(specialized_models)]
 
     # Create a closure that computes the MPE for a batch of parameter values
-    function MPE_compute(params::Vector{<:ValuationPolydisc})
+    function MPE_compute(params::Vector{ValuationPolydisc{S,T,N}}) where {S, T, N}
         return 1 / length(data) * [sum([(batch_evals[i](param) - out)^p for (i, (_, out)) in enumerate(data)]) for param in params]
     end
     # Create a closure that computes the gradient of the loss along a batch of tangent directions
-    function MPE_grad(vs::Vector{<:ValuationTangent})
+    function MPE_grad(vs::Vector{ValuationTangent{S,T,N}}) where {S, T, N}
         return 1 / length(data) * [sum([p * (batch_evals[i](v.point) - out)^(p - 1) * directional_derivative(specialized_models[i], v) for (i, (_, out)) in enumerate(data)]) for v in vs]
     end
     return Loss(MPE_compute, MPE_grad)
@@ -261,11 +261,11 @@ function MPE_loss_init(model::AbstractModel{S}, data::Vector{Tuple{Vector{S},U}}
     batch_evals = [batch_evaluate_init(specialized_models[i], ValuationPolydisc{S,Int,param_dim}) for i in eachindex(specialized_models)]
 
     # Create a closure that computes the MPE for a batch of parameter values
-    function MPE_compute(params::Vector{<:ValuationPolydisc})
+    function MPE_compute(params::Vector{ValuationPolydisc{S,T,N}}) where {S, T, N}
         return [1 / length(data) * sum([(batch_evals[i](param) - out)^p for (i, (_, out)) in enumerate(data)]) for param in params]
     end
     # Create a closure that computes the gradient of the loss along a batch of tangent directions
-    function MPE_grad(vs::Vector{<:ValuationTangent})
+    function MPE_grad(vs::Vector{ValuationTangent{S,T,N}}) where {S, T, N}
         return [1 / length(data) * sum([p * (batch_evals[i](v.point) - out)^(p - 1) * directional_derivative(specialized_models[i], v) for (i, (_, out)) in enumerate(data)]) for v in vs]
     end
     return Loss(MPE_compute, MPE_grad)

@@ -9,7 +9,7 @@
 ##################################################
 
 @doc raw"""
-    MCTSNode{S,T}
+    MCTSNode{S,T,N}
 
 A node in the MCTS search tree.
 
@@ -82,7 +82,7 @@ Configuration parameters for the MCTS optimizer.
 - `degree::Int`: Degree for child polydisc generation (passed to `children` function)
 - `max_children::Union{Int, Nothing}`: Maximum number of children to consider per expansion (nothing = all)
 - `strict::Bool`: If true, use single-branch descent; if false, use full children
-- `value_transform::Function`: Transform from loss to value (default: loss -> 1/loss)
+- `value_transform::Function`: Transform from loss to value (default: loss -> -loss)
 - `selection_mode::SelectionMode`: Strategy for selecting next step (VisitCount or BestValue)
 """
 struct MCTSConfig
@@ -106,7 +106,7 @@ Create an MCTS configuration with sensible defaults.
 - `degree::Int=1`: Child generation degree
 - `max_children::Union{Int, Nothing}=nothing`: Max children to consider (nothing = all)
 - `strict::Bool=false`: Whether to use single-branch descent
-- `value_transform::Function=loss -> 1.0 / (loss + 1e-10)`: Loss to value transformation
+- `value_transform::Function=loss -> -loss`: Loss to value transformation
 - `selection_mode::SelectionMode=VisitCount`: Child selection strategy (VisitCount or BestValue)
 """
 function MCTSConfig(;
@@ -115,7 +115,7 @@ function MCTSConfig(;
     degree::Int=1,
     max_children::Union{Int, Nothing}=nothing,
     strict::Bool=false,
-    value_transform::Function=loss -> 1.0 / (loss + 1e-10),
+    value_transform::Function=loss -> -loss,
     selection_mode::SelectionMode=VisitCount
 )
     return MCTSConfig(
@@ -198,13 +198,13 @@ end
 ##################################################
 
 @doc raw"""
-    expand_node!(node::MCTSNode{S,T}, config::MCTSConfig) where {S,T}
+    expand_node!(node::MCTSNode{S,T,N}, config::MCTSConfig) where {S,T,N}
 
 Expand a node by generating its child polydiscs.
 
 Uses the same children generation as greedy/gradient descent.
 """
-function expand_node!(node::MCTSNode{S,T}, config::MCTSConfig) where {S,T}
+function expand_node!(node::MCTSNode{S,T,N}, config::MCTSConfig) where {S,T,N}
     if node.is_expanded
         return
     end
@@ -252,13 +252,13 @@ function select_path(root::MCTSNode, exploration_constant::Float64)
 end
 
 @doc raw"""
-    evaluate_node(node::MCTSNode{S,T}, loss::Loss, config::MCTSConfig) where {S,T}
+    evaluate_node(node::MCTSNode{S,T,N}, loss::Loss, config::MCTSConfig) where {S,T,N}
 
 Evaluate a node using the loss function.
 
-Returns the transformed value (by default, 1/loss).
+Returns the transformed value (by default, -loss).
 """
-function evaluate_node(node::MCTSNode{S,T}, loss::Loss, config::MCTSConfig) where {S,T}
+function evaluate_node(node::MCTSNode{S,T,N}, loss::Loss, config::MCTSConfig) where {S,T,N}
     # Evaluate the loss at this polydisc
     loss_value = loss.eval([node.polydisc])[1]
     # Transform to value (higher is better for MCTS)
@@ -286,19 +286,19 @@ end
 ##################################################
 
 @doc raw"""
-    mcts_search(root::MCTSNode{S,T}, loss::Loss, config::MCTSConfig) where {S,T}
+    mcts_search(root::MCTSNode{S,T,N}, loss::Loss, config::MCTSConfig) where {S,T,N}
 
 Run MCTS from a root node and return the best child.
 
 Performs `config.num_simulations` iterations of:
 1. Selection: Follow UCB1 to a leaf
 2. Expansion: Expand the leaf if not terminal
-3. Evaluation: Compute value using 1/loss
+3. Evaluation: Compute value using -loss
 4. Backpropagation: Update all nodes on the path
 
 Returns the child of root with the highest visit count (most promising).
 """
-function mcts_search(root::MCTSNode{S,T}, loss::Loss, config::MCTSConfig) where {S,T}
+function mcts_search(root::MCTSNode{S,T,N}, loss::Loss, config::MCTSConfig) where {S,T,N}
     # Ensure root is expanded
     expand_node!(root, config)
 
