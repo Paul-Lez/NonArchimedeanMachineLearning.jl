@@ -445,12 +445,13 @@ function find_best_node_in_dag(root::DAGMCTSNode{S,T,N}, table::Dict{ValuationPo
 end
 
 @doc raw"""
-    trace_to_root_child(node::DAGMCTSNode, root::DAGMCTSNode, table::Dict)
+    trace_to_root_child(target::DAGMCTSNode, root::DAGMCTSNode, table::Dict)
 
 Trace back from a node to find which direct child of root lies on a path to it.
 
-In a DAG, there may be multiple paths. We use BFS from root's children to find
-which child can reach the target node.
+Uses parent pointers to trace upward from the target to root, which is O(depth)
+instead of O(nodes). In a DAG, nodes can have multiple parents, so at each step
+we pick any parent that is an ancestor of root (BFS upward).
 
 # Returns
 The direct child of `root` that can reach `node`, or `nothing` if not found.
@@ -472,31 +473,30 @@ function trace_to_root_child(
         end
     end
 
-    # BFS from each root child to see which can reach target
-    for (_, root_child) in root.children
-        # BFS to check if target is reachable from root_child
-        visited = Set{DAGMCTSNode{S,T,N}}()
-        queue = [root_child]
+    # Collect root's direct children into a set for O(1) lookup
+    root_children = Set{UInt}(objectid(child) for (_, child) in root.children)
 
-        while !isempty(queue)
-            current = popfirst!(queue)
+    # Trace upward from target using parent pointers
+    # Use BFS over parents to handle the DAG structure
+    # visited tracks nodes by identity to avoid cycles
+    visited = Set{UInt}()
+    queue = DAGMCTSNode{S,T,N}[target]
+    push!(visited, objectid(target))
 
-            if current === target
-                return root_child
-            end
+    while !isempty(queue)
+        current = popfirst!(queue)
 
-            if current in visited
-                continue
-            end
-            push!(visited, current)
+        # Check if current is a direct child of root
+        if objectid(current) in root_children
+            return current
+        end
 
-            # Add children to queue
-            if current.is_expanded
-                for (_, child) in current.children
-                    if !(child in visited)
-                        push!(queue, child)
-                    end
-                end
+        # Add unvisited parents to queue
+        for parent in current.parents
+            pid = objectid(parent)
+            if pid !== objectid(root) && !(pid in visited)
+                push!(visited, pid)
+                push!(queue, parent)
             end
         end
     end
