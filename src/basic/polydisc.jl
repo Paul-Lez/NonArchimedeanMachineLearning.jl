@@ -451,27 +451,34 @@ function children(p::ValuationPolydisc{S,T,N}, degree=1) where {S, T, N}
     @req dim(p) >= degree "degree exceeding dimension of polydisc"
     output = Vector{ValuationPolydisc{S,T,N}}()
     # The point p has prime(p)^degree children.
-    sizehint!(output, Int(prime(p))^degree)
+    P = Int(prime(p))
+    sizehint!(output, P^degree)
     K = base_field(p)
     prime_as_padic = K(prime(p))
+    # Pre-compute prime powers for each radius value to avoid repeated exponentiation
+    prime_powers = ntuple(i -> prime_as_padic ^ p.radius[i], N)
+    # Pre-compute the residue class product iterator once (avoids allocating [0:P-1 for ...] per combination)
+    residue_product = Iterators.product(ntuple(_ -> 0:P-1, degree)...)
     # iterate over all possible lists that have precisely degree times the value 1 and 0 everywhere else
     for coordinatesToShrink in AbstractAlgebra.combinations(dim(p), degree)
+        # Pre-compute mapping: shrink_idx[i] = position in coordinatesToShrink, or 0 if not shrunk
+        # This replaces the O(degree) findfirst call in the inner loop
+        shrink_idx = ntuple(N) do i
+            for (j, c) in enumerate(coordinatesToShrink)
+                c == i && return j
+            end
+            return 0
+        end
         # a "unit shrink" along a radius is the same as increasing the valuation
         # measure of the radius by 1
-        new_radius = ntuple(N) do i
-            if i in coordinatesToShrink
-                p.radius[i] + 1
-            else
-                p.radius[i]
-            end
-        end
+        new_radius = ntuple(i -> shrink_idx[i] > 0 ? p.radius[i] + 1 : p.radius[i], N)
 
         # We can shrink along various centers so we need to be sure to include them all
-        for radius_changes in Iterators.product([0:Int(prime(p))-1 for i in coordinatesToShrink]...)
+        for radius_changes in residue_product
             new_center = ntuple(N) do i
-                idx_in_shrink = findfirst(==(i), coordinatesToShrink)
-                if idx_in_shrink !== nothing
-                    p.center[i] + radius_changes[idx_in_shrink] * (prime_as_padic ^ p.radius[i])
+                si = shrink_idx[i]
+                if si > 0
+                    p.center[i] + radius_changes[si] * prime_powers[i]
                 else
                     p.center[i]
                 end
@@ -498,25 +505,31 @@ function children(p::ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N}, degree
     K = Base.parent(p.center[1].elem)
     # Create prime as ValuedFieldPoint
     prime_as_valued = ValuedFieldPoint{P,Prec,PFE}(K(P))
+    # Pre-compute prime powers for each radius value to avoid repeated exponentiation
+    prime_powers = ntuple(i -> prime_as_valued ^ p.radius[i], N)
+    # Pre-compute the residue class product iterator once (avoids allocating [0:P-1 for ...] per combination)
+    # P is compile-time constant, so this loop bound is known at compile time
+    residue_product = Iterators.product(ntuple(_ -> 0:P-1, degree)...)
     # iterate over all possible lists that have precisely degree times the value 1 and 0 everywhere else
     for coordinatesToShrink in AbstractAlgebra.combinations(dim(p), degree)
+        # Pre-compute mapping: shrink_idx[i] = position in coordinatesToShrink, or 0 if not shrunk
+        # This replaces the O(degree) findfirst call in the inner loop
+        shrink_idx = ntuple(N) do i
+            for (j, c) in enumerate(coordinatesToShrink)
+                c == i && return j
+            end
+            return 0
+        end
         # a "unit shrink" along a radius is the same as increasing the valuation
         # measure of the radius by 1
-        new_radius = ntuple(N) do i
-            if i in coordinatesToShrink
-                p.radius[i] + 1
-            else
-                p.radius[i]
-            end
-        end
+        new_radius = ntuple(i -> shrink_idx[i] > 0 ? p.radius[i] + 1 : p.radius[i], N)
 
         # We can shrink along various centers so we need to be sure to include them all
-        # P is compile-time constant, so this loop bound is known at compile time
-        for radius_changes in Iterators.product([0:P-1 for i in coordinatesToShrink]...)
+        for radius_changes in residue_product
             new_center = ntuple(N) do i
-                idx_in_shrink = findfirst(==(i), coordinatesToShrink)
-                if idx_in_shrink !== nothing
-                    p.center[i] + radius_changes[idx_in_shrink] * (prime_as_valued ^ p.radius[i])
+                si = shrink_idx[i]
+                if si > 0
+                    p.center[i] + radius_changes[si] * prime_powers[i]
                 else
                     p.center[i]
                 end
@@ -558,13 +571,14 @@ function children_along_branch(
     # measure of the radius by 1
     new_radius = ntuple(i -> i == branch_index ? p.radius[i] + 1 : p.radius[i], N)
     K = base_field(p)
-    # TODO: make less hacky
     prime_as_padic = K(prime(p))
+    # Pre-compute prime power to avoid repeated exponentiation
+    prime_power = prime_as_padic ^ p.radius[branch_index]
     # We can shrink along various centers so we need to be sure to include them all
     for residue_class in 0:Int(prime(p))-1
         new_center = ntuple(N) do i
             if i == branch_index
-                p.center[i] + residue_class * (prime_as_padic ^ p.radius[branch_index])
+                p.center[i] + residue_class * prime_power
             else
                 p.center[i]
             end
@@ -595,12 +609,14 @@ function children_along_branch(
     K = Base.parent(p.center[1].elem)
     # Create prime as ValuedFieldPoint
     prime_as_valued = ValuedFieldPoint{P,Prec,PFE}(K(P))
+    # Pre-compute prime power to avoid repeated exponentiation
+    prime_power = prime_as_valued ^ p.radius[branch_index]
     # We can shrink along various centers so we need to be sure to include them all
     # P is compile-time constant, so this loop bound is known at compile time
     for residue_class in 0:P-1
         new_center = ntuple(N) do i
             if i == branch_index
-                p.center[i] + residue_class * (prime_as_valued ^ p.radius[branch_index])
+                p.center[i] + residue_class * prime_power
             else
                 p.center[i]
             end
