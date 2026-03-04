@@ -615,7 +615,7 @@ function dag_mcts_search(
     expand_node!(root, table, config)
 
     if isempty(root.children)
-        return root.polydisc, root
+        return root.polydisc, root, true
     end
 
     # Run simulations
@@ -626,7 +626,7 @@ function dag_mcts_search(
     # Select best child according to selection mode
     best_child = select_best_child_dag(root, table, config)
 
-    return best_child.polydisc, best_child
+    return best_child.polydisc, best_child, false
 end
 
 ##################################################
@@ -657,7 +657,7 @@ function dag_mcts_descent(
     config::DAGMCTSConfig
 ) where {S,T,N}
     # Run DAG-MCTS search
-    best_polydisc, best_node = dag_mcts_search(
+    best_polydisc, best_node, converged = dag_mcts_search(
         state.root,
         state.transposition_table,
         loss,
@@ -680,7 +680,7 @@ function dag_mcts_descent(
 
     state.step_count += 1
 
-    return best_polydisc, state
+    return best_polydisc, state, converged
 end
 
 @doc raw"""
@@ -730,7 +730,8 @@ function dag_mcts_descent_init(
         param,
         (l, p, st, ctx) -> dag_mcts_descent(l, p, st, ctx),
         state,
-        config
+        config,
+        false
     )
 end
 

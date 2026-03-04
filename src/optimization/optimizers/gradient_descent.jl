@@ -118,6 +118,7 @@ function gradient_descent(
 ) where {S, T, N, U}
     # Compute the children of the point param
     below_nodes = children(param, degree)
+    isempty(below_nodes) && return (param, state, true)
     # Get the corresponding tangent vectors.
     # Evaluate gradient at each child (not at param): children have positive radius in one
     # coordinate, which makes the p-adic directional derivative non-trivial. Evaluating at
@@ -127,7 +128,7 @@ function gradient_descent(
     # that maximises the norm of the (downwards pointing) gradient
     grad_values = loss.grad(tangents)
     val, ind = findmax([LinearAlgebra.norm(g) for g in grad_values])
-    return below_nodes[ind], state
+    return below_nodes[ind], state, false
 end
 
 @doc raw"""
@@ -158,6 +159,7 @@ function gradient_descent_init(
         param,
         (l, p, st, ctx) -> gradient_descent(l, p, st, ctx),
         state,
-        degree
+        degree,
+        false
     )
 end

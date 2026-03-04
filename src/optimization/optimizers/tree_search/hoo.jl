@@ -472,7 +472,7 @@ function hoo_descent(
     state.step_count += 1
 
     # Return the best polydisc found so far
-    return best_node.polydisc, state
+    return best_node.polydisc, state, false
 end
 
 @doc raw"""
@@ -535,7 +535,8 @@ function hoo_descent_init(
         param,
         (l, p, st, ctx) -> hoo_descent(l, p, st, ctx),
         state,
-        config
+        config,
+        false
     )
 end
 

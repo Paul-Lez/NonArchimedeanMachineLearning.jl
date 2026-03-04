@@ -252,7 +252,7 @@ function doo_descent(loss::Loss, param::ValuationPolydisc{S,T,N},
 
     if best_leaf === nothing
         # No leaves available (shouldn't happen in normal operation)
-        return (param, state)
+        return (param, state, true)
     end
 
     # Remove selected leaf from leaves list
@@ -274,7 +274,7 @@ function doo_descent(loss::Loss, param::ValuationPolydisc{S,T,N},
     end
 
     # Return the best leaf's polydisc as new parameter
-    return (best_leaf.polydisc, state)
+    return (best_leaf.polydisc, state, false)
 end
 
 """
@@ -313,7 +313,7 @@ function doo_descent_init(param::ValuationPolydisc{S,T,N}, loss::Loss,
     descent = (l, p, s, c) -> doo_descent(l, p, s, c)
 
     # Return OptimSetup
-    return OptimSetup(loss, param, descent, state, config)
+    return OptimSetup(loss, param, descent, state, config, false)
 end
 
 # Utility functions

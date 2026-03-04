@@ -32,13 +32,14 @@ function greedy_descent(
     else
         below_nodes = children(param, degree)
     end
+    isempty(below_nodes) && return (param, next_branch, true)
     # In greedy descent, we look at the children of the
     # current parameter point and take the child
     # that minimises the loss
     loss_values = loss.eval(below_nodes)
     # Pick a *random* minimum amond the possible ones
     min = rand(findall(u -> u == minimum(loss_values), loss_values))
-    return (below_nodes[min], next_branch)
+    return (below_nodes[min], next_branch, false)
 end
 
 @doc raw"""
@@ -66,7 +67,8 @@ function greedy_descent_init(
         param,
         (l, p, st, ctx) -> greedy_descent(l, p, st, ctx),
         next_branch,
-        settings
+        settings,
+        false
     )
 end
 

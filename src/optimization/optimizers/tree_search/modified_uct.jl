@@ -417,7 +417,7 @@ function modified_uct_search(root::ModifiedUCTNode{S,T,N}, loss::Loss, config::M
 
     if isempty(root.children)
         # No children to explore, return root polydisc
-        return root.polydisc, root
+        return root.polydisc, root, true
     end
 
     # Run simulations (spec: repeat for rounds n = 1, 2, ...)
@@ -428,7 +428,7 @@ function modified_uct_search(root::ModifiedUCTNode{S,T,N}, loss::Loss, config::M
     # Select best child by average value (pure exploitation)
     best_child = argmax(c -> average_value(c), root.children)
 
-    return best_child.polydisc, best_child
+    return best_child.polydisc, best_child, false
 end
 
 ##################################################
@@ -456,13 +456,13 @@ function modified_uct_descent(
     root = ModifiedUCTNode(param, nothing, 0)
 
     # Run Modified UCT search
-    next_param, best_child = modified_uct_search(root, loss, config)
+    next_param, best_child, converged = modified_uct_search(root, loss, config)
 
     # Update state
     state.root = best_child
     state.step_count += 1
 
-    return next_param, state
+    return next_param, state, converged
 end
 
 @doc raw"""
@@ -496,7 +496,8 @@ function modified_uct_descent_init(
         param,
         (l, p, st, ctx) -> modified_uct_descent(l, p, st, ctx),
         state,
-        config
+        config,
+        false
     )
 end
 

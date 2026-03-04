@@ -500,8 +500,8 @@ function flat_ucb_descent(
 
     # Select best child (highest average value, breaking ties by visits)
     if isempty(root.children)
-        # No children (shouldn't happen), stay at current position
-        return param, state
+        # No children, stay at current position
+        return param, state, true
     end
 
     best_child = root.children[1]
@@ -520,7 +520,7 @@ function flat_ucb_descent(
     state.step_count += 1
     state.root = root  # Store for debugging (optional)
 
-    return best_child.polydisc, state
+    return best_child.polydisc, state, false
 end
 
 @doc raw"""
@@ -553,7 +553,8 @@ function flat_ucb_descent_init(
         param,
         (l, p, st, ctx) -> flat_ucb_descent(l, p, st, ctx),
         state,
-        config
+        config,
+        false
     )
 end
 

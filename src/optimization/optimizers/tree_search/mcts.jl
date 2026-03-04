@@ -304,7 +304,7 @@ function mcts_search(root::MCTSNode{S,T,N}, loss::Loss, config::MCTSConfig) wher
 
     if isempty(root.children)
         # No children to explore, return root polydisc
-        return root.polydisc, root
+        return root.polydisc, root, true
     end
 
     for _ in 1:config.num_simulations
@@ -335,7 +335,7 @@ function mcts_search(root::MCTSNode{S,T,N}, loss::Loss, config::MCTSConfig) wher
     # Select the best child according to configured selection mode
     best_child = select_best_child(root, config)
 
-    return best_child.polydisc, best_child
+    return best_child.polydisc, best_child, false
 end
 
 @doc raw"""
@@ -505,13 +505,13 @@ function mcts_descent(
     end
 
     # Run MCTS search
-    best_polydisc, best_node = mcts_search(state.root, loss, config)
+    best_polydisc, best_node, converged = mcts_search(state.root, loss, config)
 
     # Update state: make the best child the new root (tree reuse)
     state.root = MCTSNode(best_polydisc)  # Fresh node for next iteration
     state.step_count += 1
 
-    return best_polydisc, state
+    return best_polydisc, state, converged
 end
 
 @doc raw"""
@@ -541,7 +541,8 @@ function mcts_descent_init(
         param,
         (l, p, st, ctx) -> mcts_descent(l, p, st, ctx),
         state,
-        config
+        config,
+        false
     )
 end
 

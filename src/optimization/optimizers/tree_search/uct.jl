@@ -336,7 +336,7 @@ function uct_search(root::UCTNode{S,T,N}, loss::Loss, config::UCTConfig) where {
 
     if isempty(root.children)
         # No children to explore, return root polydisc
-        return root.polydisc, root
+        return root.polydisc, root, true
     end
 
     # Run simulations (spec: repeat for rounds n = 1, 2, ...)
@@ -347,7 +347,7 @@ function uct_search(root::UCTNode{S,T,N}, loss::Loss, config::UCTConfig) where {
     # Select best child by average value (pure exploitation)
     best_child = argmax(c -> average_value(c), root.children)
 
-    return best_child.polydisc, best_child
+    return best_child.polydisc, best_child, false
 end
 
 ##################################################
@@ -383,13 +383,13 @@ function uct_descent(
     end
 
     # Run UCT search
-    best_polydisc, best_node = uct_search(state.root, loss, config)
+    best_polydisc, best_node, converged = uct_search(state.root, loss, config)
 
     # Update state: make the best child the new root (fresh tree each iteration)
     state.root = UCTNode(best_polydisc, nothing, 0)
     state.step_count += 1
 
-    return best_polydisc, state
+    return best_polydisc, state, converged
 end
 
 @doc raw"""
@@ -419,7 +419,8 @@ function uct_descent_init(
         param,
         (l, p, st, ctx) -> uct_descent(l, p, st, ctx),
         state,
-        config
+        config,
+        false
     )
 end
 

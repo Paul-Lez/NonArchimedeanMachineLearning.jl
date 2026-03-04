@@ -68,6 +68,8 @@ mutable struct OptimSetup{S,T,N,U,V,L<:Loss,O}
     state::U
     # The context type. This records things like settings for the optimiser, etc
     context::V
+    # Whether the optimisation has converged (e.g. no children remain)
+    converged::Bool
 end
 
 @doc raw"""
@@ -137,7 +139,7 @@ optimization setup accordingly.
 Mutates the optimization setup by updating both parameters and state.
 """
 function step!(optim_setup::OptimSetup)
-    new_param, new_state = optim_setup.optimiser(
+    new_param, new_state, converged = optim_setup.optimiser(
         optim_setup.loss,
         optim_setup.param,
         optim_setup.state,
@@ -145,4 +147,6 @@ function step!(optim_setup::OptimSetup)
     )
     update_param!(optim_setup, new_param)
     update_state!(optim_setup, new_state)
+    optim_setup.converged = converged
+    return converged
 end
