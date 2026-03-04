@@ -15,6 +15,7 @@ using NAML
         include("tangent_vector.jl")
         include("functions.jl")
         include("test_typed_evaluators.jl")
+        include("test_typed_gradient_evaluators.jl")
     end
 
     @testset "Statistics" begin

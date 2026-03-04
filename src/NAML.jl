@@ -50,6 +50,7 @@ export ValuationTangent
 
 # From basic/functions.jl
 export PolydiscFunction, AbsolutePolynomialSum, LinearAbsolutePolynomialSum, LinearPolynomial
+export DifferentiableFunction
 export PolydiscFunctionEvaluator  # Abstract evaluator type
 export LinearPolynomialEvaluator, ConstantEvaluator
 export AddEvaluator, SubEvaluator, MulEvaluator, DivEvaluator

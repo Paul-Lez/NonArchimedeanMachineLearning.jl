@@ -45,7 +45,7 @@ using NAML
         @test loss isa Loss
 
         # Initialize gradient descent optimizer
-        optim = greedy_descent_init(model.param, loss, 1, (false, 1))
+        optim = gradient_descent_init(model.param, loss, 1)
         @test optim isa OptimSetup
 
         initial_loss = eval_loss(optim)

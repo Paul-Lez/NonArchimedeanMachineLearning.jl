@@ -52,8 +52,11 @@ Create a step function that returns 0 below cutoff_val and 1 above.
 # Returns
 - A function f: ℝ → {0, 1} where f(x) = 0 if x < cutoff_val, else 1
 """
-function mk_cutoff(cutoff_val::Float64)::Function
-    return x -> x < cutoff_val ? 0 : 1
+function mk_cutoff(cutoff_val::Float64)::NAML.DifferentiableFunction
+    return NAML.DifferentiableFunction(
+        x -> x < cutoff_val ? 0.0 : 1.0,
+        x -> 0.0  # Step function has zero derivative
+    )
 end
 
 
@@ -340,11 +343,10 @@ function polynomial_to_crossentropy_loss(
         linear_sum = NAML.LinearAbsolutePolynomialSum([linear_poly])
 
         # Create composition: cross_entropy(sigmoid(|poly|))
-        # We need to create a custom function that does this
-        sigmoid_crossent = function(abs_val::Float64)
-            p = sigmoid(abs_val, threshold, scale)
-            return binary_cross_entropy(p, y)
-        end
+        sigmoid_crossent = NAML.DifferentiableFunction(
+            abs_val -> binary_cross_entropy(sigmoid(abs_val, threshold, scale), y),
+            abs_val -> (sigmoid(abs_val, threshold, scale) - y) / scale
+        )
 
         # Compose with the linear sum
         term = NAML.Comp(sigmoid_crossent, linear_sum)
@@ -400,14 +402,17 @@ function polynomial_to_valuation_crossentropy_loss(
         # Create linear polynomial: a₀·1 + a₁·x + ... + aₙ·x^n
         linear_poly = NAML.LinearPolynomial(x_powers, K(0))
         linear_sum = NAML.LinearAbsolutePolynomialSum([linear_poly])
-        valuative_linear_sum = NAML.Comp(x -> log(1/prime, x), linear_sum)
+        log_fn = NAML.DifferentiableFunction(
+            x -> log(1/prime, x),
+            x -> -1.0 / (x * log(prime))
+        )
+        valuative_linear_sum = NAML.Comp(log_fn, linear_sum)
 
         # Create composition: cross_entropy(sigmoid(|poly|))
-        # We need to create a custom function that does this
-        sigmoid_crossent = function(abs_val::Float64)
-            p = sigmoid(abs_val, threshold, scale)
-            return binary_cross_entropy(p, y)
-        end
+        sigmoid_crossent = NAML.DifferentiableFunction(
+            abs_val -> binary_cross_entropy(sigmoid(abs_val, threshold, scale), y),
+            abs_val -> (sigmoid(abs_val, threshold, scale) - y) / scale
+        )
 
         # Compose with the linear sum
         term = NAML.Comp(sigmoid_crossent, valuative_linear_sum)
@@ -474,9 +479,10 @@ function polynomial_to_mse_loss(
         linear_sum = NAML.LinearAbsolutePolynomialSum([linear_poly])
 
         # Create MSE term: (|poly| - y)²
-        mse_func = function(abs_val::Float64)
-            return (abs_val - y)^2
-        end
+        mse_func = NAML.DifferentiableFunction(
+            abs_val -> (abs_val - y)^2,
+            abs_val -> 2.0 * (abs_val - y)
+        )
 
         term = NAML.Comp(mse_func, linear_sum)
         push!(loss_terms, term)

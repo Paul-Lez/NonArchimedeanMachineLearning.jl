@@ -5,7 +5,7 @@
 @doc raw"""
     gradient_param(m::AbstractModel{S}, val::ValuationPolydisc{S,T,N1}, v::ValuationTangent{S,T,N2}) where {S,T,N1,N2}
 
-Compute the gradient of a model with respect to its parameters.
+Compute the gradient of a model with respect to its parameters using the symbolic path.
 
 # Arguments
 - `m::AbstractModel{S}`: The abstract model
@@ -23,15 +23,52 @@ function gradient_param(
     val::ValuationPolydisc{S,T,N1},
     v::ValuationTangent{S,T,N2}
 ) where {S, T, N1, N2}
-    # TODO: this doesn't allow arbitrary shapes for the variable of the model (i.e.
-    # this only works if the parameters are the last variables.
-    # Do we really need to have something more general?    
     new_base = concatenate(val, v.point)
-    new_direction = [val.center; v.direction]
+    new_direction = [collect(val.center); v.direction]
     new_v = ValuationTangent(new_base, new_direction, [zeros(T, dim(val)); v.magnitude])
     grad_indices = (dim(val)+1):(dim(val)+dim(v))
-    ## CHANGE ME!
     return partial_gradient(m.fun, new_v, grad_indices)
+end
+
+# VFP lifting: unwrap ValuedFieldPoint types and delegate
+function gradient_param(
+    m::AbstractModel{S},
+    val::ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N1},
+    v::ValuationTangent{ValuedFieldPoint{P,Prec,S},T,N2}
+) where {S, P, Prec, T, N1, N2}
+    unwrapped_val = ValuationPolydisc{S,T,N1}(unwrap(val.center), val.radius)
+    unwrapped_point = ValuationPolydisc{S,T,N2}(unwrap(v.point.center), v.point.radius)
+    unwrapped_direction = collect(unwrap(v.direction))
+    unwrapped_v = ValuationTangent{S,T,N2}(unwrapped_point, unwrapped_direction, v.magnitude)
+    return gradient_param(m, unwrapped_val, unwrapped_v)
+end
+
+@doc raw"""
+    gradient_param(m::AbstractModel, fun_eval::PolydiscFunctionEvaluator, val::ValuationPolydisc, v::ValuationTangent)
+
+Compute the gradient of a model with respect to its parameters using a typed evaluator.
+
+# Arguments
+- `m::AbstractModel`: The abstract model (used for dimension info)
+- `fun_eval::PolydiscFunctionEvaluator`: Typed evaluator for the model function
+- `val::ValuationPolydisc`: Data variable values
+- `v::ValuationTangent`: Tangent vector in parameter space
+
+# Returns
+Gradient vector with respect to parameters
+"""
+function gradient_param(
+    m::AbstractModel,
+    fun_eval::PolydiscFunctionEvaluator,
+    val::ValuationPolydisc,
+    v::ValuationTangent
+)
+    new_base = concatenate(val, v.point)
+    new_direction = [collect(val.center); v.direction]
+    T = eltype(v.magnitude)
+    new_v = ValuationTangent(new_base, new_direction, [zeros(T, dim(val)); v.magnitude])
+    grad_indices = (dim(val)+1):(dim(val)+dim(v))
+    return partial_gradient(fun_eval, new_v, grad_indices)
 end
 
 # TODO: Function below is generally less useful, but would be nice to have
@@ -81,8 +118,11 @@ function gradient_descent(
 ) where {S, T, N, U}
     # Compute the children of the point param
     below_nodes = children(param, degree)
-    # Get the corresponding tangent vectors
-    tangents = [ValuationTangent(param, lower_point.center, zeros(T, dim(param))) for lower_point in below_nodes]
+    # Get the corresponding tangent vectors.
+    # Evaluate gradient at each child (not at param): children have positive radius in one
+    # coordinate, which makes the p-adic directional derivative non-trivial. Evaluating at
+    # param (radius 0 everywhere) would give gradient 0 for all children.
+    tangents = [ValuationTangent(lower_point, collect(lower_point.center), zeros(T, dim(lower_point))) for lower_point in below_nodes]
     # In gradient descent, we look at the children of the current parameter point and take the child
     # that maximises the norm of the (downwards pointing) gradient
     grad_values = loss.grad(tangents)

@@ -271,7 +271,7 @@ centers differing by elements with valuation > radius) have the same canonical f
 `NTuple{N, BigInt}`: Canonical integer representation of the center
 """
 function canonical_center(p::ValuationPolydisc{S,T,N}) where {S,T,N}
-    pr = Int(prime(p))
+    pr = BigInt(prime(p))
     return ntuple(N) do i
         # Get the center as a rational and extract the p-adic digits up to radius[i]
         # The canonical form is center mod p^radius[i]
@@ -279,9 +279,9 @@ function canonical_center(p::ValuationPolydisc{S,T,N}) where {S,T,N}
         r = p.radius[i]
         v = valuation(c)
         if v >= r
-            0
+            BigInt(0)
         else
-            pr ^ v * mod(unit(c), pr ^ (r - v))
+            pr ^ v * mod(BigInt(unit(c)), pr ^ (r - v))
         end
     end
 end

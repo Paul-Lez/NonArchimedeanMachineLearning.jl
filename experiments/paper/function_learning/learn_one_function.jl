@@ -86,7 +86,11 @@ println()
 # Setup model
 param_info = vcat([true], [false for _ in 1:POLY_DEGREE+1])  # x is data, params are parameters
 fun = NAML.AbsolutePolynomialSum([poly_expr])
-fun = NAML.Comp(x -> log(1/PRIME, x), fun)
+log_fn = NAML.DifferentiableFunction(
+    x -> log(1/PRIME, x),
+    x -> -1.0 / (x * log(PRIME))
+)
+fun = NAML.Comp(log_fn, fun)
 model = NAML.AbstractModel(fun, param_info)
 
 # loss = 
