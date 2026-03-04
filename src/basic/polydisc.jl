@@ -450,17 +450,21 @@ coordinates and adjusting centers according to residue classes. For `degree=1`, 
 function children(p::ValuationPolydisc{S,T,N}, degree=1) where {S, T, N}
     @req dim(p) >= degree "degree exceeding dimension of polydisc"
     output = Vector{ValuationPolydisc{S,T,N}}()
-    # The point p has prime(p)^degree children.
     P = Int(prime(p))
-    sizehint!(output, P^degree)
     K = base_field(p)
-    prime_as_padic = K(prime(p))
+    prec = Int(Oscar.precision(K))
+    # Only produce children along dimensions where precision > radius
+    valid_dims = [i for i in 1:N if prec > p.radius[i]]
+    length(valid_dims) < degree && return output
+    sizehint!(output, binomial(length(valid_dims), degree) * P^degree)
+    prime_as_padic = K(P)
     # Pre-compute prime powers for each radius value to avoid repeated exponentiation
     prime_powers = ntuple(i -> prime_as_padic ^ p.radius[i], N)
     # Pre-compute the residue class product iterator once (avoids allocating [0:P-1 for ...] per combination)
     residue_product = Iterators.product(ntuple(_ -> 0:P-1, degree)...)
     # iterate over all possible lists that have precisely degree times the value 1 and 0 everywhere else
-    for coordinatesToShrink in AbstractAlgebra.combinations(dim(p), degree)
+    for combination_indices in AbstractAlgebra.combinations(length(valid_dims), degree)
+        coordinatesToShrink = [valid_dims[j] for j in combination_indices]
         # Pre-compute mapping: shrink_idx[i] = position in coordinatesToShrink, or 0 if not shrunk
         # This replaces the O(degree) findfirst call in the inner loop
         shrink_idx = ntuple(N) do i
@@ -500,8 +504,10 @@ optimize loops and potentially unroll iterations for small primes.
 function children(p::ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N}, degree=1) where {P,Prec,PFE,T,N}
     @req dim(p) >= degree "degree exceeding dimension of polydisc"
     output = Vector{ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N}}()
-    # The point p has P^degree children (P is compile-time constant)
-    sizehint!(output, P^degree)
+    # Only produce children along dimensions where precision > radius
+    valid_dims = [i for i in 1:N if Prec > p.radius[i]]
+    length(valid_dims) < degree && return output
+    sizehint!(output, binomial(length(valid_dims), degree) * P^degree)
     K = Base.parent(p.center[1].elem)
     # Create prime as ValuedFieldPoint
     prime_as_valued = ValuedFieldPoint{P,Prec,PFE}(K(P))
@@ -511,7 +517,8 @@ function children(p::ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N}, degree
     # P is compile-time constant, so this loop bound is known at compile time
     residue_product = Iterators.product(ntuple(_ -> 0:P-1, degree)...)
     # iterate over all possible lists that have precisely degree times the value 1 and 0 everywhere else
-    for coordinatesToShrink in AbstractAlgebra.combinations(dim(p), degree)
+    for combination_indices in AbstractAlgebra.combinations(length(valid_dims), degree)
+        coordinatesToShrink = [valid_dims[j] for j in combination_indices]
         # Pre-compute mapping: shrink_idx[i] = position in coordinatesToShrink, or 0 if not shrunk
         # This replaces the O(degree) findfirst call in the inner loop
         shrink_idx = ntuple(N) do i
@@ -561,21 +568,19 @@ function children_along_branch(
     p::ValuationPolydisc{S,T,N},
     branch_index::Int
 ) where {S, T, N}
-    # @req dim(p)>=degree "degree exceeding dimension of polydisc"
     output = Vector{ValuationPolydisc{S,T,N}}()
-    # The point p has prime(p) children below branch i
-    sizehint!(output, Int(prime(p)))
-    # iterate over all possible lists that have precisely degree times the value 1 and 0 everywhere else
-    # for coordinatesToShrink in 0::(Int(prime(p))-1)
+    K = base_field(p)
+    Int(Oscar.precision(K)) > p.radius[branch_index] || return output
+    P = Int(prime(p))
+    sizehint!(output, P)
     # a "unit shrink" along a radius is the same as increasing the valuation
     # measure of the radius by 1
     new_radius = ntuple(i -> i == branch_index ? p.radius[i] + 1 : p.radius[i], N)
-    K = base_field(p)
-    prime_as_padic = K(prime(p))
+    prime_as_padic = K(P)
     # Pre-compute prime power to avoid repeated exponentiation
     prime_power = prime_as_padic ^ p.radius[branch_index]
     # We can shrink along various centers so we need to be sure to include them all
-    for residue_class in 0:Int(prime(p))-1
+    for residue_class in 0:P-1
         new_center = ntuple(N) do i
             if i == branch_index
                 p.center[i] + residue_class * prime_power
@@ -601,7 +606,9 @@ function children_along_branch(
     branch_index::Int
 ) where {P,Prec,PFE,T,N}
     output = Vector{ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N}}()
-    # The point p has P children below branch i (P is compile-time constant)
+    # Only produce children if precision >= radius
+    Prec > p.radius[branch_index] || return output
+    # P is compile-time constant, so this loop bound is known at compile time
     sizehint!(output, P)
     # a "unit shrink" along a radius is the same as increasing the valuation
     # measure of the radius by 1
@@ -612,7 +619,6 @@ function children_along_branch(
     # Pre-compute prime power to avoid repeated exponentiation
     prime_power = prime_as_valued ^ p.radius[branch_index]
     # We can shrink along various centers so we need to be sure to include them all
-    # P is compile-time constant, so this loop bound is known at compile time
     for residue_class in 0:P-1
         new_center = ntuple(N) do i
             if i == branch_index
