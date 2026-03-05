@@ -58,5 +58,101 @@ using NAML
     end
 end
 
+@testset "directional_exponent" begin
+    K2 = PadicField(2, 20)
+    make_pd(cs, rs) = ValuationPolydisc{PadicFieldElem,Int,length(cs)}(tuple(cs...), tuple(rs...))
+    R2, (x2, y2) = polynomial_ring(K2, ["x", "y"])
+
+    @testset "valuation weight determines winner" begin
+        # f = x + 4y: v(1)+0=0 vs v(4)+0=2 (2-adic) → x wins
+        f = x2 + K2(4) * y2
+        p = make_pd([K2(0), K2(0)], [0, 0])
+        v = ValuationTangent(p, [K2(0), K2(0)], [1, 0])
+        @test directional_exponent(f, v) == [1, 0]
+    end
+
+    @testset "radius contributes to valuation weight" begin
+        # f = x + y, radius (3,0): x gets penalty → v(1)+3=3 vs v(1)+0=0 → y wins
+        f = x2 + y2
+        p = make_pd([K2(0), K2(0)], [3, 0])
+        v = ValuationTangent(p, [K2(0), K2(0)], [1, 0])
+        @test directional_exponent(f, v) == [0, 1]
+    end
+
+    @testset "magnitude breaks tie" begin
+        # f = x + y, radius (0,0): both val_weight=0; magnitude [1,0] → dot([0,1],[1,0])=0 < dot([1,0],[1,0])=1 → y wins
+        f = x2 + y2
+        p = make_pd([K2(0), K2(0)], [0, 0])
+        v = ValuationTangent(p, [K2(0), K2(0)], [1, 0])
+        @test directional_exponent(f, v) == [0, 1]
+    end
+end
+
+@testset "directional_derivative for LinearPolynomial" begin
+    K2 = PadicField(2, 20)
+    make_pd(cs, rs) = ValuationPolydisc{PadicFieldElem,Int,length(cs)}(tuple(cs...), tuple(rs...))
+
+    @testset "linear wins (zero constant)" begin
+        # f = T₁, radius 0: c₀=0, linear val_weight=0+0=0 → d_v = -2^0 = -1.0
+        poly = LinearPolynomial([K2(1)], K2(0))
+        p = make_pd([K2(0)], [0])
+        v = ValuationTangent(p, [K2(0)], [1])
+        @test directional_derivative(poly, v) ≈ -1.0
+    end
+
+    @testset "linear wins over constant by valuation" begin
+        # f = T₁ + 4, radius 1: v(4)=2 > v(1)+1=1 → linear wins → d_v = -2^{-1} = -0.5
+        poly = LinearPolynomial([K2(1)], K2(4))
+        p = make_pd([K2(0)], [1])
+        v = ValuationTangent(p, [K2(0)], [1])
+        @test directional_derivative(poly, v) ≈ -0.5
+    end
+
+    @testset "constant dominates due to large radius" begin
+        # f = T₁ + 1, radius 3: v(1)=0 < v(1)+3=3 → constant wins → d_v = 0.0
+        poly = LinearPolynomial([K2(1)], K2(1))
+        p = make_pd([K2(0)], [3])
+        v = ValuationTangent(p, [K2(0)], [1])
+        @test directional_derivative(poly, v) ≈ 0.0
+    end
+
+    @testset "2D: magnitude breaks tie between linear terms" begin
+        # f = T₁ + T₂, radius (0,0): both val_weight=0; magnitude [1,0] → T₂ wins (mag 0 < 1) → d_v = -1.0
+        poly = LinearPolynomial([K2(1), K2(1)], K2(0))
+        p = make_pd([K2(0), K2(0)], [0, 0])
+        v = ValuationTangent(p, [K2(0), K2(0)], [1, 0])
+        @test directional_derivative(poly, v) ≈ -1.0
+    end
+end
+
+@testset "directional_derivative for LinearAbsolutePolynomialSum" begin
+    K2 = PadicField(2, 20)
+    make_pd(cs, rs) = ValuationPolydisc{PadicFieldElem,Int,length(cs)}(tuple(cs...), tuple(rs...))
+
+    @testset "one linear winner, one constant winner" begin
+        # poly1 = T₁ (zero constant), radius 0: linear wins → -1.0
+        # poly2 = 1 (zero linear), radius 0: constant wins → 0.0
+        # sum = -1.0
+        poly1 = LinearPolynomial([K2(1)], K2(0))
+        poly2 = LinearPolynomial([K2(0)], K2(1))
+        f = LinearAbsolutePolynomialSum([poly1, poly2])
+        p = make_pd([K2(0)], [0])
+        v = ValuationTangent(p, [K2(0)], [1])
+        @test directional_derivative(f, v) ≈ -1.0
+    end
+
+    @testset "both linear winners" begin
+        # poly1 = T₁,     radius 1: linear val_weight=1 < constant (none) → d_v = -0.5
+        # poly2 = T₁ + 4, radius 1: v(4)=2 > 0+1=1 → linear wins → d_v = -0.5
+        # sum = -1.0
+        poly1 = LinearPolynomial([K2(1)], K2(0))
+        poly2 = LinearPolynomial([K2(1)], K2(4))
+        f = LinearAbsolutePolynomialSum([poly1, poly2])
+        p = make_pd([K2(0)], [1])
+        v = ValuationTangent(p, [K2(0)], [1])
+        @test directional_derivative(f, v) ≈ -1.0
+    end
+end
+
 
 

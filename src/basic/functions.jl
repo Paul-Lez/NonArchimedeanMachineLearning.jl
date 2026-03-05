@@ -402,6 +402,10 @@ function evaluate(f::LinearAbsolutePolynomialSum{S}, p::ValuationPolydisc{S,T,N}
     return sum([evaluate(poly, p) for poly in f.polys])
 end
 
+function directional_derivative(fun::LinearAbsolutePolynomialSum{S}, v::ValuationTangent{S,T,N}) where {S, T, N}
+    return sum(directional_derivative(poly, v) for poly in fun.polys)
+end
+
 @doc raw"""
     evaluate(poly::LinearPolynomial{S}, p::ValuationPolydisc{S,T,N}) where {S, T, N}
 
@@ -813,31 +817,29 @@ end
 Find the exponent vector(s) along which a polynomial achieves its maximum absolute value.
 
 For a polynomial ``f`` and tangent vector ``v``, finds all exponent vectors ``n`` such that
-locally in the direction of ``v``, ``|f| = a_n r^n`` for some coefficient ``a_n``. Among
-all maximum exponents, returns the minimal ones in terms of sum of components.
+locally in the direction of ``v``, ``|f| = a_n r^n`` for some coefficient ``a_n``.
+
+The maximum of ``|a_n| \cdot p^{-\langle r, n \rangle}`` is equivalent to minimizing the
+integer quantity ``v(a_n) + \langle r, n \rangle`` over non-zero terms.
 
 # Arguments
 - `f::AbstractAlgebra.Generic.MPoly{S}`: A multivariate polynomial
 - `v::ValuationTangent{S,T}`: The tangent vector defining the direction
 
 # Returns
-`Vector`: Array of exponent vectors (as tuples) where the maximum is attained in a minimal fashion
+`Vector`: The exponent vector with minimum valuation weight, breaking ties by minimizing `dot(n, v.magnitude)`
 """
 function directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S,T}) where {S, T}
     t = gens(f.parent)
     g = AbstractAlgebra.evaluate(f, t + v.direction)
-    exp_vecs  = collect(Nemo.exponent_vectors(g))
-    # Weight each term by the Gauss norm factor p^{-sum(radius * n)},
-    # matching the formula used in `evaluate`. The directional exponent is
-    # the exponent vector that achieves the maximum of |a_n| * p^{-<radius,n>}.
-    p = Float64(prime(v.point))
-    abs_terms = [abs(Nemo.coeff(g, i)) * p^(-sum(v.point.radius .* exp_vecs[i])) for i in eachindex(exp_vecs)]
-    # Find all exponent vectors at which the max is attained
-    max_val   = maximum(abs_terms)
-    max_evecs = [exp_vecs[i] for i in eachindex(exp_vecs) if abs_terms[i] == max_val]
-    # Among those, return the ones with minimal total degree (sum of exponents)
-    min_deg   = minimum(sum(n) for n in max_evecs)
-    return [n for n in max_evecs if sum(n) == min_deg]
+    exp_vecs = collect(Nemo.exponent_vectors(g))
+    # Compute v(a_n) + ⟨radius, n⟩ for each term. Sparse polynomial representation
+    # guarantees all stored coefficients are nonzero, so no filtering is needed.
+    # Minimizing this integer quantity is equivalent to maximizing |a_n| * p^{-⟨r,n⟩}.
+    val_weights = [valuation(Nemo.coeff(g, i)) + sum(v.point.radius .* exp_vecs[i]) for i in eachindex(exp_vecs)]
+    min_weight = minimum(val_weights)
+    ties =  [exp_vecs[j] for j in findall(==(min_weight), val_weights)]
+    return reduce((n, m) -> dot(n, v.magnitude) < dot(m, v.magnitude) ? n : m, ties)
 end
 
 @doc raw"""
@@ -863,10 +865,54 @@ function directional_derivative(f::AbstractAlgebra.Generic.MPoly{S}, v::Valuatio
     # expansion around 0 of the polynomial g(T) = f(T+a).
     g = AbstractAlgebra.evaluate(f, x + v.direction)
     # Next we need to compute the directional exponent of f along v
-    n = first(directional_exponent(f, v))
+    n = directional_exponent(f, v)
     # Use the formula to get d_v
     d_v = -sum(n) * abs(coeff(g, n)) * (Float64(prime(v.point))^(-sum(v.point.radius .* n)))
     return d_v
+end
+
+@doc raw"""
+    directional_derivative(poly::LinearPolynomial{S}, v::ValuationTangent{S,T,N}) where {S, T, N}
+
+Compute the directional derivative of a linear polynomial along a tangent direction.
+
+For `poly = Σᵢ aᵢTᵢ + b`, expanding around `v.direction` gives a constant term
+`c₀ = b + Σᵢ aᵢdᵢ` and linear terms with coefficients `aᵢ`. The winning term is
+found by minimizing the valuation weight `v(aₙ) + ⟨r, n⟩`, breaking ties via
+`dot(n, v.magnitude)`. Since all non-constant terms have degree 1, the derivative is:
+- `0` if the constant term wins (degree 0)
+- `-p^{-best_val}` if a linear term wins
+
+# Arguments
+- `poly::LinearPolynomial{S}`: The linear polynomial
+- `v::ValuationTangent{S,T,N}`: The tangent direction
+
+# Returns
+`Float64`: The directional derivative
+"""
+function directional_derivative(poly::LinearPolynomial{S}, v::ValuationTangent{S,T,N}) where {S, T, N}
+    r = v.point.radius
+    # Expand poly(T + direction): constant term c₀ = b + Σᵢ aᵢdᵢ, linear terms unchanged.
+    c₀ = poly.constant + sum(poly.coefficients[i] * v.direction[i] for i in eachindex(poly.coefficients))
+    # Initialise with the constant term (exponent 0: val_weight = v(c₀), mag_weight = 0).
+    best_val = iszero(c₀) ? typemax(Int) : valuation(c₀)
+    best_mag = Base.zero(T)
+    linear_wins = false
+    # Check each linear term (exponent eᵢ: val_weight = v(aᵢ) + rᵢ, mag_weight = magnitude[i]).
+    for i in eachindex(poly.coefficients)
+        aᵢ = poly.coefficients[i]
+        iszero(aᵢ) && continue
+        w   = valuation(aᵢ) + r[i]
+        mag = v.magnitude[i]
+        if w < best_val || (w == best_val && mag < best_mag)
+            best_val  = w
+            best_mag  = mag
+            linear_wins = true
+        end
+    end
+    # Constant term winning means degree 0, so derivative is 0.
+    linear_wins || return 0.0
+    return -Float64(prime(v.point))^(-best_val)
 end
 
 @doc raw"""
