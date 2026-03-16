@@ -241,7 +241,7 @@ Algorithm:
 3. Expand selected leaf (generate and evaluate children)
 4. Add new children to leaves list
 5. Update state (step count, next_branch for strict mode)
-6. Return selected leaf's polydisc as new parameter
+6. Return best-valued node's polydisc as new parameter
 
 Returns: (new_param::ValuationPolydisc, updated_state::DOOState)
 """
@@ -273,8 +273,9 @@ function doo_descent(loss::Loss, param::ValuationPolydisc{S,T,N},
         state.next_branch = mod1(state.next_branch + 1, p^config.degree)
     end
 
-    # Return the best leaf's polydisc as new parameter
-    return (best_leaf.polydisc, state, false)
+    # Return the best-valued node found so far as the new parameter
+    best_node = get_best_node(state)
+    return (best_node.polydisc, state, false)
 end
 
 """
