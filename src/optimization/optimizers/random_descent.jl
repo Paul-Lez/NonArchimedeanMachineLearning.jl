@@ -41,11 +41,13 @@ function random_descent(
         below_nodes = children(param, degree)
     end
 
+    isempty(below_nodes) && return (param, state, true)
+
     # RANDOM SELECTION: Pick a random child without considering loss
     # This is the key difference from greedy descent
     random_index = rand(1:length(below_nodes))
 
-    return (below_nodes[random_index], state)
+    return (below_nodes[random_index], state, false)
 end
 
 @doc raw"""
@@ -92,6 +94,7 @@ function random_descent_init(
         param,
         (l, p, st, ctx) -> random_descent(l, p, st, ctx),
         state,
-        settings
+        settings,
+        false
     )
 end

@@ -65,7 +65,7 @@ export var_indices, param_indices, set_abstract_model_variable, batch_evaluate_i
 
 # From optimization/optim_setup.jl
 export Loss, OptimSetup
-export eval_loss, update_param!, step!
+export eval_loss, update_param!, step!, has_converged, optimize!
 
 # From optimization/loss.jl
 export MSE_loss_init, MPE_loss_init

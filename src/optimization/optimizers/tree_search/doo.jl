@@ -275,7 +275,11 @@ function doo_descent(loss::Loss, param::ValuationPolydisc{S,T,N},
 
     # Return the best-valued node found so far as the new parameter
     best_node = get_best_node(state)
-    return (best_node.polydisc, state, false)
+
+    # Converged if the best node cannot be expanded further
+    # (expanded with no children means precision boundary reached)
+    converged = best_node.is_expanded && isempty(best_node.children)
+    return (best_node.polydisc, state, converged)
 end
 
 """

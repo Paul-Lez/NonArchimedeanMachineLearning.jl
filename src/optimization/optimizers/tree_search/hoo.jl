@@ -472,7 +472,8 @@ function hoo_descent(
     state.step_count += 1
 
     # Return the best polydisc found so far
-    return best_node.polydisc, state, false
+    converged = best_node.is_expanded && isempty(best_node.children)
+    return best_node.polydisc, state, converged
 end
 
 @doc raw"""

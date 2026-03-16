@@ -25,6 +25,7 @@ using NAML
     @testset "Optimization" begin
         include("gradient_descent.jl")
         include("polynomial_learning.jl")
+        include("convergence.jl")
     end
 
     @testset "Tree Search Algorithms" begin

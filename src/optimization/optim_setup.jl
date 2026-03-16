@@ -150,3 +150,60 @@ function step!(optim_setup::OptimSetup)
     optim_setup.converged = converged
     return converged
 end
+
+@doc raw"""
+    has_converged(optim::OptimSetup) -> Bool
+
+Check whether the optimization has converged.
+
+Convergence is detected when the optimizer can no longer refine parameters,
+typically because the polydisc radius has reached the precision of the p-adic field.
+
+# Arguments
+- `optim::OptimSetup`: The optimization setup
+
+# Returns
+`true` if the optimization has converged, `false` otherwise.
+"""
+function has_converged(optim::OptimSetup)
+    return optim.converged
+end
+
+@doc raw"""
+    optimize!(optim::OptimSetup, max_steps::Int; verbose::Bool=false) -> Int
+
+Run optimization until convergence or `max_steps`, whichever comes first.
+
+# Arguments
+- `optim::OptimSetup`: The optimization setup
+- `max_steps::Int`: Maximum number of steps to take
+- `verbose::Bool=false`: If `true`, print loss at each step
+
+# Returns
+The number of steps taken. Check `has_converged(optim)` to distinguish
+early convergence from hitting `max_steps`.
+
+# Example
+```julia
+optim = greedy_descent_init(param, loss, 1, (false, 1))
+steps = optimize!(optim, 100; verbose=true)
+if has_converged(optim)
+    println("Converged after \$steps steps")
+else
+    println("Reached max steps (\$steps)")
+end
+```
+"""
+function optimize!(optim::OptimSetup, max_steps::Int; verbose::Bool=false)
+    for i in 1:max_steps
+        converged = step!(optim)
+        if verbose
+            @printf("Step %d: loss = %.6e%s\n", i, eval_loss(optim),
+                    converged ? " [converged]" : "")
+        end
+        if converged
+            return i
+        end
+    end
+    return max_steps
+end
