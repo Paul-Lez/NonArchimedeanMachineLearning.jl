@@ -264,17 +264,49 @@ For each coordinate i, computes `center[i] mod p^radius[i]` as an integer tuple.
 This ensures that polydiscs representing the same region (same radius and
 centers differing by elements with valuation > radius) have the same canonical form.
 
+Uses Int64 arithmetic when prime^radius fits in Int64 (true for all typical parameters:
+prime ≤ 7, radius ≤ 20), falling back to BigInt for extreme cases.
+
 # Arguments
 - `p::ValuationPolydisc`: The polydisc
 
 # Returns
-`NTuple{N, BigInt}`: Canonical integer representation of the center
+`NTuple{N, Int64}` (fast path) or `NTuple{N, BigInt}` (fallback): Canonical integer
+representation of the center
 """
 function canonical_center(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+    pr = Int64(prime(p))
+    # Maximum radius where pr^r fits in Int64 (conservative: leave room for multiplication)
+    max_r = floor(Int, 63 / log2(pr))
+    # Check if all radii fit in the Int64 fast path
+    if all(r -> r <= max_r, radius(p))
+        return _canonical_center_int64(p, pr)
+    else
+        return _canonical_center_bigint(p)
+    end
+end
+
+# Int64 fast path: zero BigInt allocations
+function _canonical_center_int64(p::ValuationPolydisc{S,T,N}, pr::Int64) where {S,T,N}
+    return ntuple(N) do i
+        c = p.center[i]
+        r = p.radius[i]
+        v = valuation(c)
+        if v >= r
+            Int64(0)
+        else
+            p_v = pr ^ v
+            p_rv = pr ^ (r - v)
+            u = Int64(unit(c))
+            p_v * mod(u, p_rv)
+        end
+    end
+end
+
+# BigInt fallback for extreme parameters
+function _canonical_center_bigint(p::ValuationPolydisc{S,T,N}) where {S,T,N}
     pr = BigInt(prime(p))
     return ntuple(N) do i
-        # Get the center as a rational and extract the p-adic digits up to radius[i]
-        # The canonical form is center mod p^radius[i]
         c = p.center[i]
         r = p.radius[i]
         v = valuation(c)
@@ -672,3 +704,54 @@ end
 function Base.:<=(p::ValuationPolydisc{S,T,N}, q::ValuationPolydisc{S,T,N})::Bool where {S, T, N}
     return all(p.radius .>= q.radius) && all(valuation.(p.center .- q.center) .>= q.radius)
 end
+
+##################################################
+# HashedPolydisc
+##################################################
+
+# TODO: Consider refactoring to an abstract type hierarchy:
+#   abstract type AbstractValuationPolydisc{S,T,N} end
+#   struct ValuationPolydisc{S,T,N} <: AbstractValuationPolydisc{S,T,N} ... end
+#   struct HashedValuationPolydisc{S,T,N} <: AbstractValuationPolydisc{S,T,N} ... end
+# This would allow shared dispatch on AbstractValuationPolydisc for center(), radius(), etc.
+# without wrapper delegation. Requires updating all method signatures across the codebase.
+
+@doc raw"""
+    HashedPolydisc{S,T,N}
+
+A wrapper around `ValuationPolydisc` that caches the hash value for efficient use as
+a dictionary key. The hash is computed once at construction time and reused for all
+subsequent `hash()` calls.
+
+This is used by DAG-MCTS for its transposition table, where the same polydisc may be
+hashed many times during Dict lookups. Other optimizers (MCTS, UCT, HOO, etc.) that
+never use polydiscs as Dict keys should use `ValuationPolydisc` directly to avoid the
+hashing overhead.
+
+# Fields
+- `polydisc::ValuationPolydisc{S,T,N}`: The underlying polydisc
+- `_hash::UInt`: The cached hash value
+"""
+struct HashedPolydisc{S,T,N}
+    polydisc::ValuationPolydisc{S,T,N}
+    _hash::UInt
+end
+
+@doc raw"""
+    HashedPolydisc(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+
+Create a `HashedPolydisc` by computing and caching the hash of `p`.
+"""
+function HashedPolydisc(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+    return HashedPolydisc{S,T,N}(p, hash(p))
+end
+
+Base.hash(hp::HashedPolydisc, h::UInt) = hash(hp._hash, h)
+Base.:(==)(a::HashedPolydisc{S,T,N}, b::HashedPolydisc{S,T,N}) where {S,T,N} = a.polydisc == b.polydisc
+Base.isequal(a::HashedPolydisc{S,T,N}, b::HashedPolydisc{S,T,N}) where {S,T,N} = a == b
+
+# Forwarding methods so HashedPolydisc can be used transparently
+center(hp::HashedPolydisc) = center(hp.polydisc)
+radius(hp::HashedPolydisc) = radius(hp.polydisc)
+dim(hp::HashedPolydisc) = dim(hp.polydisc)
+prime(hp::HashedPolydisc) = prime(hp.polydisc)
