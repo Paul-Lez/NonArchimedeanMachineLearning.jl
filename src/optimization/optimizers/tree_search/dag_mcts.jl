@@ -115,7 +115,7 @@ Create a DAG-MCTS configuration with sensible defaults.
 - `exploration_constant::Float64=1.41`: UCT exploration constant
 - `degree::Int=1`: Child generation degree
 - `value_transform::Function=loss -> 1.0 / (loss + 1e-10)`: Loss to value transformation
-- `persist_table::Bool=false`: Whether to persist transposition table across steps
+- `persist_table::Bool=true`: Whether to persist transposition table across steps
 - `selection_mode::SelectionMode=VisitCount`: Child selection strategy (VisitCount or BestValue)
 """
 function DAGMCTSConfig(;
@@ -123,7 +123,7 @@ function DAGMCTSConfig(;
     exploration_constant::Float64=1.41,
     degree::Int=1,
     value_transform::Function=loss -> 1.0 / (loss + 1e-10),
-    persist_table::Bool=false,
+    persist_table::Bool=true,
     selection_mode::SelectionMode=VisitCount
 )
     return DAGMCTSConfig(

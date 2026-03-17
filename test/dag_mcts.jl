@@ -318,4 +318,41 @@ using NAML
         # Should only contain nodes from current search
         @test length(optim_no_persist.state.transposition_table) > 0
     end
+
+    @testset "MCTS Persist Tree Option" begin
+        R, x = polynomial_ring(K, ["x"])
+        poly = AbsolutePolynomialSum([x[1]^2])
+        batch_eval = batch_evaluate_init(poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1})
+
+        function mcts_loss_eval(params::Vector)
+            return [batch_eval(p) for p in params]
+        end
+        function mcts_loss_grad(vs::Vector)
+            return [directional_derivative(poly, v) for v in vs]
+        end
+        loss = Loss(mcts_loss_eval, mcts_loss_grad)
+
+        initial_param = ValuationPolydisc([K(4)], [0])
+
+        # Test with persist_tree=true
+        config_persist = MCTSConfig(num_simulations=20, persist_tree=true)
+        optim_persist = mcts_descent_init(initial_param, loss, config_persist)
+
+        step!(optim_persist)
+        step!(optim_persist)
+
+        # With persistence, subtree is reused: root should have pre-existing children/stats
+        @test optim_persist.state.root.parent === nothing
+        @test get_tree_size(optim_persist.state.root) > 1
+
+        # Test with persist_tree=false (default)
+        config_no_persist = MCTSConfig(num_simulations=20, persist_tree=false)
+        optim_no_persist = mcts_descent_init(initial_param, loss, config_no_persist)
+
+        step!(optim_no_persist)
+        step!(optim_no_persist)
+
+        # Without persistence, root is fresh each step (no pre-existing subtree beyond current search)
+        @test optim_no_persist.state.root.parent === nothing
+    end
 end

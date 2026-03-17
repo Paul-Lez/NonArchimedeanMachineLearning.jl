@@ -84,6 +84,7 @@ Configuration parameters for the MCTS optimizer.
 - `strict::Bool`: If true, use single-branch descent; if false, use full children
 - `value_transform::Function`: Transform from loss to value (default: loss -> -loss)
 - `selection_mode::SelectionMode`: Strategy for selecting next step (VisitCount or BestValue)
+- `persist_tree::Bool`: If true, reuse the subtree rooted at the best child across steps (default: false)
 """
 struct MCTSConfig
     num_simulations::Int
@@ -93,6 +94,7 @@ struct MCTSConfig
     strict::Bool
     value_transform::Function
     selection_mode::SelectionMode
+    persist_tree::Bool
 end
 
 @doc raw"""
@@ -108,6 +110,7 @@ Create an MCTS configuration with sensible defaults.
 - `strict::Bool=false`: Whether to use single-branch descent
 - `value_transform::Function=loss -> -loss`: Loss to value transformation
 - `selection_mode::SelectionMode=VisitCount`: Child selection strategy (VisitCount or BestValue)
+- `persist_tree::Bool=false`: If true, reuse subtree across optimization steps
 """
 function MCTSConfig(;
     num_simulations::Int=100,
@@ -116,7 +119,8 @@ function MCTSConfig(;
     max_children::Union{Int, Nothing}=nothing,
     strict::Bool=false,
     value_transform::Function=loss -> -loss,
-    selection_mode::SelectionMode=VisitCount
+    selection_mode::SelectionMode=VisitCount,
+    persist_tree::Bool=true
 )
     return MCTSConfig(
         num_simulations,
@@ -125,7 +129,8 @@ function MCTSConfig(;
         max_children,
         strict,
         value_transform,
-        selection_mode
+        selection_mode,
+        persist_tree
     )
 end
 
@@ -507,8 +512,14 @@ function mcts_descent(
     # Run MCTS search
     best_polydisc, best_node, converged = mcts_search(state.root, loss, config)
 
-    # Update state: make the best child the new root (tree reuse)
-    state.root = MCTSNode(best_polydisc)  # Fresh node for next iteration
+    # Update state for next step
+    if config.persist_tree
+        # Reuse the subtree rooted at best_node
+        best_node.parent = nothing  # Sever parent link for GC of old tree
+        state.root = best_node
+    else
+        state.root = MCTSNode(best_polydisc)  # Fresh node for next iteration
+    end
     state.step_count += 1
 
     return best_polydisc, state, converged
