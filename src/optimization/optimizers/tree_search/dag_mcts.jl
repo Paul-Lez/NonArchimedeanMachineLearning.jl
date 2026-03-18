@@ -158,6 +158,9 @@ State maintained across DAG-MCTS optimization steps.
 - `best_value::Float64`: Best average value seen so far
 - `best_root_child::Union{DAGMCTSNode{S,T,N}, Nothing}`: Which direct child of root leads to best_node
 - `best_root_action::Int`: Action index of best_root_child
+- `min_loss_node::Union{DAGMCTSNode{S,T,N}, Nothing}`: Node with minimum raw loss evaluation
+- `min_loss::Float64`: Minimum raw loss seen so far
+- `min_loss_root_child::Union{DAGMCTSNode{S,T,N}, Nothing}`: Which direct child of root leads to min_loss_node
 """
 mutable struct DAGMCTSState{S,T,N}
     root::DAGMCTSNode{S,T,N}
@@ -167,6 +170,9 @@ mutable struct DAGMCTSState{S,T,N}
     best_value::Float64
     best_root_child::Union{DAGMCTSNode{S,T,N}, Nothing}
     best_root_action::Int
+    min_loss_node::Union{DAGMCTSNode{S,T,N}, Nothing}
+    min_loss::Float64
+    min_loss_root_child::Union{DAGMCTSNode{S,T,N}, Nothing}
 end
 
 ##################################################
@@ -365,18 +371,26 @@ parent pointers (which would be ambiguous in a DAG).
 
 # Arguments
 - `path`: Vector of nodes from root to leaf representing this traversal's path
-- `value`: The value to backpropagate
+- `value`: The transformed value to backpropagate
+- `eval_node`: The leaf node where the loss was evaluated
+- `loss_value`: The raw loss value at the leaf (before value_transform)
 
 # Note
 This updates the global N(s) and Q(s) statistics in each shared node instance.
 """
-function backpropagate!(path::Vector{<:DAGMCTSNode}, value::Float64, state::DAGMCTSState)
-    # The root child is path[2] if path has length >= 2
+function backpropagate!(path::Vector{<:DAGMCTSNode}, value::Float64, state::DAGMCTSState,
+                        eval_node::DAGMCTSNode=path[end], loss_value::Float64=NaN)
+    # The root is path[1]; the root child is path[2] if path has length >= 2
     root_child = length(path) >= 2 ? path[2] : nothing
-    for node in path
+    for (i, node) in enumerate(path)
         node.visits += 1
         node.total_value += value
-        # Update running best-node tracker
+        # Update running best-node tracker (skip root: we need a node strictly
+        # below root so that select_best_child_dag can identify which root child
+        # lies above it)
+        if i == 1
+            continue
+        end
         avg = average_value(node)
         if avg > state.best_value
             state.best_value = avg
@@ -384,6 +398,14 @@ function backpropagate!(path::Vector{<:DAGMCTSNode}, value::Float64, state::DAGM
             if !isnothing(root_child)
                 state.best_root_child = root_child
             end
+        end
+    end
+    # Track minimum raw loss at the evaluated leaf (for BestLoss selection)
+    if !isnan(loss_value) && loss_value < state.min_loss
+        state.min_loss = loss_value
+        state.min_loss_node = eval_node
+        if !isnothing(root_child)
+            state.min_loss_root_child = root_child
         end
     end
 end
@@ -437,10 +459,11 @@ function dag_mcts_simulation!(
     end
 
     # Phase 3: Evaluation
-    value = evaluate_node(eval_node, loss, config)
+    loss_value = loss.eval([eval_node.polydisc])[1]
+    value = config.value_transform(loss_value)
 
     # Phase 4: Backpropagation using explicit path stack
-    backpropagate!(path, value, state)
+    backpropagate!(path, value, state, eval_node, loss_value)
 
     return value
 end
@@ -536,7 +559,8 @@ Select the best child of root according to the configured selection mode.
 
 # Selection Modes
 - `VisitCount`: Returns child with highest visit count (standard MCTS, robust)
-- `BestValue`: Finds node with best value in DAG, returns root's child leading to it (greedy)
+- `BestValue`: Finds node with best average value in DAG, returns root's child leading to it (greedy)
+- `BestLoss`: Finds leaf with minimum raw loss evaluation, returns root's child leading to it
 
 # Returns
 The selected child node.
@@ -565,26 +589,11 @@ function select_best_child_dag(
 
     elseif config.selection_mode == BestValue
         # Greedy MCTS: use tracked best node (O(1) instead of linear scan)
+        # best_node is always strictly below root (backpropagate! skips root)
         best_node = state.best_node
 
         if isnothing(best_node)
-            # Fallback: no visited nodes, select first child
-            return first(root.children)
-        end
-
-        # If best node is root itself, select child with best average value
-        if best_node === root
-            best_child = nothing
-            best_val = -Inf
-            for child in root.children
-                if child.visits > 0 && average_value(child) > best_val
-                    best_val = average_value(child)
-                    best_child = child
-                end
-            end
-            if !isnothing(best_child)
-                return best_child
-            end
+            # No non-root node visited yet, select first child
             return first(root.children)
         end
 
@@ -608,6 +617,35 @@ function select_best_child_dag(
 
         error("BestValue selection failed: best_node exists but is not reachable from root. " *
               "best_root_child=$(state.best_root_child), best_node visits=$(best_node.visits)")
+
+    elseif config.selection_mode == BestLoss
+        # Select root child whose subtree contains the leaf with minimum raw loss
+        min_node = state.min_loss_node
+
+        if isnothing(min_node)
+            return first(root.children)
+        end
+
+        # If min-loss node is a direct child, return it
+        for child in root.children
+            if child === min_node
+                return child
+            end
+        end
+
+        # Use tracked root child (set during backpropagation) — O(1)
+        if !isnothing(state.min_loss_root_child)
+            return state.min_loss_root_child
+        end
+
+        # Fallback: trace back using parent pointers if available
+        root_child = trace_to_root_child(min_node, root, table)
+        if !isnothing(root_child)
+            return root_child
+        end
+
+        error("BestLoss selection failed: min_loss_node exists but is not reachable from root. " *
+              "min_loss_root_child=$(state.min_loss_root_child), min_loss=$(state.min_loss)")
     else
         error("Unknown selection mode: $(config.selection_mode)")
     end
@@ -691,9 +729,20 @@ function dag_mcts_descent(
         # The new root should already be in the table
         new_root = get_or_create_node!(state.transposition_table, best_polydisc)
         state.root = new_root
-        # Reset root-child tracking (new root has different children)
+        # Reset best-node tracking cache. The new root has different children,
+        # so best_root_child is invalid. And best_value/best_node must be reset
+        # because the stale best_value (from the old root's search) can prevent
+        # backpropagate! from ever re-establishing best_root_child — the old
+        # best_node's average drifts with new visits and may never exceed the
+        # stale threshold. The actual information is preserved in the persisted
+        # table's visit counts and values.
+        state.best_node = nothing
+        state.best_value = -Inf
         state.best_root_child = nothing
         state.best_root_action = 0
+        state.min_loss_node = nothing
+        state.min_loss = Inf
+        state.min_loss_root_child = nothing
     else
         # Fresh search: clear table and create new root
         empty!(state.transposition_table)
@@ -704,6 +753,9 @@ function dag_mcts_descent(
         state.best_value = -Inf
         state.best_root_child = nothing
         state.best_root_action = 0
+        state.min_loss_node = nothing
+        state.min_loss = Inf
+        state.min_loss_root_child = nothing
     end
 
     state.step_count += 1
@@ -751,7 +803,7 @@ function dag_mcts_descent_init(
     table[HashedPolydisc(param)] = root
 
     # Initialize state
-    state = DAGMCTSState{S,T,N}(root, table, 0, nothing, -Inf, nothing, 0)
+    state = DAGMCTSState{S,T,N}(root, table, 0, nothing, -Inf, nothing, 0, nothing, Inf, nothing)
 
     return OptimSetup(
         loss,

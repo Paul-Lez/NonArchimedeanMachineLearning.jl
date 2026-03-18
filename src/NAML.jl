@@ -86,7 +86,7 @@ export get_tree_size, get_visited_nodes, get_leaf_nodes
 
 # From optimization/optimizers/tree_search/mcts.jl
 export MCTSNode, MCTSConfig, MCTSState
-export SelectionMode, VisitCount, BestValue
+export SelectionMode, VisitCount, BestValue, BestLoss
 export mcts_descent, mcts_descent_init
 
 # From optimization/optimizers/tree_search/uct.jl

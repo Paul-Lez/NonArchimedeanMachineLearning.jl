@@ -28,6 +28,7 @@ mutable struct MCTSNode{S,T,N}
     visits::Int
     total_value::Float64
     is_expanded::Bool
+    min_loss::Float64  # Minimum raw loss seen in this node's subtree
 end
 
 @doc raw"""
@@ -42,7 +43,8 @@ function MCTSNode(polydisc::ValuationPolydisc{S,T,N}, parent=nothing) where {S,T
         MCTSNode{S,T,N}[],
         0,
         0.0,
-        false
+        false,
+        Inf
     )
 end
 
@@ -67,9 +69,10 @@ Enum for MCTS child selection strategy after simulations complete.
 
 # Values
 - `VisitCount`: Select child with highest visit count (standard MCTS, robust)
-- `BestValue`: Select child leading to best value in tree (greedy MCTS)
+- `BestValue`: Select child leading to best average value in tree (greedy MCTS)
+- `BestLoss`: Select child leading to leaf with minimum raw loss (greedy, ignores visit averaging)
 """
-@enum SelectionMode VisitCount BestValue
+@enum SelectionMode VisitCount BestValue BestLoss
 
 @doc raw"""
     MCTSConfig
@@ -277,11 +280,14 @@ Backpropagate a value from a leaf node up to the root.
 
 Updates visits and total_value for all nodes on the path.
 """
-function backpropagate!(node::MCTSNode, value::Float64)
+function backpropagate!(node::MCTSNode, value::Float64, loss_value::Float64=NaN)
     current = node
     while !isnothing(current)
         current.visits += 1
         current.total_value += value
+        if !isnan(loss_value) && loss_value < current.min_loss
+            current.min_loss = loss_value
+        end
         current = current.parent
     end
 end
@@ -331,10 +337,11 @@ function mcts_search(root::MCTSNode{S,T,N}, loss::Loss, config::MCTSConfig) wher
         end
 
         # Evaluation: compute value at the node
-        value = evaluate_node(eval_node, loss, config)
+        loss_value = loss.eval([eval_node.polydisc])[1]
+        value = config.value_transform(loss_value)
 
         # Backpropagation: update statistics up the tree
-        backpropagate!(eval_node, value)
+        backpropagate!(eval_node, value, loss_value)
     end
 
     # Select the best child according to configured selection mode
@@ -426,13 +433,40 @@ function trace_to_root_child(node::MCTSNode, root::MCTSNode)
 end
 
 @doc raw"""
+    find_min_loss_node_in_tree(node::MCTSNode)
+
+Recursively find the node with the minimum raw loss in the entire tree.
+
+Returns the node with lowest `min_loss`, considering only visited nodes.
+"""
+function find_min_loss_node_in_tree(node::MCTSNode)
+    if node.visits == 0
+        return nothing
+    end
+
+    best_node = node
+    best_loss = node.min_loss
+
+    for child in node.children
+        child_best = find_min_loss_node_in_tree(child)
+        if !isnothing(child_best) && child_best.min_loss < best_loss
+            best_node = child_best
+            best_loss = child_best.min_loss
+        end
+    end
+
+    return best_node
+end
+
+@doc raw"""
     select_best_child(root::MCTSNode, config::MCTSConfig)
 
 Select the best child of root according to the configured selection mode.
 
 # Selection Modes
 - `VisitCount`: Returns child with highest visit count (standard MCTS, robust)
-- `BestValue`: Finds node with best value in tree, returns root's child leading to it (greedy)
+- `BestValue`: Finds node with best average value in tree, returns root's child leading to it (greedy)
+- `BestLoss`: Finds leaf with minimum raw loss, returns root's child leading to it
 
 # Arguments
 - `root::MCTSNode`: The root node with expanded children
@@ -469,6 +503,27 @@ function select_best_child(root::MCTSNode, config::MCTSConfig)
         if isnothing(root_child)
             # Fallback: best_node is root itself or not in tree, select best direct child
             return argmax(c -> average_value(c), root.children)
+        end
+
+        return root_child
+
+    elseif config.selection_mode == BestLoss
+        # Greedy MCTS: find node with minimum raw loss, trace back to root's child
+        min_node = find_min_loss_node_in_tree(root)
+
+        if isnothing(min_node)
+            return root.children[1]
+        end
+
+        if min_node.parent === root
+            return min_node
+        end
+
+        root_child = trace_to_root_child(min_node, root)
+
+        if isnothing(root_child)
+            # Fallback: min_node is root itself, select child with lowest min_loss
+            return argmin(c -> c.min_loss, root.children)
         end
 
         return root_child

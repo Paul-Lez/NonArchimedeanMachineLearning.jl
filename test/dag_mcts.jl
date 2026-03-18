@@ -169,7 +169,7 @@ using NAML
 
         # Create a dummy state for backpropagation best-node tracking
         table = Dict{NAML.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}}()
-        dummy_state = DAGMCTSState{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}(node1, table, 0, nothing, -Inf, nothing, 0)
+        dummy_state = DAGMCTSState{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}(node1, table, 0, nothing, -Inf, nothing, 0, nothing, Inf, nothing)
 
         path = [node1, node2, node3]
         value = 0.75
