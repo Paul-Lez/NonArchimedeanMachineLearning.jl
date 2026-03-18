@@ -83,7 +83,7 @@ Configuration parameters for the DAG-MCTS optimizer.
 - `num_simulations::Int`: Number of MCTS simulations to run per step
 - `exploration_constant::Float64`: UCT exploration constant c (usually √2 ≈ 1.41)
 - `degree::Int`: Degree for child polydisc generation (passed to `children` function)
-- `value_transform::Function`: Transform from loss to value (default: loss -> 1/loss)
+- `value_transform::Function`: Transform from loss to value (default: loss -> -loss)
 - `persist_table::Bool`: Whether to persist transposition table across optimization steps
 - `selection_mode::SelectionMode`: Strategy for selecting next step (VisitCount or BestValue)
 
@@ -115,7 +115,7 @@ Create a DAG-MCTS configuration with sensible defaults.
 - `num_simulations::Int=100`: Number of simulations per step
 - `exploration_constant::Float64=1.41`: UCT exploration constant
 - `degree::Int=1`: Child generation degree
-- `value_transform::Function=loss -> 1.0 / (loss + 1e-10)`: Loss to value transformation
+- `value_transform::Function=loss -> -loss`: Loss to value transformation
 - `persist_table::Bool=true`: Whether to persist transposition table across steps
 - `selection_mode::SelectionMode=VisitCount`: Child selection strategy (VisitCount or BestValue)
 - `track_parents::Bool=false`: Whether to track parent pointers (needed for debug verification; off by default for performance)
@@ -124,7 +124,7 @@ function DAGMCTSConfig(;
     num_simulations::Int=100,
     exploration_constant::Float64=1.41,
     degree::Int=1,
-    value_transform::Function=loss -> 1.0 / (loss + 1e-10),
+    value_transform::Function=loss -> -loss,
     persist_table::Bool=true,
     selection_mode::SelectionMode=VisitCount,
     track_parents::Bool=false
@@ -588,9 +588,9 @@ function select_best_child_dag(
         return best_child
 
     elseif config.selection_mode == BestValue
-        # Greedy MCTS: use tracked best node (O(1) instead of linear scan)
-        # best_node is always strictly below root (backpropagate! skips root)
-        best_node = state.best_node
+        # Greedy MCTS: find the node with the current best average value in the DAG.
+        # We perform a fresh scan to avoid staleness (average_value is not monotonic).
+        best_node = find_best_node_in_dag(root, table)
 
         if isnothing(best_node)
             # No non-root node visited yet, select first child
@@ -604,19 +604,15 @@ function select_best_child_dag(
             end
         end
 
-        # Use tracked root child (set during backpropagation) — O(1) instead of BFS
-        if !isnothing(state.best_root_child)
-            return state.best_root_child
-        end
-
-        # Fallback: trace back using parent pointers if available
+        # Trace back to find which child of root leads to best_node
         root_child = trace_to_root_child(best_node, root, table)
+
         if !isnothing(root_child)
             return root_child
         end
 
-        error("BestValue selection failed: best_node exists but is not reachable from root. " *
-              "best_root_child=$(state.best_root_child), best_node visits=$(best_node.visits)")
+        # Fallback: if tracing fails (e.g. parents not tracked), pick child with best avg value
+        return argmax(c -> average_value(c), root.children)
 
     elseif config.selection_mode == BestLoss
         # Select root child whose subtree contains the leaf with minimum raw loss
