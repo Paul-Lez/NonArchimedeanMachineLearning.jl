@@ -338,7 +338,7 @@ function select_path(root::DAGMCTSNode, exploration_constant::Float64)
     path = [root]
     node = root
 
-    while node.is_expanded && !isempty(node.children)
+    while node.is_expanded && !isempty(node.children) && node.visits > 0
         _, child = select_child(node, exploration_constant)
         push!(path, child)
         node = child
