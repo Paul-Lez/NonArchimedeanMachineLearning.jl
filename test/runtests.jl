@@ -31,6 +31,10 @@ using NAML
     @testset "Tree Search Algorithms" begin
         include("dag_mcts.jl")
     end
+
+    @testset "Visualization" begin
+        include("search_tree_viz.jl")
+    end
 end
 
 println("\n✓ All tests completed successfully!")

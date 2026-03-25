@@ -26,6 +26,7 @@ include("optimization/optimizers/tree_search/dag_mcts.jl")
 include("statistics/frechet.jl")
 include("statistics/least_squares.jl")
 include("visualization/loss_landscape.jl")
+include("visualization/search_tree_viz.jl")
 
 # Export types and functions
 
@@ -123,5 +124,8 @@ export sample_loss_landscape
 export print_landscape_summary, plot_loss_landscape, export_landscape_csv
 # Tree visualization
 export plot_tree_with_loss, plot_tree_simple
+
+# From visualization/search_tree_viz.jl
+export visualize_search_tree
 
 end # module NAML
