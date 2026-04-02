@@ -16,6 +16,7 @@ include("optimization/optimizers/gradient_descent.jl")
 include("optimization/optimizers/greedy_descent.jl")
 include("optimization/optimizers/random_descent.jl")
 include("optimization/loss.jl")
+include("optimization/optimizers/tree_search/value_transforms.jl")
 include("optimization/optimizers/tree_search/hoo.jl")
 include("optimization/optimizers/tree_search/mcts.jl")
 include("optimization/optimizers/tree_search/uct.jl")
@@ -84,6 +85,10 @@ export gradient_param, gradient_descent, gradient_descent_init
 export HOONode, HOOConfig, HOOState
 export hoo_descent, hoo_descent_init
 export get_tree_size, get_visited_nodes, get_leaf_nodes
+
+# From optimization/optimizers/tree_search/value_transforms.jl
+export sigmoid_transform, tanh_transform, negation_transform, inverse_transform
+export DEFAULT_VALUE_TRANSFORM
 
 # From optimization/optimizers/tree_search/mcts.jl
 export MCTSNode, MCTSConfig, MCTSState

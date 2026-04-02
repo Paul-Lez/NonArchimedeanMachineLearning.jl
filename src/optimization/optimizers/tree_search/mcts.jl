@@ -85,7 +85,7 @@ Configuration parameters for the MCTS optimizer.
 - `degree::Int`: Degree for child polydisc generation (passed to `children` function)
 - `max_children::Union{Int, Nothing}`: Maximum number of children to consider per expansion (nothing = all)
 - `strict::Bool`: If true, use single-branch descent; if false, use full children
-- `value_transform::Function`: Transform from loss to value (default: loss -> -loss)
+- `value_transform::Function`: Transform from loss to value (default: sigmoid_transform())
 - `selection_mode::SelectionMode`: Strategy for selecting next step (VisitCount or BestValue)
 - `persist_tree::Bool`: If true, reuse the subtree rooted at the best child across steps (default: false)
 """
@@ -111,7 +111,7 @@ Create an MCTS configuration with sensible defaults.
 - `degree::Int=1`: Child generation degree
 - `max_children::Union{Int, Nothing}=nothing`: Max children to consider (nothing = all)
 - `strict::Bool=false`: Whether to use single-branch descent
-- `value_transform::Function=loss -> -loss`: Loss to value transformation
+- `value_transform::Function=sigmoid_transform()`: Loss to value transformation (see `sigmoid_transform`, `tanh_transform`, `negation_transform`)
 - `selection_mode::SelectionMode=VisitCount`: Child selection strategy (VisitCount or BestValue)
 - `persist_tree::Bool=false`: If true, reuse subtree across optimization steps
 """
@@ -121,7 +121,7 @@ function MCTSConfig(;
     degree::Int=1,
     max_children::Union{Int, Nothing}=nothing,
     strict::Bool=false,
-    value_transform::Function=loss -> -loss,
+    value_transform::Function=DEFAULT_VALUE_TRANSFORM,
     selection_mode::SelectionMode=VisitCount,
     persist_tree::Bool=true
 )

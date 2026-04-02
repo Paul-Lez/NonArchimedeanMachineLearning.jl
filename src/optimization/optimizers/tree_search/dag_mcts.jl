@@ -83,7 +83,7 @@ Configuration parameters for the DAG-MCTS optimizer.
 - `num_simulations::Int`: Number of MCTS simulations to run per step
 - `exploration_constant::Float64`: UCT exploration constant c (usually √2 ≈ 1.41)
 - `degree::Int`: Degree for child polydisc generation (passed to `children` function)
-- `value_transform::Function`: Transform from loss to value (default: loss -> -loss)
+- `value_transform::Function`: Transform from loss to value (default: sigmoid_transform())
 - `persist_table::Bool`: Whether to persist transposition table across optimization steps
 - `selection_mode::SelectionMode`: Strategy for selecting next step (VisitCount or BestValue)
 
@@ -115,7 +115,7 @@ Create a DAG-MCTS configuration with sensible defaults.
 - `num_simulations::Int=100`: Number of simulations per step
 - `exploration_constant::Float64=1.41`: UCT exploration constant
 - `degree::Int=1`: Child generation degree
-- `value_transform::Function=loss -> -loss`: Loss to value transformation
+- `value_transform::Function=sigmoid_transform()`: Loss to value transformation (see `sigmoid_transform`, `tanh_transform`, `negation_transform`)
 - `persist_table::Bool=true`: Whether to persist transposition table across steps
 - `selection_mode::SelectionMode=VisitCount`: Child selection strategy (VisitCount or BestValue)
 - `track_parents::Bool=false`: Whether to track parent pointers (needed for debug verification; off by default for performance)
@@ -124,7 +124,7 @@ function DAGMCTSConfig(;
     num_simulations::Int=100,
     exploration_constant::Float64=1.41,
     degree::Int=1,
-    value_transform::Function=loss -> -loss,
+    value_transform::Function=DEFAULT_VALUE_TRANSFORM,
     persist_table::Bool=true,
     selection_mode::SelectionMode=VisitCount,
     track_parents::Bool=false
