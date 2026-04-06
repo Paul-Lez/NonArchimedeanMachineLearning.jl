@@ -28,18 +28,18 @@ const DISPLAY_NAMES = Dict(
     "Best-First-branch2"  => "Best First Branch 2",
     "Best-First-Gradient" => "Best First Gradient",
     "DOO"              => "DOO",
-    "MCTS-50"          => "MCTS-50",
-    "MCTS-100"         => "MCTS-100",
-    "MCTS-200"         => "MCTS-200",
-    "DAG-MCTS-50"      => "DAG-MCTS-50",
-    "DAG-MCTS-100"     => "DAG-MCTS-100",
-    "DAG-MCTS-200"     => "DAG-MCTS-200",
+    "MCTS-k"           => "MCTS-\$k\$",
+    "MCTS-5k"          => "MCTS-\$5k\$",
+    "MCTS-10k"         => "MCTS-\$10k\$",
+    "DAG-MCTS-k"       => "DAG-MCTS-\$k\$",
+    "DAG-MCTS-5k"      => "DAG-MCTS-\$5k\$",
+    "DAG-MCTS-10k"     => "DAG-MCTS-\$10k\$",
 )
 display_name(n) = get(DISPLAY_NAMES, n, n)
 
 const DISPLAY_ORDER = ["Random", "Best-First", "Best-First-branch2", "Best-First-Gradient",
-                       "MCTS-50", "MCTS-100", "MCTS-200",
-                       "DAG-MCTS-50", "DAG-MCTS-100", "DAG-MCTS-200"]
+                       "MCTS-k", "MCTS-5k", "MCTS-10k",
+                       "DAG-MCTS-k", "DAG-MCTS-5k", "DAG-MCTS-10k"]
 
 # Wrap wide LaTeX tables in landscape environment with footnotesize font.
 # Requires \usepackage{lscape} (or pdflscape) in document preamble.

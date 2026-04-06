@@ -840,3 +840,58 @@ function compute_classification_accuracy(
     # Return accuracy as percentage
     return 100.0 * correct / length(data)
 end
+
+"""
+    generate_random_linear_polynomial(K::PadicField, num_vars::Int) -> NAML.LinearPolynomial
+
+Generate a random linear polynomial with coefficients in K.
+
+Returns a LinearPolynomial representing: a₁x₁ + a₂x₂ + ... + aₙxₙ + b
+where coefficients are random p-adic numbers.
+
+# Arguments
+- `K::PadicField`: The p-adic field for coefficients
+- `num_vars::Int`: Number of variables
+
+# Returns
+- A `LinearPolynomial` with random coefficients
+"""
+function generate_random_linear_polynomial(K::PadicField, num_vars::Int)
+    # Generate random coefficients for each variable plus constant
+    p = Int(Oscar.prime(K))
+    prec = Oscar.precision(K)
+    coeffs = [generate_random_padic(p, prec, 0, 8) for _ in 1:num_vars]
+    constant = generate_random_padic(p, prec, 0, 8)
+    return NAML.LinearPolynomial(coeffs, constant)
+end
+
+
+"""
+    generate_random_polynomial(K::PadicField, num_vars::Int, degree::Int, var_names::Vector{String})
+    -> AbstractAlgebra.Generic.MPoly
+
+Generate a random polynomial with coefficients in K.
+
+# Arguments
+- `K::PadicField`: The p-adic field for coefficients
+- `num_vars::Int`: Number of variables
+- `degree::Int`: Maximum degree of the polynomial
+- `var_names::Vector{String}`: Names for the variables
+
+# Returns
+- A multivariate polynomial with random coefficients
+"""
+function generate_random_polynomial(K::PadicField, num_vars::Int, degree::Int, var_names::Vector{String})
+    R, vars = polynomial_ring(K, var_names)
+    p = Int(Oscar.prime(K))
+    prec = Oscar.precision(K)
+
+    # Generate random polynomial by summing random monomials
+    poly = R(generate_random_padic(p, prec, 0, 8))
+    for monomialDegree in 1:degree
+        for exp in Combinatorics.with_replacement_combinations(1:num_vars, monomialDegree)
+            poly += generate_random_padic(p, prec, 0, 8) * prod(vars[exp[i]] for i in Base.eachindex(exp))
+        end
+    end
+    return poly
+end

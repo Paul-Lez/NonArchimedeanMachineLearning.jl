@@ -3,6 +3,7 @@ module NAML
 using Oscar
 using LinearAlgebra
 using Printf
+using Combinatorics
 
 # Include all source files
 include("basic/valuation.jl")

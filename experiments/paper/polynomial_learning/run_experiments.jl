@@ -137,7 +137,12 @@ Return a dict of optimizer name => initializer function.
 Each initializer takes (param, loss) and returns an OptimSetup.
 The optimizer names encode the hyperparameters used.
 """
-function get_optimizer_configs(; quick::Bool=false, selection_mode=NAML.BestValue, degree::Int=1)
+function get_optimizer_configs(; quick::Bool=false, selection_mode=NAML.BestValue, degree::Int=1, prime::Int=2, dim::Int=1)
+    # k = number of children of a polydisc = binomial(dim, degree) * prime^degree
+    k = binomial(dim, degree) * prime^degree
+    sims_k   = quick ? 50 : k
+    sims_5k  = quick ? 100 : 5 * k
+    sims_10k = quick ? 200 : 10 * k
     return Dict(
         "Random" => Dict(
             "type" => "Random",
@@ -160,13 +165,13 @@ function get_optimizer_configs(; quick::Bool=false, selection_mode=NAML.BestValu
                 NAML.greedy_descent_init(param, loss, 1, (false, 2))
             end
         ),
-        "MCTS-50" => Dict(
+        "MCTS-k" => Dict(
             "type" => "MCTS",
-            "params" => Dict("num_simulations" => quick ? 10 : 50,
+            "params" => Dict("num_simulations" => sims_k,
                              "exploration_constant" => 1.41, "degree" => degree),
             "init" => (param, loss) -> begin
                 config = NAML.MCTSConfig(
-                    num_simulations=quick ? 10 : 50,
+                    num_simulations=sims_k,
                     exploration_constant=1.41,
                     selection_mode=selection_mode,
                     degree=degree
@@ -174,27 +179,13 @@ function get_optimizer_configs(; quick::Bool=false, selection_mode=NAML.BestValu
                 NAML.mcts_descent_init(param, loss, config)
             end
         ),
-        "MCTS-100" => Dict(
+        "MCTS-5k" => Dict(
             "type" => "MCTS",
-            "params" => Dict("num_simulations" => quick ? 20 : 100,
-                             "exploration_constant" => 2, "degree" => degree),
-            "init" => (param, loss) -> begin
-                config = NAML.MCTSConfig(
-                    num_simulations=quick ? 20 : 100,
-                    exploration_constant=1.41,
-                    selection_mode=selection_mode,
-                    degree=degree
-                )
-                NAML.mcts_descent_init(param, loss, config)
-            end
-        ),
-        "MCTS-200" => Dict(
-            "type" => "MCTS",
-            "params" => Dict("num_simulations" => quick ? 40 : 200,
+            "params" => Dict("num_simulations" => sims_5k,
                              "exploration_constant" => 1.41, "degree" => degree),
             "init" => (param, loss) -> begin
                 config = NAML.MCTSConfig(
-                    num_simulations=quick ? 40 : 200,
+                    num_simulations=sims_5k,
                     exploration_constant=1.41,
                     selection_mode=selection_mode,
                     degree=degree
@@ -202,14 +193,28 @@ function get_optimizer_configs(; quick::Bool=false, selection_mode=NAML.BestValu
                 NAML.mcts_descent_init(param, loss, config)
             end
         ),
-        "DAG-MCTS-50" => Dict(
+        "MCTS-10k" => Dict(
+            "type" => "MCTS",
+            "params" => Dict("num_simulations" => sims_10k,
+                             "exploration_constant" => 1.41, "degree" => degree),
+            "init" => (param, loss) -> begin
+                config = NAML.MCTSConfig(
+                    num_simulations=sims_10k,
+                    exploration_constant=1.41,
+                    selection_mode=selection_mode,
+                    degree=degree
+                )
+                NAML.mcts_descent_init(param, loss, config)
+            end
+        ),
+        "DAG-MCTS-k" => Dict(
             "type" => "DAG-MCTS",
-            "params" => Dict("num_simulations" => quick ? 10 : 50,
+            "params" => Dict("num_simulations" => sims_k,
                              "exploration_constant" => 1.41, "degree" => degree,
                              "persist_table" => true),
             "init" => (param, loss) -> begin
                 config = NAML.DAGMCTSConfig(
-                    num_simulations=quick ? 10 : 50,
+                    num_simulations=sims_k,
                     exploration_constant=1.41,
                     degree=degree,
                     persist_table=true,
@@ -218,14 +223,14 @@ function get_optimizer_configs(; quick::Bool=false, selection_mode=NAML.BestValu
                 NAML.dag_mcts_descent_init(param, loss, config)
             end
         ),
-        "DAG-MCTS-100" => Dict(
+        "DAG-MCTS-5k" => Dict(
             "type" => "DAG-MCTS",
-            "params" => Dict("num_simulations" => quick ? 20 : 100,
+            "params" => Dict("num_simulations" => sims_5k,
                              "exploration_constant" => 1.41, "degree" => degree,
                              "persist_table" => true),
             "init" => (param, loss) -> begin
                 config = NAML.DAGMCTSConfig(
-                    num_simulations=quick ? 20 : 100,
+                    num_simulations=sims_5k,
                     exploration_constant=1.41,
                     degree=degree,
                     persist_table=true,
@@ -234,14 +239,14 @@ function get_optimizer_configs(; quick::Bool=false, selection_mode=NAML.BestValu
                 NAML.dag_mcts_descent_init(param, loss, config)
             end
         ),
-        "DAG-MCTS-200" => Dict(
+        "DAG-MCTS-10k" => Dict(
             "type" => "DAG-MCTS",
-            "params" => Dict("num_simulations" => quick ? 40 : 200,
+            "params" => Dict("num_simulations" => sims_10k,
                              "exploration_constant" => 1.41, "degree" => degree,
                              "persist_table" => true),
             "init" => (param, loss) -> begin
                 config = NAML.DAGMCTSConfig(
-                    num_simulations=quick ? 40 : 200,
+                    num_simulations=sims_10k,
                     exploration_constant=1.41,
                     degree=degree,
                     persist_table=true,
@@ -278,7 +283,7 @@ function get_optimizer_configs(; quick::Bool=false, selection_mode=NAML.BestValu
 end
 
 # Canonical ordering for display (shared across all experiments)
-const OPTIMIZER_ORDER = ["Random", "Best-First", "Best-First-branch2", "MCTS-50", "MCTS-100", "MCTS-200", "DAG-MCTS-50", "DAG-MCTS-100", "DAG-MCTS-200", "DOO", "Best-First-Gradient"]
+const OPTIMIZER_ORDER = ["Random", "Best-First", "Best-First-branch2", "MCTS-k", "MCTS-5k", "MCTS-10k", "DAG-MCTS-k", "DAG-MCTS-5k", "DAG-MCTS-10k", "DOO", "Best-First-Gradient"]
 const NAME_WIDTH = maximum(length(n) for n in OPTIMIZER_ORDER)
 
 # ============================================================================
@@ -337,8 +342,10 @@ function run_single_sample(config::Dict, sample_num::Int)
         error("Could not generate $n_points distinct points")
     end
 
+    polynomial = generate_random_polynomial(K, 1, degree, "x")
+
     # Generate random y values (p-adic)
-    y_values = [generate_random_padic(p, prec, 0, 8) for _ in 1:n_points]
+    y_values = [evaluate(polynomial, x) for x in x_values]
     data = collect(zip(x_values, y_values))
 
     # Create loss (p-adic output, no cutoff)
@@ -350,7 +357,8 @@ function run_single_sample(config::Dict, sample_num::Int)
 
     # Get optimizer configs
     num_params = degree + 1  # polynomial has degree+1 coefficients
-    opt_configs = get_optimizer_configs(quick=quick_mode, selection_mode=selection_mode, degree=(num_params >= 2 ? 2 : 1))
+    mcts_deg = num_params >= 2 ? 2 : 1
+    opt_configs = get_optimizer_configs(quick=quick_mode, selection_mode=selection_mode, degree=mcts_deg, prime=p, dim=num_params)
 
     # Results for this sample
     sample_results = Dict{String, Any}()
