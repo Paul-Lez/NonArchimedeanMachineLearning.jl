@@ -23,3 +23,6 @@ Thumbs.db
 # Experiment outputs
 *.tex
 *.pdf
+
+# Dashboard outputs
+*.html
