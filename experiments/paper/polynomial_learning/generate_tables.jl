@@ -120,7 +120,7 @@ function latex_sci(x::Float64; digits::Int=2)
     if exp == 0
         return Printf.format(Printf.Format("%.$(digits)f"), x)
     else
-        return Printf.format(Printf.Format("%.$(digits)f \\times 10^{%d}"), mantissa, exp)
+        return Printf.format(Printf.Format("%.$(digits)f\\text{e}%d"), mantissa, exp)
     end
 end
 
@@ -133,7 +133,7 @@ function latex_sci_compact(x::Float64; digits::Int=1)
     if exp == 0
         return Printf.format(Printf.Format("%.$(digits)f"), x)
     else
-        return Printf.format(Printf.Format("%.$(digits)f{\\scriptstyle\\times 10^{%d}}"), mantissa, exp)
+        return Printf.format(Printf.Format("%.$(digits)f\\text{e}%d"), mantissa, exp)
     end
 end
 
@@ -372,208 +372,7 @@ function generate_detailed_table(experiments, optimizer_order)
 end
 
 # ============================================================================
-# Table 3: Degree sweep table (if applicable)
-# ============================================================================
-
-function generate_degree_sweep_table(experiments, optimizer_order)
-    # Filter experiments that vary degree with the same prime
-    valid = filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
-    if length(valid) < 2
-        return "% Not enough experiments for degree sweep table\n"
-    end
-
-    # Group by prime
-    by_prime = Dict{Int, Vector}()
-    for exp in valid
-        p = exp["config"]["prime"]
-        if !haskey(by_prime, p)
-            by_prime[p] = []
-        end
-        push!(by_prime[p], exp)
-    end
-
-    # Find primes with multiple degrees
-    sweep_primes = filter(p -> length(by_prime[p]) >= 2, collect(keys(by_prime)))
-    if isempty(sweep_primes)
-        return "% No degree sweep detected (need multiple degrees for same prime)\n"
-    end
-
-    lines = String[]
-    push!(lines, "\\begin{table}[H]")
-    push!(lines, "\\centering")
-    push!(lines, "\\caption{Effect of polynomial degree on learning performance " *
-                 "(mean final loss). Each row is a different degree.}")
-    push!(lines, "\\label{tab:poly-learning-degree}")
-
-    n_opts = length(optimizer_order)
-    col_spec = "cc" * "c"^n_opts
-    push!(lines, "\\adjustbox{max width=\\textwidth}{%")
-    push!(lines, "\\begin{tabular}{$col_spec}")
-    push!(lines, "\\toprule")
-
-    header = "\$p\$ & Degree"
-    for opt_name in optimizer_order
-        header *= " & $(display_name(opt_name))"
-    end
-    header *= " \\\\"
-    push!(lines, header)
-    push!(lines, "\\midrule")
-
-    for p in sort(sweep_primes)
-        exps = sort(by_prime[p], by=e -> e["config"]["degree"])
-        for (i, exp) in enumerate(exps)
-            config = exp["config"]
-            agg = exp["aggregate"]
-
-            best_loss = Inf
-            for opt_name in optimizer_order
-                opt_name == "Random" && continue
-                if haskey(agg, opt_name) && !haskey(agg[opt_name], "error")
-                    loss = agg[opt_name]["mean_final_loss"]
-                    if loss < best_loss; best_loss = loss; end
-                end
-            end
-
-            prime_label = i == 1 ? string(p) : ""
-            row = "$prime_label & $(config["degree"])"
-
-            for opt_name in optimizer_order
-                if haskey(agg, opt_name) && !haskey(agg[opt_name], "error")
-                    loss = agg[opt_name]["mean_final_loss"]
-                    formatted = "\$$(latex_sci_compact(loss))\$"
-                    if latex_sci_compact(loss) == latex_sci_compact(best_loss)
-                        row *= " & \\textbf{$formatted}"
-                    else
-                        row *= " & $formatted"
-                    end
-                else
-                    row *= " & ---"
-                end
-            end
-            row *= " \\\\"
-            push!(lines, row)
-            push!(lines, "\\hline")
-        end
-    end
-
-    if !isempty(lines) && lines[end] == "\\hline"
-        pop!(lines)
-    end
-    push!(lines, "\\bottomrule")
-    push!(lines, "\\end{tabular}")
-    push!(lines, "}% end adjustbox")
-    push!(lines, "\\end{table}")
-
-    return join(lines, "\n") * "\n"
-end
-
-# ============================================================================
-# Table 4: Prime sweep table (if applicable)
-# ============================================================================
-
-function generate_prime_sweep_table(experiments, optimizer_order)
-    valid = filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
-    if length(valid) < 2
-        return "% Not enough experiments for prime sweep table\n"
-    end
-
-    # Group by degree
-    by_degree = Dict{Int, Vector}()
-    for exp in valid
-        d = exp["config"]["degree"]
-        if !haskey(by_degree, d)
-            by_degree[d] = []
-        end
-        push!(by_degree[d], exp)
-    end
-
-    # Find degrees with multiple primes
-    sweep_degrees = filter(d -> begin
-        primes = unique([e["config"]["prime"] for e in by_degree[d]])
-        length(primes) >= 2
-    end, collect(keys(by_degree)))
-
-    if isempty(sweep_degrees)
-        return "% No prime sweep detected (need multiple primes for same degree)\n"
-    end
-
-    lines = String[]
-    push!(lines, "\\begin{table}[H]")
-    push!(lines, "\\centering")
-    push!(lines, "\\caption{Effect of base prime on learning performance " *
-                 "(mean final loss). Each row is a different prime.}")
-    push!(lines, "\\label{tab:poly-learning-prime}")
-
-    n_opts = length(optimizer_order)
-    col_spec = "cc" * "c"^n_opts
-    push!(lines, "\\adjustbox{max width=\\textwidth}{%")
-    push!(lines, "\\begin{tabular}{$col_spec}")
-    push!(lines, "\\toprule")
-
-    header = "Degree & \$p\$"
-    for opt_name in optimizer_order
-        header *= " & $(display_name(opt_name))"
-    end
-    header *= " \\\\"
-    push!(lines, header)
-    push!(lines, "\\midrule")
-
-    for d in sort(sweep_degrees)
-        exps = sort(by_degree[d], by=e -> e["config"]["prime"])
-        # Only include experiments that have distinct primes
-        seen_primes = Set{Int}()
-        for (i, exp) in enumerate(exps)
-            config = exp["config"]
-            if config["prime"] in seen_primes
-                continue
-            end
-            push!(seen_primes, config["prime"])
-            agg = exp["aggregate"]
-
-            best_loss = Inf
-            for opt_name in optimizer_order
-                opt_name == "Random" && continue
-                if haskey(agg, opt_name) && !haskey(agg[opt_name], "error")
-                    loss = agg[opt_name]["mean_final_loss"]
-                    if loss < best_loss; best_loss = loss; end
-                end
-            end
-
-            deg_label = i == 1 ? string(d) : ""
-            row = "$deg_label & $(config["prime"])"
-
-            for opt_name in optimizer_order
-                if haskey(agg, opt_name) && !haskey(agg[opt_name], "error")
-                    loss = agg[opt_name]["mean_final_loss"]
-                    formatted = "\$$(latex_sci_compact(loss))\$"
-                    if latex_sci_compact(loss) == latex_sci_compact(best_loss)
-                        row *= " & \\textbf{$formatted}"
-                    else
-                        row *= " & $formatted"
-                    end
-                else
-                    row *= " & ---"
-                end
-            end
-            row *= " \\\\"
-            push!(lines, row)
-            push!(lines, "\\hline")
-        end
-    end
-
-    if !isempty(lines) && lines[end] == "\\hline"
-        pop!(lines)
-    end
-    push!(lines, "\\bottomrule")
-    push!(lines, "\\end{tabular}")
-    push!(lines, "}% end adjustbox")
-    push!(lines, "\\end{table}")
-
-    return join(lines, "\n") * "\n"
-end
-
-# ============================================================================
-# Table 5: Timing comparison
+# Table 3: Timing comparison
 # ============================================================================
 
 function generate_timing_table(experiments, optimizer_order)
@@ -883,18 +682,6 @@ function generate_unified_document(experiments, optimizer_order; verbose=true)
         push!(lines, "")
         push!(lines, generate_detailed_table(experiments, optimizer_order))
     end
-
-    push!(lines, "% ----------------------------------------------------------------------------")
-    push!(lines, "% Table: Degree sweep")
-    push!(lines, "% ----------------------------------------------------------------------------")
-    push!(lines, "")
-    push!(lines, as_landscape(generate_degree_sweep_table(experiments, optimizer_order)))
-
-    push!(lines, "% ----------------------------------------------------------------------------")
-    push!(lines, "% Table: Prime sweep")
-    push!(lines, "% ----------------------------------------------------------------------------")
-    push!(lines, "")
-    push!(lines, as_landscape(generate_prime_sweep_table(experiments, optimizer_order)))
 
     push!(lines, "% ----------------------------------------------------------------------------")
     push!(lines, "% Table: Timing comparison")

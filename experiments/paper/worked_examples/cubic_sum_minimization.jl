@@ -156,7 +156,7 @@ for (name, lss, prm, t) in [
     r = NAML.radius(prm)[1]
     loss_str = let e = floor(Int, log10(max(lss, 1e-300))),
                    m = lss / 10.0^e
-        @sprintf("\$%.2f \\times 10^{%d}\$", m, e)
+        @sprintf("\$%.2f\\text{e}%d\$", m, e)
     end
     println(@sprintf("  %-16s & \$%s\$ & \$%d\$ & %s & \$%.3f\$ \\\\",
                      name, padic_display(c), r, loss_str, t))

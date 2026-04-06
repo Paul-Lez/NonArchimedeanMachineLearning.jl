@@ -116,7 +116,7 @@ function latex_sci_compact(x::Float64; digits::Int=1)
     if exp == 0
         return Printf.format(Printf.Format("%.$(digits)f"), x)
     else
-        return Printf.format(Printf.Format("%.$(digits)f{\\scriptstyle\\times 10^{%d}}"), mantissa, exp)
+        return Printf.format(Printf.Format("%.$(digits)f\\text{e}%d"), mantissa, exp)
     end
 end
 

@@ -20,7 +20,7 @@ Flags:
     --paper: Use comprehensive paper-ready configurations from paper_config.jl
     --samples N: Override number of samples per config
     --selection-mode M: MCTS/DAG-MCTS selection mode: BestValue, VisitCount, or BestLoss (default: BestValue)
-    --degree D: Set tree branching degree for MCTS/DAG-MCTS/DOO optimizers (default: 1)
+    --degree D: Override tree branching degree for MCTS/DAG-MCTS/DOO optimizers (default: auto from num_vars: 1 if 1 var, 2 if ≥2 vars)
 
 Examples:
     julia --project=. run_experiments.jl --quick
@@ -87,12 +87,12 @@ for (i, arg) in enumerate(ARGS)
 end
 
 # Parse --degree D (or --degree=D)
-global mcts_degree = 1
+global mcts_degree_override = nothing
 for (i, arg) in enumerate(ARGS)
     if arg == "--degree" && i < length(ARGS)
-        global mcts_degree = parse(Int, ARGS[i+1])
+        global mcts_degree_override = parse(Int, ARGS[i+1])
     elseif startswith(arg, "--degree=")
-        global mcts_degree = parse(Int, arg[10:end])
+        global mcts_degree_override = parse(Int, arg[10:end])
     end
 end
 
@@ -318,8 +318,9 @@ function run_single_sample(config::Dict, sample_num::Int)
     initial_loss = loss.eval([initial_param])[1]
 
     # Get optimizer configs
-    mcts_deg = num_vars >= 2 ? 2 : 1
-    opt_configs = get_optimizer_configs(K; selection_mode=selection_mode, degree=mcts_deg, prime=p, dim=num_vars)
+    auto_degree = num_vars >= 2 ? 2 : 1
+    effective_mcts_degree = isnothing(mcts_degree_override) ? auto_degree : mcts_degree_override
+    opt_configs = get_optimizer_configs(K; selection_mode=selection_mode, degree=effective_mcts_degree, prime=p, dim=num_vars)
 
     # Results storage for this sample
     sample_results = Dict{String, Any}()
@@ -497,7 +498,9 @@ println("="^70)
 println("Start time: $(Dates.now())")
 println("Number of experiments: $(length(configs))")
 println("Epochs per optimizer: $n_epochs")
-println("MCTS/DAG-MCTS/DOO degree: $mcts_degree")
+if !isnothing(mcts_degree_override)
+    println("MCTS/DAG-MCTS/DOO degree override: $mcts_degree_override")
+end
 println("Random seed: 42 (for reproducibility)")
 println("="^70)
 

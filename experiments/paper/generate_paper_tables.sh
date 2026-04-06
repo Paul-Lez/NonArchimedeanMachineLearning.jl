@@ -12,7 +12,7 @@
 #   --epochs N        Override number of epochs (default: 20)
 #   --samples N       Override number of samples per config (default: 30)
 #   --selection-mode  MCTS/DAG-MCTS selection mode: BestValue, VisitCount, or BestLoss (default: BestValue)
-#   --degree D        Set tree branching degree for MCTS/DAG-MCTS/DOO optimizers (default: 1)
+#   --degree D        Override tree branching degree for MCTS/DAG-MCTS/DOO optimizers (default: auto from dims)
 #   --verbose         Include per-configuration detailed tables (default: aggregate only)
 #
 # The script must be run from the repository root, e.g.:

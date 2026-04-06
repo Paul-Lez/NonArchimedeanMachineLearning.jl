@@ -123,7 +123,7 @@ function latex_sci_compact(x::Float64; digits::Int=1)
     if exp == 0
         return Printf.format(Printf.Format("%.$(digits)f"), x)
     else
-        return Printf.format(Printf.Format("%.$(digits)f{\\scriptstyle\\times 10^{%d}}"), mantissa, exp)
+        return Printf.format(Printf.Format("%.$(digits)f\\text{e}%d"), mantissa, exp)
     end
 end
 
@@ -653,90 +653,6 @@ function generate_optimizer_aggregate_table(experiments, optimizer_order)
 end
 
 # ============================================================================
-# Table 5: Function type comparison (zero vs one)
-# ============================================================================
-
-function generate_function_type_table(experiments, optimizer_order)
-    valid = filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
-    if isempty(valid)
-        return "% No valid experiments for function type table\n"
-    end
-
-    # Group by target function type
-    by_type = Dict{String, Vector}()
-    for exp in valid
-        if haskey(exp["config"], "target_fn")
-            fn_type = exp["config"]["target_fn"]
-            if !haskey(by_type, fn_type)
-                by_type[fn_type] = []
-            end
-            push!(by_type[fn_type], exp)
-        end
-    end
-
-    if length(by_type) < 2
-        return "% Not enough function types for comparison table\n"
-    end
-
-    lines = String[]
-    push!(lines, "\\begin{table}[H]")
-    push!(lines, "\\centering")
-    push!(lines, "\\caption{Performance comparison by target function type. " *
-                 "Shows mean final loss aggregated over configurations for each function type.}")
-    push!(lines, "\\label{tab:funclearn-function-type}")
-
-    n_opts = length(optimizer_order)
-    col_spec = "l" * "c"^n_opts
-    push!(lines, "\\adjustbox{max width=\\textwidth}{%")
-    push!(lines, "\\begin{tabular}{$col_spec}")
-    push!(lines, "\\toprule")
-
-    header = "Function Type"
-    for opt_name in optimizer_order
-        header *= " & $(display_name(opt_name))"
-    end
-    header *= " \\\\"
-    push!(lines, header)
-    push!(lines, "\\midrule")
-
-    _mean(x) = isempty(x) ? 0.0 : sum(x) / length(x)
-
-    for fn_type in sort(collect(keys(by_type)))
-        exps = by_type[fn_type]
-        row = "\\texttt{" * fn_type * "}"
-
-        for opt_name in optimizer_order
-            losses = Float64[]
-            for exp in exps
-                if haskey(exp["aggregate"], opt_name) && !haskey(exp["aggregate"][opt_name], "error")
-                    push!(losses, exp["aggregate"][opt_name]["mean_final_loss"])
-                end
-            end
-
-            if !isempty(losses)
-                mean_loss = _mean(losses)
-                row *= " & \$$(latex_sci_compact(mean_loss))\$"
-            else
-                row *= " & ---"
-            end
-        end
-        row *= " \\\\"
-        push!(lines, row)
-        push!(lines, "\\hline")
-    end
-
-    if !isempty(lines) && lines[end] == "\\hline"
-        pop!(lines)
-    end
-    push!(lines, "\\bottomrule")
-    push!(lines, "\\end{tabular}")
-    push!(lines, "}% end adjustbox")
-    push!(lines, "\\end{table}")
-
-    return join(lines, "\n") * "\n"
-end
-
-# ============================================================================
 # Table: Optimizer ranking summary
 # ============================================================================
 
@@ -978,12 +894,6 @@ function generate_unified_document(experiments, optimizer_order; verbose=true)
     push!(lines, "% ----------------------------------------------------------------------------")
     push!(lines, "")
     push!(lines, generate_optimizer_aggregate_table(experiments, optimizer_order))
-
-    push!(lines, "% ----------------------------------------------------------------------------")
-    push!(lines, "% Table: Function type comparison")
-    push!(lines, "% ----------------------------------------------------------------------------")
-    push!(lines, "")
-    push!(lines, as_landscape(generate_function_type_table(experiments, optimizer_order)))
 
     push!(lines, "% ----------------------------------------------------------------------------")
     push!(lines, "% Table: Evaluation count comparison")

@@ -11,6 +11,7 @@ This module provides:
 """
 
 using Oscar
+using Combinatorics
 
 """
     generate_random_padic(p::Int, prec::Int, min_exp::Int, num_terms::Int) -> PadicFieldElem

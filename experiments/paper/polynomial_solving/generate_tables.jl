@@ -120,7 +120,7 @@ function latex_sci(x::Float64; digits::Int=2)
     if exp == 0
         return Printf.format(Printf.Format("%.$(digits)f"), x)
     else
-        return Printf.format(Printf.Format("%.$(digits)f \\times 10^{%d}"), mantissa, exp)
+        return Printf.format(Printf.Format("%.$(digits)f\\text{e}%d"), mantissa, exp)
     end
 end
 
@@ -133,7 +133,7 @@ function latex_sci_compact(x::Float64; digits::Int=1)
     if exp == 0
         return Printf.format(Printf.Format("%.$(digits)f"), x)
     else
-        return Printf.format(Printf.Format("%.$(digits)f{\\scriptstyle\\times 10^{%d}}"), mantissa, exp)
+        return Printf.format(Printf.Format("%.$(digits)f\\text{e}%d"), mantissa, exp)
     end
 end
 
@@ -359,107 +359,7 @@ function generate_detailed_table(experiments, optimizer_order)
 end
 
 # ============================================================================
-# Table 3: Degree x Variables grid (grouped by prime)
-# ============================================================================
-
-function generate_grid_table(experiments, optimizer_order)
-    valid = filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
-    if length(valid) < 2
-        return "% Not enough experiments for grid table\n"
-    end
-
-    # Group by prime
-    by_prime = Dict{Int, Vector}()
-    for exp in valid
-        p = exp["config"]["prime"]
-        if !haskey(by_prime, p)
-            by_prime[p] = []
-        end
-        push!(by_prime[p], exp)
-    end
-
-    lines = String[]
-
-    for prime in sort(collect(keys(by_prime)))
-        exps = by_prime[prime]
-        if length(exps) < 2
-            continue
-        end
-
-        # Find best optimizer for each experiment
-        push!(lines, "\\begin{table}[H]")
-        push!(lines, "\\centering")
-        push!(lines, "\\caption{Polynomial solving over \\(\\mathbb{Q}_{$prime}\\): " *
-                     "mean final loss by variables and degree. Best optimizer per row in bold.}")
-        push!(lines, "\\label{tab:poly-solving-grid-p$prime}")
-
-        n_opts = length(optimizer_order)
-        col_spec = "cc" * "c"^n_opts
-        push!(lines, "\\adjustbox{max width=\\textwidth}{%")
-        push!(lines, "\\begin{tabular}{$col_spec}")
-        push!(lines, "\\toprule")
-
-        header = "Vars & Deg"
-        for opt_name in optimizer_order
-            header *= " & $(display_name(opt_name))"
-        end
-        header *= " \\\\"
-        push!(lines, header)
-        push!(lines, "\\midrule")
-
-        # Sort by (num_vars, degree)
-        sort!(exps, by=e -> (e["config"]["num_vars"], e["config"]["degree"]))
-
-        for exp in exps
-            config = exp["config"]
-            agg = exp["aggregate"]
-
-            # Find best (minimum) mean final loss for bolding (excluding Random)
-            best_loss = Inf
-            for opt_name in optimizer_order
-                opt_name == "Random" && continue
-                if haskey(agg, opt_name) && !haskey(agg[opt_name], "error")
-                    loss = agg[opt_name]["mean_final_loss"]
-                    if loss < best_loss
-                        best_loss = loss
-                    end
-                end
-            end
-
-            row = "$(config["num_vars"]) & $(config["degree"])"
-            for opt_name in optimizer_order
-                if haskey(agg, opt_name) && !haskey(agg[opt_name], "error")
-                    loss = agg[opt_name]["mean_final_loss"]
-                    formatted = "\$$(latex_sci_compact(loss))\$"
-                    if latex_sci_compact(loss) == latex_sci_compact(best_loss)
-                        row *= " & \\textbf{$formatted}"
-                    else
-                        row *= " & $formatted"
-                    end
-                else
-                    row *= " & ---"
-                end
-            end
-            row *= " \\\\"
-            push!(lines, row)
-            push!(lines, "\\hline")
-        end
-
-        if !isempty(lines) && lines[end] == "\\hline"
-            pop!(lines)
-        end
-        push!(lines, "\\bottomrule")
-        push!(lines, "\\end{tabular}")
-        push!(lines, "}% end adjustbox")
-        push!(lines, "\\end{table}")
-        push!(lines, "")
-    end
-
-    return join(lines, "\n") * "\n"
-end
-
-# ============================================================================
-# Table 4: Timing comparison
+# Table 3: Timing comparison
 # ============================================================================
 
 function generate_timing_table(experiments, optimizer_order)
@@ -765,12 +665,6 @@ function generate_unified_document(experiments, optimizer_order; verbose=true)
         push!(lines, "")
         push!(lines, generate_detailed_table(experiments, optimizer_order))
     end
-
-    push!(lines, "% ----------------------------------------------------------------------------")
-    push!(lines, "% Table: Degree x Variables grid (per prime)")
-    push!(lines, "% ----------------------------------------------------------------------------")
-    push!(lines, "")
-    push!(lines, as_landscape(generate_grid_table(experiments, optimizer_order)))
 
     push!(lines, "% ----------------------------------------------------------------------------")
     push!(lines, "% Table: Timing comparison")
