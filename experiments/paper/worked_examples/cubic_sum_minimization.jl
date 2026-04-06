@@ -25,6 +25,7 @@ using .NAML
 using Oscar
 using Printf
 using Random
+using Plots
 Random.seed!(42)
 
 println("=== Worked Example: Cubic Sum Minimization over Q₂ ===\n")
@@ -74,6 +75,7 @@ println("Known minimizer:   a = 1  (ℓ(1) = 0)\n")
 function run_optimizer(optim, n_steps)
     best_loss  = eval_loss(optim)
     best_param = optim.param
+    loss_history = Float64[best_loss]
     t_start    = time()
     for _ in 1:n_steps
         step!(optim)
@@ -82,9 +84,9 @@ function run_optimizer(optim, n_steps)
             best_loss  = l
             best_param = optim.param
         end
-        has_converged(optim) && break
+        push!(loss_history, best_loss)
     end
-    return best_loss, best_param, time() - t_start
+    return best_loss, best_param, time() - t_start, loss_history
 end
 
 n_steps = 60
@@ -93,7 +95,7 @@ n_steps = 60
 
 println("Running Greedy Descent ($n_steps steps)...")
 greedy_optim = greedy_descent_init(initial_param, loss, 1, (false, 1))
-greedy_loss, greedy_param, greedy_time = run_optimizer(greedy_optim, n_steps)
+greedy_loss, greedy_param, greedy_time, greedy_history = run_optimizer(greedy_optim, n_steps)
 
 # ── MCTS ───────────────────────────────────────────────────────────────────────
 
@@ -105,7 +107,7 @@ mcts_config = MCTSConfig(
     selection_mode       = BestValue
 )
 mcts_optim = mcts_descent_init(initial_param, loss, mcts_config)
-mcts_loss, mcts_param, mcts_time = run_optimizer(mcts_optim, n_steps)
+mcts_loss, mcts_param, mcts_time, mcts_history = run_optimizer(mcts_optim, n_steps)
 
 # ── DOO ────────────────────────────────────────────────────────────────────────
 
@@ -117,7 +119,7 @@ doo_config = DOOConfig(
     degree    = 1
 )
 doo_optim = doo_descent_init(initial_param, loss, 1, doo_config)
-doo_loss, doo_param, doo_time = run_optimizer(doo_optim, n_steps)
+doo_loss, doo_param, doo_time, doo_history = run_optimizer(doo_optim, n_steps)
 
 # ── Console summary ────────────────────────────────────────────────────────────
 
@@ -164,4 +166,22 @@ end
 println(raw"  \bottomrule")
 println(raw"\end{tabular}")
 println()
+
+# ── Loss curve plot ───────────────────────────────────────────────────────────
+
+println("Generating loss curve plot...")
+plt = plot(
+    0:length(greedy_history)-1, greedy_history,
+    label="Greedy Descent", linewidth=2, yscale=:log10,
+    xlabel="Epoch", ylabel="Best Loss",
+    title="Cubic Sum Minimization — Loss Curves",
+    legend=:topright
+)
+plot!(plt, 0:length(mcts_history)-1, mcts_history, label="MCTS", linewidth=2)
+plot!(plt, 0:length(doo_history)-1, doo_history, label="DOO", linewidth=2)
+
+outpath = joinpath(@__DIR__, "cubic_sum_loss_curves.png")
+savefig(plt, outpath)
+println("Loss curve saved to $outpath")
+
 println("Done!")
