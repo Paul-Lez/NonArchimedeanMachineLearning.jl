@@ -831,7 +831,8 @@ function dag_mcts_search(
     # Select best child according to selection mode
     best_child = select_best_child_dag(root, table, config, state)
 
-    return best_child.polydisc, best_child, root.is_solved
+    # TODO: we should handle the case where the root is solved in a smarter way?
+    return best_child.polydisc, best_child, root.is_terminal
 end
 
 ##################################################

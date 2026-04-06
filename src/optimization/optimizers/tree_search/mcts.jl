@@ -462,7 +462,7 @@ function mcts_search(root::MCTSNode{S,T,N}, loss::Loss, config::MCTSConfig) wher
     # Select the best child according to configured selection mode
     best_child = select_best_child(root, config)
 
-    return best_child.polydisc, best_child, root.is_solved
+    return best_child.polydisc, best_child, root.is_terminal
 end
 
 @doc raw"""
@@ -684,6 +684,8 @@ function mcts_descent(
         state.root = MCTSNode(param)
     end
 
+    # TODO: currently we track convergence by checking whether the root node has children.
+    # We should actually check whether it is solved, and if so just jump to the child with the best value.
     # Run MCTS search
     best_polydisc, best_node, converged = mcts_search(state.root, loss, config)
 

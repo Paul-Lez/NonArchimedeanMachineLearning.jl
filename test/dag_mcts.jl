@@ -604,6 +604,80 @@ using NAML
         @test verify_transposition_table(optim.state)
     end
 
+    @testset "MCTS converged parameter is terminal" begin
+        # Use very low precision so the entire search space is small and MCTS
+        # converges because it has solved the tree, not because we ran out of steps.
+        K_low = PadicField(2, 3)
+        R_low, x_low = polynomial_ring(K_low, ["x"])
+        poly_low = AbsolutePolynomialSum([x_low[1]^2])
+        PT = ValuationPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 1}
+        batch_eval_low = batch_evaluate_init(poly_low, PT)
+
+        loss_low = Loss(
+            params -> [batch_eval_low(p) for p in params],
+            vs -> [directional_derivative(poly_low, v) for v in vs]
+        )
+
+        initial_p = ValuationPolydisc([K_low(0)], [0])
+        config = MCTSConfig(num_simulations=1000, persist_tree=false)
+        optim = mcts_descent_init(initial_p, loss_low, config)
+
+        # Run until convergence
+        converged = false
+        for i in 1:20
+            converged = step!(optim)
+            if converged
+                break
+            end
+        end
+
+        # Verify convergence happened because the tree was solved, not timeout
+        @test converged
+
+        # The final parameter should be terminal: all radii == precision,
+        # meaning children() returns an empty vector (no further refinement possible)
+        final_param = optim.param
+        @test all(r -> r == 3, NAML.radius(final_param))
+        @test isempty(children(final_param, 1))
+    end
+
+    @testset "DAG-MCTS converged parameter is terminal" begin
+        K_low = PadicField(2, 3)
+        R_low, x_low = polynomial_ring(K_low, ["x"])
+        poly_low = AbsolutePolynomialSum([x_low[1]^2])
+        PT = ValuationPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 1}
+        batch_eval_low = batch_evaluate_init(poly_low, PT)
+
+        loss_low = Loss(
+            params -> [batch_eval_low(p) for p in params],
+            vs -> [directional_derivative(poly_low, v) for v in vs]
+        )
+
+        initial_p = ValuationPolydisc([K_low(0)], [0])
+        config = DAGMCTSConfig(num_simulations=1000, persist_table=false, track_parents=true)
+        optim = dag_mcts_descent_init(initial_p, loss_low, config)
+
+        # Run until convergence
+        converged = false
+        for i in 1:20
+            converged = step!(optim)
+            if converged
+                break
+            end
+        end
+
+        # Verify convergence happened because the tree was solved, not timeout
+        @test converged
+
+        # The final parameter should be terminal: all radii == precision
+        final_param = optim.param
+        @test all(r -> r == 3, NAML.radius(final_param))
+        @test isempty(children(final_param, 1))
+
+        # Transposition table should still be consistent
+        @test verify_transposition_table(optim.state)
+    end
+
     @testset "DAG-MCTS Stats Include Solved/Terminal Counts" begin
         K_low = PadicField(2, 3)
         R_low, x_low = polynomial_ring(K_low, ["x"])
