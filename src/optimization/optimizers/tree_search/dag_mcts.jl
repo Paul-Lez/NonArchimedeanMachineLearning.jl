@@ -29,6 +29,10 @@ polydisc state can be reached via different action sequences.
 - `visits::Int`: Total visit count N(s) aggregated from all paths
 - `total_value::Float64`: Sum of all values Q(s) backpropagated through this node
 - `is_expanded::Bool`: Whether this node's children have been generated
+- `is_terminal::Bool`: True if expansion produces no children (precision limit reached)
+- `is_solved::Bool`: True if terminal, or expanded with all children solved
+- `proven_value::Float64`: Exact value once solved (NaN if unsolved)
+- `unsolved_children_count::Int`: Number of children not yet marked solved
 
 # Design Decision (recorded for future experimentation)
 We track all parents in a vector rather than having no parent information.
@@ -42,6 +46,10 @@ mutable struct DAGMCTSNode{S,T,N}
     visits::Int
     total_value::Float64
     is_expanded::Bool
+    is_terminal::Bool          # true if expansion produces no children (precision limit reached)
+    is_solved::Bool            # true if terminal, or expanded with all children solved
+    proven_value::Float64      # exact value once solved (NaN if unsolved)
+    unsolved_children_count::Int  # number of children not yet marked solved
 end
 
 @doc raw"""
@@ -56,7 +64,11 @@ function DAGMCTSNode(polydisc::ValuationPolydisc{S,T,N}) where {S,T,N}
         DAGMCTSNode{S,T,N}[],
         0,
         0.0,
-        false
+        false,
+        false,   # is_terminal
+        false,   # is_solved
+        NaN,     # proven_value
+        0        # unsolved_children_count
     )
 end
 
@@ -263,7 +275,12 @@ function select_child(node::DAGMCTSNode, exploration_constant::Float64)
     best_child = nothing
 
     for (action, child) in enumerate(node.children)
-        score = uct_score(child, node.visits, exploration_constant)
+        if child.is_solved
+            # Solved children use proven_value directly (no exploration bonus)
+            score = child.proven_value
+        else
+            score = uct_score(child, node.visits, exploration_constant)
+        end
         if score > best_score
             best_score = score
             best_action = action
@@ -317,6 +334,23 @@ function expand_node!(
     end
 
     node.is_expanded = true
+
+    # Terminal detection: no children means precision limit reached
+    if isempty(node.children)
+        node.is_terminal = true
+        node.is_solved = true
+        # proven_value will be set by the caller after evaluating the loss
+        node.unsolved_children_count = 0
+    else
+        # Count unsolved children (some may already be solved via transposition table)
+        node.unsolved_children_count = count(c -> !c.is_solved, node.children)
+
+        # If all children happen to already be solved (transposition), mark this node solved too
+        if node.unsolved_children_count == 0
+            node.is_solved = true
+            node.proven_value = maximum(child.proven_value for child in node.children)
+        end
+    end
 end
 
 @doc raw"""
@@ -338,7 +372,7 @@ function select_path(root::DAGMCTSNode, exploration_constant::Float64)
     path = [root]
     node = root
 
-    while node.is_expanded && !isempty(node.children) && node.visits > 0
+    while node.is_expanded && !isempty(node.children) && node.visits > 0 && !node.is_solved
         _, child = select_child(node, exploration_constant)
         push!(path, child)
         node = child
@@ -411,6 +445,80 @@ function backpropagate!(path::Vector{<:DAGMCTSNode}, value::Float64, state::DAGM
 end
 
 ##################################################
+# Solved Status Propagation
+##################################################
+
+@doc raw"""
+    check_solved!(node::DAGMCTSNode)
+
+Check if a DAG node should be marked as solved.
+A node is solved when expanded AND all children are solved.
+(DAG-MCTS always generates all children, so `is_expanded` implies fully expanded.)
+
+Sets `proven_value` to the max of children's `proven_values` (single-agent optimization).
+
+Returns `true` if the node was newly marked as solved.
+"""
+function check_solved!(node::DAGMCTSNode)
+    # If the node has already been marked as solved or isn't expanded, then we return false
+    # since there's no change in status
+    if node.is_solved || !node.is_expanded
+        return false
+    end
+    if node.unsolved_children_count > 0
+        return false
+    end
+    node.is_solved = true
+    node.proven_value = maximum(child.proven_value for child in node.children)
+    return true
+end
+
+@doc raw"""
+    propagate_solved_up_dag!(node::DAGMCTSNode, path::Vector{<:DAGMCTSNode})
+
+Propagate solved status upward in the DAG after `node` has been marked solved.
+
+When parent pointers are available (`track_parents=true`), uses BFS to notify
+ALL parents across the DAG. When parent pointers are unavailable, propagates
+only along the explicit simulation path (pragmatic fallback — some parents may
+not be notified immediately, but will catch up in future simulations).
+"""
+function propagate_solved_up_dag!(node::DAGMCTSNode, path::Vector{<:DAGMCTSNode})
+    if !isempty(node.parents)
+        # Parent pointers available: BFS to notify ALL parents
+        queue = [node]
+        while !isempty(queue)
+            solved_child = popfirst!(queue)
+            for parent in solved_child.parents
+                if parent.is_solved
+                    continue
+                end
+                parent.unsolved_children_count -= 1
+                if check_solved!(parent)
+                    push!(queue, parent)
+                end
+            end
+        end
+    else
+        # No parent pointers: propagate along the explicit path only
+        node_idx = findlast(n -> n === node, path)
+        if isnothing(node_idx) || node_idx <= 1
+            return
+        end
+        for i in (node_idx - 1):-1:1
+            parent = path[i]
+            if parent.is_solved
+                break
+            end
+            parent.unsolved_children_count -= 1
+            if !check_solved!(parent)
+                break
+            end
+        end
+    end
+end
+
+##################################################
 # Main DAG-MCTS Algorithm
 ##################################################
 
@@ -439,19 +547,46 @@ function dag_mcts_simulation!(
     path = select_path(root, config.exploration_constant)
     leaf = path[end]
 
+    # If we reached a solved node, use its proven value directly
+    if leaf.is_solved
+        backpropagate!(path, leaf.proven_value, state, leaf)
+        return leaf.proven_value
+    end
+
     # Phase 2: Expansion - expand using transposition table
     if !leaf.is_expanded
         expand_node!(leaf, table, config)
     end
 
-    # Choose a node to evaluate
+    # Handle terminal leaf: evaluate, set proven_value, propagate solved status
+    if leaf.is_terminal
+        if isnan(leaf.proven_value)
+            loss_value = loss.eval([leaf.polydisc])[1]
+            value = config.value_transform(loss_value)
+            leaf.proven_value = value
+            backpropagate!(path, value, state, leaf, loss_value)
+        else
+            backpropagate!(path, leaf.proven_value, state, leaf)
+        end
+        propagate_solved_up_dag!(leaf, path)
+        return leaf.proven_value
+    end
+
+    # Handle node that became solved during expansion (all children already solved via transposition)
+    if leaf.is_solved
+        backpropagate!(path, leaf.proven_value, state, leaf)
+        propagate_solved_up_dag!(leaf, path)
+        return leaf.proven_value
+    end
+
+    # Choose a node to evaluate, preferring unsolved unvisited children
     if !isempty(leaf.children)
-        # Pick an unvisited child, or random if all visited
-        unvisited = [c for c in leaf.children if c.visits == 0]
+        unvisited = [c for c in leaf.children if c.visits == 0 && !c.is_solved]
         if !isempty(unvisited)
             eval_node = rand(unvisited)
         else
-            eval_node = rand(leaf.children)
+            unsolved = [c for c in leaf.children if !c.is_solved]
+            eval_node = isempty(unsolved) ? rand(leaf.children) : rand(unsolved)
         end
         push!(path, eval_node)
     else
@@ -575,6 +710,11 @@ function select_best_child_dag(
         error("Cannot select from node with no children")
     end
 
+    # If root is solved, select child with best proven value
+    if root.is_solved
+        return argmax(c -> c.proven_value, root.children)
+    end
+
     if config.selection_mode == VisitCount
         # Standard MCTS: select most visited child
         best_child = nothing
@@ -668,19 +808,30 @@ function dag_mcts_search(
     # Ensure root is expanded
     expand_node!(root, table, config)
 
+    # Handle terminal root
+    if root.is_terminal
+        loss_value = loss.eval([root.polydisc])[1]
+        root.proven_value = config.value_transform(loss_value)
+        return root.polydisc, root, true
+    end
+
     if isempty(root.children)
         return root.polydisc, root, true
     end
 
     # Run simulations
     for _ in 1:config.num_simulations
+        # Early exit if root is fully solved
+        if root.is_solved
+            break
+        end
         dag_mcts_simulation!(root, table, loss, config, state)
     end
 
     # Select best child according to selection mode
     best_child = select_best_child_dag(root, table, config, state)
 
-    return best_child.polydisc, best_child, false
+    return best_child.polydisc, best_child, root.is_solved
 end
 
 ##################################################
@@ -848,10 +999,15 @@ function get_dag_stats(state::DAGMCTSState)
         multi_parent = count(v -> v > 1, values(child_parent_count))
     end
 
+    solved_count = count(n -> n.is_solved, values(state.transposition_table))
+    terminal_count = count(n -> n.is_terminal, values(state.transposition_table))
+
     return (
         unique_nodes = unique_nodes,
         total_visits = total_visits,
-        multi_parent_nodes = multi_parent
+        multi_parent_nodes = multi_parent,
+        solved_nodes = solved_count,
+        terminal_nodes = terminal_count
     )
 end
 
@@ -866,6 +1022,8 @@ function print_dag_stats(state::DAGMCTSState, max_depth::Int=3)
     println("  Unique nodes in table: $(stats.unique_nodes)")
     println("  Total visits: $(stats.total_visits)")
     println("  Nodes with multiple parents: $(stats.multi_parent_nodes)")
+    println("  Solved nodes: $(stats.solved_nodes)")
+    println("  Terminal nodes: $(stats.terminal_nodes)")
     println("  Step count: $(state.step_count)")
 
     if stats.multi_parent_nodes > 0
@@ -927,6 +1085,29 @@ function verify_transposition_table(state::DAGMCTSState)
                     @warn "Parent-child relationship inconsistent"
                     return false
                 end
+            end
+        end
+
+        # Check solved-status consistency
+        if node.is_terminal && !node.is_solved
+            @warn "Terminal node is not marked as solved"
+            return false
+        end
+        if node.is_solved && isnan(node.proven_value)
+            @warn "Solved node has NaN proven_value"
+            return false
+        end
+        if node.is_expanded && !node.is_terminal
+            actual_unsolved = count(c -> !c.is_solved, node.children)
+            if actual_unsolved != node.unsolved_children_count
+                @warn "unsolved_children_count mismatch: expected $actual_unsolved, got $(node.unsolved_children_count)"
+                return false
+            end
+        end
+        if node.is_solved && !node.is_terminal && node.is_expanded
+            if any(c -> !c.is_solved, node.children)
+                @warn "Solved non-terminal node has unsolved children"
+                return false
             end
         end
     end

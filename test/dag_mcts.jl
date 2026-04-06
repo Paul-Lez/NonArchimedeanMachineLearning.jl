@@ -389,4 +389,245 @@ using NAML
         # Without persistence, root is fresh each step (no pre-existing subtree beyond current search)
         @test optim_no_persist.state.root.parent === nothing
     end
+
+    ##################################################
+    # Terminal / Solved Node Handling
+    ##################################################
+
+    @testset "Terminal Node Detection - MCTS" begin
+        # Use very low precision so nodes become terminal quickly
+        K_low = PadicField(2, 3)
+        # A polydisc at radius = prec (3) is terminal: children() returns empty
+        terminal_p = ValuationPolydisc([K_low(0)], [3])
+        terminal_node = MCTSNode(terminal_p)
+
+        config = MCTSConfig(num_simulations=10)
+        NAML.expand_node!(terminal_node, config)
+
+        @test terminal_node.is_terminal
+        @test terminal_node.is_solved
+        @test isempty(terminal_node.children)
+        @test terminal_node.unsolved_children_count == 0
+
+        # A polydisc at radius 2 (< prec 3) should NOT be terminal
+        non_terminal_p = ValuationPolydisc([K_low(0)], [2])
+        non_terminal_node = MCTSNode(non_terminal_p)
+        NAML.expand_node!(non_terminal_node, config)
+
+        @test !non_terminal_node.is_terminal
+        @test !non_terminal_node.is_solved
+        @test !isempty(non_terminal_node.children)
+        @test non_terminal_node.unsolved_children_count == length(non_terminal_node.children)
+    end
+
+    @testset "Terminal Node Detection - DAG-MCTS" begin
+        K_low = PadicField(2, 3)
+        terminal_p = ValuationPolydisc([K_low(0)], [3])
+        terminal_node = DAGMCTSNode(terminal_p)
+
+        table = Dict{NAML.HashedPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 1}, DAGMCTSNode{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 1}}()
+        table[NAML.HashedPolydisc(terminal_p)] = terminal_node
+        config = DAGMCTSConfig(num_simulations=10)
+
+        NAML.expand_node!(terminal_node, table, config)
+
+        @test terminal_node.is_terminal
+        @test terminal_node.is_solved
+        @test isempty(terminal_node.children)
+        @test terminal_node.unsolved_children_count == 0
+    end
+
+    @testset "Solved Propagation - MCTS" begin
+        K_low = PadicField(2, 3)
+
+        # Build a small tree: root at radius 2, children at radius 3 (terminal)
+        root_p = ValuationPolydisc([K_low(0)], [2])
+        root_node = MCTSNode(root_p)
+
+        config = MCTSConfig(num_simulations=10)
+        NAML.expand_node!(root_node, config)
+
+        @test !root_node.is_terminal
+        @test length(root_node.children) > 0
+
+        # Expand all children - they should be terminal
+        for child in root_node.children
+            NAML.expand_node!(child, config)
+            @test child.is_terminal
+            @test child.is_solved
+            # Simulate setting proven_value (as mcts_search would)
+            child.proven_value = -1.0 * rand()
+        end
+
+        # Now propagate solved status up from each child
+        for child in root_node.children
+            NAML.propagate_solved_up!(child)
+        end
+
+        # Root should now be solved since all children are solved
+        @test root_node.is_solved
+        @test !isnan(root_node.proven_value)
+        # proven_value should be the max of children's proven_values
+        @test root_node.proven_value ≈ maximum(c.proven_value for c in root_node.children)
+    end
+
+    @testset "Solved Propagation - DAG Diamond" begin
+        K_low = PadicField(2, 3)
+
+        # 2D polydisc: refine dim 1 then dim 2 vs dim 2 then dim 1 → same child
+        root_p = ValuationPolydisc([K_low(0), K_low(0)], [1, 1])
+
+        table = Dict{NAML.HashedPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 2}}()
+        root_node = NAML.get_or_create_node!(table, root_p)
+
+        config = DAGMCTSConfig(num_simulations=10, track_parents=true)
+        NAML.expand_node!(root_node, table, config)
+
+        # Each child refines one dimension
+        @test length(root_node.children) > 0
+
+        # Expand all children
+        for child in root_node.children
+            NAML.expand_node!(child, table, config)
+        end
+
+        # Mark all terminal (leaf) nodes as solved with a value
+        for node in values(table)
+            if node.is_terminal
+                node.proven_value = -1.0 * rand()
+            end
+        end
+
+        # Propagate solved status from all terminal nodes
+        for node in values(table)
+            if node.is_terminal && node.is_solved
+                NAML.propagate_solved_up_dag!(node, [node])
+            end
+        end
+
+        # Check consistency: all expanded nodes with all-solved children should be solved
+        for node in values(table)
+            if node.is_expanded && !node.is_terminal
+                all_children_solved = all(c -> c.is_solved, node.children)
+                if all_children_solved
+                    @test node.is_solved
+                    @test !isnan(node.proven_value)
+                end
+            end
+        end
+    end
+
+    @testset "check_solved! Function" begin
+        K_low = PadicField(2, 3)
+        root_p = ValuationPolydisc([K_low(0)], [2])
+        root_node = MCTSNode(root_p)
+
+        config = MCTSConfig(num_simulations=10)
+        NAML.expand_node!(root_node, config)
+
+        # check_solved! should return false when children are unsolved
+        @test !NAML.check_solved!(root_node)
+
+        # Mark all children as solved manually
+        for child in root_node.children
+            child.is_solved = true
+            child.proven_value = -0.5
+        end
+        root_node.unsolved_children_count = 0
+
+        # Now check_solved! should succeed
+        @test NAML.check_solved!(root_node)
+        @test root_node.is_solved
+        @test root_node.proven_value ≈ -0.5
+
+        # Calling again should return false (already solved)
+        @test !NAML.check_solved!(root_node)
+    end
+
+    @testset "Early Termination - MCTS on Tiny Space" begin
+        # prec=3, p=2, 1D: only 3 levels of depth, fully solvable
+        K_low = PadicField(2, 3)
+        R_low, x_low = polynomial_ring(K_low, ["x"])
+        poly_low = AbsolutePolynomialSum([x_low[1]^2])
+        PT = ValuationPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 1}
+        batch_eval_low = batch_evaluate_init(poly_low, PT)
+
+        loss_low = Loss(
+            params -> [batch_eval_low(p) for p in params],
+            vs -> [directional_derivative(poly_low, v) for v in vs]
+        )
+
+        initial_p = ValuationPolydisc([K_low(0)], [0])
+        config = MCTSConfig(num_simulations=1000, persist_tree=false)
+        optim = mcts_descent_init(initial_p, loss_low, config)
+
+        # Run enough steps that the tree should become fully solved
+        converged = false
+        for i in 1:10
+            converged = step!(optim)
+            if converged
+                break
+            end
+        end
+
+        # With such a tiny space (8 leaf nodes), MCTS should solve it
+        @test converged
+    end
+
+    @testset "Early Termination - DAG-MCTS on Tiny Space" begin
+        K_low = PadicField(2, 3)
+        R_low, x_low = polynomial_ring(K_low, ["x"])
+        poly_low = AbsolutePolynomialSum([x_low[1]^2])
+        PT = ValuationPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 1}
+        batch_eval_low = batch_evaluate_init(poly_low, PT)
+
+        loss_low = Loss(
+            params -> [batch_eval_low(p) for p in params],
+            vs -> [directional_derivative(poly_low, v) for v in vs]
+        )
+
+        initial_p = ValuationPolydisc([K_low(0)], [0])
+        config = DAGMCTSConfig(num_simulations=1000, persist_table=false, track_parents=true)
+        optim = dag_mcts_descent_init(initial_p, loss_low, config)
+
+        converged = false
+        for i in 1:10
+            converged = step!(optim)
+            if converged
+                break
+            end
+        end
+
+        @test converged
+
+        # Verify transposition table consistency including solved-status checks
+        @test verify_transposition_table(optim.state)
+    end
+
+    @testset "DAG-MCTS Stats Include Solved/Terminal Counts" begin
+        K_low = PadicField(2, 3)
+        R_low, x_low = polynomial_ring(K_low, ["x"])
+        poly_low = AbsolutePolynomialSum([x_low[1]^2])
+        PT = ValuationPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 1}
+        batch_eval_low = batch_evaluate_init(poly_low, PT)
+
+        loss_low = Loss(
+            params -> [batch_eval_low(p) for p in params],
+            vs -> [directional_derivative(poly_low, v) for v in vs]
+        )
+
+        initial_p = ValuationPolydisc([K_low(0)], [0])
+        config = DAGMCTSConfig(num_simulations=500, persist_table=true, track_parents=true)
+        optim = dag_mcts_descent_init(initial_p, loss_low, config)
+
+        for _ in 1:5
+            step!(optim)
+        end
+
+        stats = get_dag_stats(optim.state)
+        @test hasproperty(stats, :solved_nodes)
+        @test hasproperty(stats, :terminal_nodes)
+        @test stats.terminal_nodes >= 0
+        @test stats.solved_nodes >= stats.terminal_nodes  # solved ⊇ terminal
+    end
 end
