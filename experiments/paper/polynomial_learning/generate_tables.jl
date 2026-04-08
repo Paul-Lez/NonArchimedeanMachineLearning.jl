@@ -141,6 +141,15 @@ end
 # Helper: escape special characters for LaTeX
 # ============================================================================
 
+# Wrap a cell in bold. `\textbf{$X$}` does NOT bold math-mode content,
+# so any `$...$` segments are rewrapped with `\mathbf{...}` (core LaTeX,
+# reliably bolds digits/letters without needing a bold math font package).
+# Plain-text cells without math are handled by the outer `\textbf{}`.
+function bold_best(cell::AbstractString)
+    bolded = replace(cell, r"\$([^$]*)\$" => s"$\\mathbf{\1}$")
+    return "\\textbf{" * bolded * "}"
+end
+
 function escape_latex(s::String)
     # Escape LaTeX special characters in order
     # Note: backslash must be first, and we need to be careful with replacement order
@@ -155,53 +164,6 @@ function escape_latex(s::String)
     s = replace(s, "{" => "\\{")
     s = replace(s, "}" => "\\}")
     return s
-end
-
-# ============================================================================
-# Table 0: Configuration summary table
-# ============================================================================
-
-function generate_config_table(experiments)
-    valid = filter(e -> !haskey(e, "error") && haskey(e, "config"), experiments)
-    if isempty(valid)
-        return "% No valid experiments to tabulate\n"
-    end
-
-    lines = String[]
-    push!(lines, "\\begin{table}[H]")
-    push!(lines, "\\centering")
-    push!(lines, "\\caption{Polynomial learning experiment configurations. " *
-                 "Each row describes one experimental setup.}")
-    push!(lines, "\\label{tab:poly-learning-config}")
-    push!(lines, "\\adjustbox{max width=\\textwidth}{%")
-    push!(lines, "\\begin{tabular}{lcccccc}")
-    push!(lines, "\\toprule")
-    push!(lines, "Experiment & Prime (\$p\$) & Precision & Degree & \\#Points & \\#Samples \\\\")
-    push!(lines, "\\midrule")
-
-    for exp in valid
-        config = exp["config"]
-        name = "\\texttt{" * escape_latex(config["name"]) * "}"
-        prime = config["prime"]
-        prec = config["prec"]
-        degree = config["degree"]
-        n_points = config["n_points"]
-        num_samples = config["num_samples"]
-
-        row = "$name & $prime & $prec & $degree & $n_points & $num_samples \\\\"
-        push!(lines, row)
-        push!(lines, "\\hline")
-    end
-
-    if !isempty(lines) && lines[end] == "\\hline"
-        pop!(lines)
-    end
-    push!(lines, "\\bottomrule")
-    push!(lines, "\\end{tabular}")
-    push!(lines, "}% end adjustbox")
-    push!(lines, "\\end{table}")
-
-    return join(lines, "\n") * "\n"
 end
 
 # ============================================================================
@@ -267,7 +229,7 @@ function generate_summary_table(experiments, optimizer_order)
                     "\$$(latex_sci_compact(loss))\$"
                 end
                 if latex_sci_compact(loss) == latex_sci_compact(best_loss)
-                    row *= " & \\textbf{$formatted}"
+                    row *= " & " * bold_best(formatted)
                 else
                     row *= " & $formatted"
                 end
@@ -337,7 +299,7 @@ function generate_detailed_table(experiments, optimizer_order)
                 loss = stats["mean_final_loss"]
                 loss_str = @sprintf("\$%.2e\$", loss)
                 if @sprintf("%.2e", loss) == @sprintf("%.2e", best_loss)
-                    loss_str = "\\textbf{$loss_str}"
+                    loss_str = bold_best(loss_str)
                 end
                 std_loss_str = haskey(stats, "std_final_loss") ? @sprintf("\$%.2e\$", stats["std_final_loss"]) : "---"
                 improv_str = @sprintf("%.1f", stats["mean_improvement_ratio"] * 100)
@@ -424,7 +386,7 @@ function generate_timing_table(experiments, optimizer_order)
                 t = agg[opt_name]["mean_time"]
                 t_str = @sprintf("%.4f", t)
                 if @sprintf("%.4f", t) == @sprintf("%.4f", best_time)
-                    row *= " & \\textbf{$t_str}"
+                    row *= " & " * bold_best(t_str)
                 else
                     row *= " & $t_str"
                 end
@@ -595,7 +557,7 @@ function generate_ranking_table(experiments, optimizer_order)
                     @sprintf("\$%.2f {\\scriptstyle \\pm %.2f}\$", r, std_r) :
                     @sprintf("\$%.2f\$", r)
                 if @sprintf("%.2f", r) == @sprintf("%.2f", best_rank)
-                    row *= " & \\textbf{$cell}"
+                    row *= " & " * bold_best(cell)
                 else
                     row *= " & $cell"
                 end
@@ -627,7 +589,7 @@ function generate_ranking_table(experiments, optimizer_order)
             avg = rank_sums[opt_name] / rank_counts[opt_name]
             avg_str = @sprintf("%.2f", avg)
             if @sprintf("%.2f", avg) == @sprintf("%.2f", best_avg)
-                avg_row *= " & \\textbf{$avg_str}"
+                avg_row *= " & " * bold_best(avg_str)
             else
                 avg_row *= " & $avg_str"
             end
@@ -663,12 +625,6 @@ function generate_unified_document(experiments, optimizer_order; verbose=true)
     push!(lines, "")
 
     # Generate all tables
-    push!(lines, "% ----------------------------------------------------------------------------")
-    push!(lines, "% Table: Configuration Summary")
-    push!(lines, "% ----------------------------------------------------------------------------")
-    push!(lines, "")
-    push!(lines, generate_config_table(experiments))
-
     push!(lines, "% ----------------------------------------------------------------------------")
     push!(lines, "% Table: Summary (mean final loss)")
     push!(lines, "% ----------------------------------------------------------------------------")
