@@ -26,12 +26,22 @@ Flags:
 # Setup
 # ============================================================================
 
-include("../../../src/NAML.jl")
-include("../util.jl")
-include("../experiment_utils.jl")
+using Distributed
 
-using Oscar
-using .NAML
+# Ensure we have workers
+if nworkers() == 1
+    addprocs()
+end
+
+# Synchronize dependencies on all workers
+@everywhere using Oscar
+@everywhere include(joinpath(@__DIR__, "../../../src/NAML.jl"))
+@everywhere using .NAML
+@everywhere begin
+    using Random, Dates, Printf
+    include(joinpath(@__DIR__, "../util.jl"))
+    include(joinpath(@__DIR__, "../experiment_utils.jl"))
+end
 
 args = parse_experiment_args(ARGS)
 
@@ -51,7 +61,7 @@ configs = load_configs(args, default_configs)
 # Run single sample
 # ============================================================================
 
-function run_single_sample(config::Dict, sample_num::Int)
+@everywhere function run_single_sample(config::Dict, sample_num::Int, args)
     p = config["prime"]
     prec = config["prec"]
     degree = config["degree"]
@@ -94,9 +104,7 @@ function run_single_sample(config::Dict, sample_num::Int)
         degree=eff_degree, prime=p, dim=num_params
     )
 
-    # Run all optimizers serially inside this task. Parallelism lives at the
-    # (config, sample) level above; running optimizers serially here avoids
-    # nested threading and contention on the shared loss evaluator.
+    # Run all optimizers serially inside this task.
     optimizer_results = run_all_optimizers_serial(
         opt_configs, initial_param, loss, args.n_epochs
     )
@@ -111,6 +119,29 @@ function run_single_sample(config::Dict, sample_num::Int)
         "optimizers" => optimizer_results,
     )
 end
+
+@everywhere function run_experiment_suite(configs::Vector{Dict{String, Any}}, sample_num::Int, args)
+    results = []
+    for (config_idx, config) in enumerate(configs)
+        sample_result = try
+            run_single_sample(config, sample_num, args)
+        catch e 
+            Dict{String, Any}("sample_num" => sample_num, "config_idx" => config_idx, "error" => string(e))
+        end
+        push!(results, sample_result)
+    end 
+    return results
+end
+
+@everywhere function run_experiment_suites(configs, sample_num::AbstractVector{Int}, args)
+    results = Dict{Int, Any}()
+    for s in sample_num
+        results[s] = run_experiment_suite(configs, s, args)
+    end
+    return results
+end
+
+@everywhere dispatch_job(job) = run_experiment_suites(job[1], job[2], job[3])
 
 # ============================================================================
 # Print helpers
@@ -164,25 +195,37 @@ end
 results_by_config = [Dict{String, Any}("config" => config, "samples" => Any[])
                      for config in configs]
 
-# Flatten (config_idx, sample) into a single task list.
-tasks = [(ci, s) for ci in 1:length(configs) for s in 1:configs[ci]["num_samples"]]
+# Hacky, but currently all experiments have the same number of samples.
+num_samples = first([config["num_samples"] for config in configs])
 
-println("\nRunning $(length(tasks)) (config, sample) tasks serially...\n")
+# Divide samples into chunks for each worker to minimize redundant compilation
+chunk_size = ceil(Int, num_samples / nworkers())
+worker_samples = Base.Iterators.partition(1:num_samples, chunk_size)
 
-for (ci, sample) in tasks
-    config = configs[ci]
-    sample_result = try
-        run_single_sample(config, sample)
-    catch e
-        println("    ✗ $(config["name"]) sample $sample failed: $e")
-        flush(stdout)
-        Dict{String, Any}("sample_num" => sample, "error" => string(e))
-    end
+println("We use $(nworkers()) workers, and each worker will run $chunk_size samples.")
 
-    push!(results_by_config[ci]["samples"], sample_result)
+# Flatten (configs, sample_num) into a single task list for pmap.
+experiments = [(configs, samples, args) for samples in worker_samples]
 
-    if !haskey(sample_result, "error")
-        print_sample_result(config, sample, sample_result)
+println("Running on $(nworkers()) workers...")
+
+results = pmap(dispatch_job, experiments)
+
+println("\nAll experiments finished. Collecting results...")
+
+for (worker_idx, (_, samples, _)) in enumerate(experiments)
+    for sample_num in samples
+        sample_suite_rs = results[worker_idx][sample_num]
+        
+        for (ci, sample_result) in enumerate(sample_suite_rs)
+            push!(results_by_config[ci]["samples"], sample_result)
+        
+            if !haskey(sample_result, "error")
+                print_sample_result(configs[ci], sample_num, sample_result)
+            else
+                println("    ✗ $(configs[ci]["name"]) sample $sample_num failed: $(sample_result["error"])")
+            end
+        end
     end
 end
 
