@@ -26,15 +26,14 @@ end
 # ============================================================================
 
 """
-    compute_sample_rankings!(sample_results::Dict)
+    compute_sample_rankings!(optimizer_results::Dict)
 
-Rank optimizers within a sample by final_loss (lower = rank 1).
+Rank optimizers within a dictionary by final_loss (lower = rank 1).
 Adds a "rank" field to each valid optimizer result.
-Ties share the minimum rank (competition ranking: 1,1,3 not 1.5,1.5,3).
+Ties share the minimum rank (competition ranking: 1,1,3).
 """
-function compute_sample_rankings!(sample_results::Dict)
-    optimizers = sample_results["optimizers"]
-    valid_opts = [(name, res["final_loss"]) for (name, res) in optimizers
+function compute_sample_rankings!(optimizer_results::AbstractDict)
+    valid_opts = [(name, res["final_loss"]) for (name, res) in optimizer_results
                   if !haskey(res, "error")]
     isempty(valid_opts) && return
     sort!(valid_opts, by=x -> x[2])
@@ -46,7 +45,7 @@ function compute_sample_rankings!(sample_results::Dict)
             j += 1
         end
         for k in i:j-1
-            optimizers[valid_opts[k][1]]["rank"] = Float64(i)
+            optimizer_results[valid_opts[k][1]]["rank"] = Float64(i)
         end
         i = j
     end
@@ -58,33 +57,33 @@ end
 # ============================================================================
 
 """
-    compute_aggregate_stats(samples, optimizer_order; extra_fields=[]) -> Dict
+    compute_aggregate_stats(samples_in_suite::Vector{Dict}, suite_name::String;
+                            extra_fields::Vector{String}=String[]) -> Dict
 
-Compute aggregate statistics across samples for each optimizer.
-
-Returns a Dict mapping optimizer name => Dict of aggregate stats:
-- mean_final_loss, std_final_loss, min_final_loss, max_final_loss
-- mean_improvement, mean_improvement_ratio
-- mean_time, std_time
-- mean_total_evals (if available)
-- mean_rank, std_rank (if ranking data available)
-- Any fields listed in extra_fields (e.g., "final_accuracy", "accuracy_improvement")
+Compute aggregate statistics across samples for a specific suite.
+`samples_in_suite` is a Vector of optimizer results for this suite (one per sample).
 """
-function compute_aggregate_stats(samples::Vector, optimizer_order::Vector{String};
+function compute_aggregate_stats(samples_in_suite::AbstractVector, suite_name::String;
                                   extra_fields::Vector{String}=String[])
-    valid_samples = filter(s -> !haskey(s, "error"), samples)
+    if isempty(samples_in_suite)
+        return Dict("error" => "No samples in suite")
+    end
 
-    if isempty(valid_samples)
-        return Dict("error" => "No valid samples")
+    # Identify all optimizers in this suite
+    all_opt_names = Set{String}()
+    for sample in samples_in_suite
+        for opt_name in keys(sample)
+            push!(all_opt_names, opt_name)
+        end
     end
 
     aggregate = Dict{String, Any}()
 
-    for opt_name in optimizer_order
+    for opt_name in sort(collect(all_opt_names))
         opt_data = []
-        for sample in valid_samples
-            if haskey(sample["optimizers"], opt_name)
-                opt_result = sample["optimizers"][opt_name]
+        for sample in samples_in_suite
+            if haskey(sample, opt_name)
+                opt_result = sample[opt_name]
                 if !haskey(opt_result, "error")
                     push!(opt_data, opt_result)
                 end
@@ -118,7 +117,7 @@ function compute_aggregate_stats(samples::Vector, optimizer_order::Vector{String
                 agg["std_rank"] = length(ranks) > 1 ? _std(ranks) : 0.0
             end
 
-            # Extra fields (experiment-specific, e.g., accuracy)
+            # Extra fields
             for field in extra_fields
                 mean_key = "mean_$field"
                 std_key = "std_$field"
@@ -144,30 +143,54 @@ end
 # ============================================================================
 
 """
-    compute_global_ranking(experiments, optimizer_order) -> Dict
+    compute_global_ranking(experiments) -> Dict{String, Dict}
 
-Compute average rank across all experiment configurations.
-Returns a Dict mapping optimizer name => Dict("avg_rank" => ..., "n_configs" => ...).
+Compute average rank across all experiment configurations, grouped by suite.
+Returns Dict{SuiteName => Dict{OptName => {avg_rank, n_configs}}}.
 """
-function compute_global_ranking(experiments::Vector, optimizer_order::Vector{String})
-    global_ranks = Dict{String, Vector{Float64}}()
+function compute_global_ranking(experiments::Vector)
+    # SuiteName => OptName => Vector{Ranks}
+    suite_global_ranks = Dict{String, Dict{String, Vector{Float64}}}()
 
     for result in experiments
-        if !haskey(result, "error") && haskey(result, "aggregate") && !haskey(result["aggregate"], "error")
-            agg = result["aggregate"]
-            for opt_name in optimizer_order
-                if haskey(agg, opt_name) && haskey(agg[opt_name], "mean_rank")
-                    if !haskey(global_ranks, opt_name)
-                        global_ranks[opt_name] = Float64[]
+        if haskey(result, "error") || !haskey(result, "suites_aggregate")
+            continue
+        end
+        
+        suites_agg = result["suites_aggregate"]
+        for (suite_name, agg) in suites_agg
+            if haskey(agg, "error")
+                continue
+            end
+            
+            if !haskey(suite_global_ranks, suite_name)
+                suite_global_ranks[suite_name] = Dict{String, Vector{Float64}}()
+            end
+            
+            opt_ranks = suite_global_ranks[suite_name]
+            for (opt_name, stats) in agg
+                if haskey(stats, "mean_rank")
+                    if !haskey(opt_ranks, opt_name)
+                        opt_ranks[opt_name] = Float64[]
                     end
-                    push!(global_ranks[opt_name], agg[opt_name]["mean_rank"])
+                    push!(opt_ranks[opt_name], stats["mean_rank"])
                 end
             end
         end
     end
 
-    return Dict{String, Any}(
-        opt => Dict("avg_rank" => _mean(ranks), "n_configs" => length(ranks))
-        for (opt, ranks) in global_ranks if !isempty(ranks)
-    )
+    # Convert to results
+    output = Dict{String, Any}()
+    for (suite_name, opt_ranks) in suite_global_ranks
+        suite_res = Dict{String, Any}()
+        for (opt_name, ranks) in opt_ranks
+            suite_res[opt_name] = Dict(
+                "avg_rank" => _mean(ranks),
+                "n_configs" => length(ranks)
+            )
+        end
+        output[suite_name] = suite_res
+    end
+
+    return output
 end

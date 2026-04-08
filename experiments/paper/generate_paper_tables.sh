@@ -8,7 +8,7 @@
 #   3. generate_tables.jl → LaTeX tables (reads stats JSON)
 #
 # Usage:
-#   bash experiments/paper/generate_paper_tables.sh [--quick] [--epochs N] [--samples N] [--selection-mode M] [--degree D] [--verbose]
+#   bash experiments/paper/generate_paper_tables.sh [--quick] [--epochs N] [--samples N] [--selection-mode M] [--degree D] [--verbose] [-p N]
 #
 # Flags:
 #   --quick           Reduced epochs/simulations for smoke testing
@@ -17,6 +17,7 @@
 #   --selection-mode  MCTS/DAG-MCTS selection mode (default: BestValue)
 #   --degree D        Override tree branching degree (default: auto)
 #   --verbose         Include per-configuration detailed tables
+#   -p N, --procs N   Launch Julia with N additional worker processes (passed as `julia -p N`)
 # ==============================================================================
 
 set -euo pipefail
@@ -30,6 +31,10 @@ SAMPLES_FLAG="--samples 30"
 SELECTION_MODE_FLAG=""
 DEGREE_FLAG=""
 VERBOSE_FLAG=""
+PROCS_FLAG=""
+
+# Suite flags
+SUITE_FLAGS=""
 
 i=1
 while [ $i -le $# ]; do
@@ -75,8 +80,62 @@ while [ $i -le $# ]; do
             DEGREE_FLAG="--degree ${arg#*=}"
             i=$((i+1))
             ;;
+        --paper-optimizer-comparison|--paper)
+            SUITE_FLAGS="$SUITE_FLAGS --paper-optimizer-comparison"
+            i=$((i+1))
+            ;;
+        --paper-mcts-branching)
+            SUITE_FLAGS="$SUITE_FLAGS --paper-mcts-branching"
+            i=$((i+1))
+            ;;
+        --paper-dag-mcts-branching)
+            SUITE_FLAGS="$SUITE_FLAGS --paper-dag-mcts-branching"
+            i=$((i+1))
+            ;;
+        --paper-greedy-descent-branching)
+            SUITE_FLAGS="$SUITE_FLAGS --paper-greedy-descent-branching"
+            i=$((i+1))
+            ;;
+        --paper-gradient-descent-branching)
+            SUITE_FLAGS="$SUITE_FLAGS --paper-gradient-descent-branching"
+            i=$((i+1))
+            ;;
+        --paper-mcts-number-of-simulations)
+            SUITE_FLAGS="$SUITE_FLAGS --paper-mcts-number-of-simulations"
+            i=$((i+1))
+            ;;
+        --paper-dag-mcts-number-of-simulations)
+            SUITE_FLAGS="$SUITE_FLAGS --paper-dag-mcts-number-of-simulations"
+            i=$((i+1))
+            ;;
+        --paper-mcts-exploration-constant)
+            SUITE_FLAGS="$SUITE_FLAGS --paper-mcts-exploration-constant"
+            i=$((i+1))
+            ;;
+        --paper-dag-mcts-exploration-constant)
+            SUITE_FLAGS="$SUITE_FLAGS --paper-dag-mcts-exploration-constant"
+            i=$((i+1))
+            ;;
         --verbose)
             VERBOSE_FLAG="--verbose"
+            i=$((i+1))
+            ;;
+        -p)
+            i=$((i+1))
+            PROCS_FLAG="-p ${!i}"
+            i=$((i+1))
+            ;;
+        -p=*)
+            PROCS_FLAG="-p ${arg#*=}"
+            i=$((i+1))
+            ;;
+        --procs)
+            i=$((i+1))
+            PROCS_FLAG="-p ${!i}"
+            i=$((i+1))
+            ;;
+        --procs=*)
+            PROCS_FLAG="-p ${arg#*=}"
             i=$((i+1))
             ;;
         *)
@@ -84,6 +143,11 @@ while [ $i -le $# ]; do
             ;;
     esac
 done
+
+# If no suites specified, default to optimizer comparison
+if [ -z "$SUITE_FLAGS" ]; then
+    SUITE_FLAGS="--paper-optimizer-comparison"
+fi
 
 # ----------------------------------------------------------------------------
 # Helpers
@@ -108,11 +172,11 @@ run_pipeline() {
 
     # Stage 1: Run experiments → raw JSON
     step "[$NAME] Stage 1: Running experiments"
-    julia --project="$REPO_ROOT" \
+    julia --project="$REPO_ROOT" $PROCS_FLAG \
         "$DIR/run_experiments.jl" \
-        --paper --save \
+        --save \
         --output "$RAW_FILE" \
-        $QUICK_FLAG $EPOCHS_FLAG $SAMPLES_FLAG $SELECTION_MODE_FLAG $DEGREE_FLAG
+        $SUITE_FLAGS $QUICK_FLAG $EPOCHS_FLAG $SAMPLES_FLAG $SELECTION_MODE_FLAG $DEGREE_FLAG
     ok "Raw results: $DIR/$RAW_FILE"
 
     local RAW_PATH="$DIR/$RAW_FILE"

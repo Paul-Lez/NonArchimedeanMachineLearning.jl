@@ -31,8 +31,12 @@ function funclearn_config_table(experiments)
 end
 
 """Generate accuracy comparison table (experiment-specific)."""
-function generate_accuracy_table(experiments, optimizer_order)
-    valid = filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+function generate_accuracy_table(experiments, optimizer_order; suite_name=nothing, label="tab:funclearn-accuracy")
+    valid = if isnothing(suite_name)
+        filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+    else
+        filter(e -> !haskey(e, "error") && haskey(e, "suites_aggregate") && haskey(e["suites_aggregate"], suite_name), experiments)
+    end
     if isempty(valid)
         return "% No valid experiments for accuracy table\n"
     end
@@ -45,7 +49,7 @@ function generate_accuracy_table(experiments, optimizer_order)
     push!(lines, "\\centering")
     push!(lines, "\\caption{Mean classification accuracy (\\%) per optimizer for function learning. " *
                  "Higher is better. Accuracy improvement (delta) shows change from initial accuracy.}")
-    push!(lines, "\\label{tab:funclearn-accuracy}")
+    push!(lines, "\\label{$label}")
     push!(lines, "\\adjustbox{max width=\\textwidth}{%")
     push!(lines, "\\begin{tabular}{$col_spec}")
     push!(lines, "\\toprule")
@@ -60,7 +64,7 @@ function generate_accuracy_table(experiments, optimizer_order)
 
     for exp in valid
         config = exp["config"]
-        agg = exp["aggregate"]
+        agg = isnothing(suite_name) ? exp["aggregate"] : exp["suites_aggregate"][suite_name]
 
         # Find best accuracy (excluding Random)
         best_accuracy = -Inf
@@ -85,7 +89,7 @@ function generate_accuracy_table(experiments, optimizer_order)
                     @sprintf("\$%.1f {\\scriptstyle \\pm %.1f}\$ \\%% (%+.1f)", acc_pct, std_acc * 100, acc_delta) :
                     @sprintf("%.1f\\%% (%+.1f)", acc_pct, acc_delta)
                 if @sprintf("%.1f", acc * 100) == @sprintf("%.1f", best_accuracy * 100)
-                    row *= " & " * bold_best(formatted)
+                    row *= " & \\textbf{$formatted}"
                 else
                     row *= " & $formatted"
                 end
@@ -124,49 +128,60 @@ function generate_document(experiments, optimizer_order; verbose=false)
 
     push!(lines, funclearn_config_table(experiments))
 
-    push!(lines, as_landscape(generate_summary_table(experiments, optimizer_order,
-        "tab:funclearn-summary",
-        "Function learning: mean final loss across optimizers. Lower is better. Values are averaged over multiple random problem instances.")))
-
-    push!(lines, as_landscape(generate_timing_table(experiments, optimizer_order,
-        "tab:funclearn-timing",
-        "Mean wall-clock time (seconds) per optimizer for function learning.")))
-
-    # Accuracy table (experiment-specific)
-    push!(lines, as_landscape(generate_accuracy_table(experiments, optimizer_order)))
-
-    push!(lines, generate_optimizer_aggregate_table(experiments, optimizer_order,
-        "tab:funclearn-optimizer-aggregate",
-        "Overall optimizer comparison aggregated across all function learning configurations. Shows mean performance metrics."))
-
-    push!(lines, as_landscape(generate_eval_count_table(experiments, optimizer_order,
-        "tab:funclearn-evals",
-        "Mean number of function evaluations per optimizer for function learning (excluding monitoring calls). Lower is more efficient.")))
-
-    if verbose
-        # Accuracy formatting for detailed tables
-        acc_col = ("Accuracy (\\%)", "mean_final_accuracy",
-            stats -> begin
-                if haskey(stats, "mean_final_accuracy")
-                    acc = stats["mean_final_accuracy"]
-                    std_acc = get(stats, "std_final_accuracy", 0.0)
-                    std_acc > 0 ?
-                        @sprintf("\$%.1f {\\scriptstyle \\pm %.1f}\$", acc * 100, std_acc * 100) :
-                        @sprintf("%.1f", acc * 100)
-                else
-                    "---"
-                end
+    # Accuracy column formatter for verbose detailed tables
+    acc_col = ("Accuracy (\\%)", "mean_final_accuracy",
+        stats -> begin
+            if haskey(stats, "mean_final_accuracy")
+                acc = stats["mean_final_accuracy"]
+                std_acc = get(stats, "std_final_accuracy", 0.0)
+                std_acc > 0 ?
+                    @sprintf("\$%.1f {\\scriptstyle \\pm %.1f}\$", acc * 100, std_acc * 100) :
+                    @sprintf("%.1f", acc * 100)
+            else
+                "---"
             end
-        )
-        push!(lines, generate_detailed_tables(experiments, optimizer_order,
-            "tab:funclearn-detail",
-            "Detailed results for configuration";
-            extra_cols=[acc_col]))
-    end
+        end
+    )
 
-    push!(lines, as_landscape(generate_ranking_table(experiments, optimizer_order,
-        "tab:funclearn-ranking",
-        "Function learning: optimizer ranking by mean final loss per configuration (rank 1 = best, lower is better). Averaged over random samples. Bold marks the best-ranked optimizer per row (excluding Random). The \\textit{Average} row shows the mean rank across all configurations.")))
+    # Insert an experiment-specific accuracy table in each suite section
+    accuracy_table_fn = (exps, opts, suite) -> generate_accuracy_table(
+        exps, opts; suite_name=suite,
+        label="tab:funclearn-accuracy-$(replace(suite, "-" => ""))")
+
+    suites = list_suites(experiments)
+    if isempty(suites)
+        push!(lines, as_landscape(generate_summary_table(experiments, optimizer_order,
+            "tab:funclearn-summary",
+            "Function learning: mean final loss across optimizers.")))
+        push!(lines, as_landscape(generate_timing_table(experiments, optimizer_order,
+            "tab:funclearn-timing",
+            "Mean wall-clock time (seconds) per optimizer.")))
+        push!(lines, as_landscape(generate_accuracy_table(experiments, optimizer_order)))
+        push!(lines, generate_optimizer_aggregate_table(experiments, optimizer_order,
+            "tab:funclearn-optimizer-aggregate",
+            "Overall optimizer comparison aggregated across configurations."))
+        push!(lines, as_landscape(generate_eval_count_table(experiments, optimizer_order,
+            "tab:funclearn-evals",
+            "Mean number of function evaluations per optimizer.")))
+        if verbose
+            push!(lines, generate_detailed_tables(experiments, optimizer_order,
+                "tab:funclearn-detail",
+                "Detailed results for configuration";
+                extra_cols=[acc_col]))
+        end
+        push!(lines, as_landscape(generate_ranking_table(experiments, optimizer_order,
+            "tab:funclearn-ranking",
+            "Function learning: optimizer ranking by mean final loss.")))
+    else
+        for suite in suites
+            push!(lines, generate_suite_section(experiments, suite,
+                "tab:funclearn", "Function Learning";
+                extra_table_fn=accuracy_table_fn,
+                include_aggregate=true,
+                verbose=verbose,
+                detailed_extra_cols=[acc_col]))
+        end
+    end
 
     return join(lines, "\n")
 end

@@ -78,24 +78,26 @@ configs = load_configs(args, default_configs)
     initial_param = generate_initial_point(num_vars, K)
     initial_loss = loss.eval([initial_param])[1]
 
-    # Get optimizer configs
-    eff_degree = effective_degree(num_vars, args.mcts_degree_override)
-    opt_configs = get_optimizer_configs(
-        quick=args.quick_mode, selection_mode=args.selection_mode,
-        degree=eff_degree, prime=p, dim=num_vars
-    )
+    # Get suite configs (SuiteName => {OptName => Setup})
+    suite_configs = get_optimizer_configs(config, args)
 
-    # Run all optimizers serially inside this task.
-    optimizer_results = run_all_optimizers_serial(
-        opt_configs, initial_param, loss, args.n_epochs
-    )
+    # Holder for all results: SuiteName => {OptName => Result}
+    suite_results = Dict{String, Any}()
+
+    # Run each suite independently
+    for (suite_name, opt_configs) in suite_configs
+        # Run all optimizers in this suite serially
+        suite_results[suite_name] = run_all_optimizers_serial(
+            opt_configs, initial_param, loss, args.n_epochs
+        )
+    end
 
     return Dict{String, Any}(
         "sample_num" => sample_num,
         "initial_loss" => initial_loss,
         "num_vars" => num_vars,
         "degree" => degree,
-        "optimizers" => optimizer_results,
+        "suites" => suite_results,
     )
 end
 
@@ -129,20 +131,25 @@ end
 # ============================================================================
 
 function print_sample_result(config::Dict, sample_num::Int, sample_result::Dict)
-    # Build the whole block in an IOBuffer, then write in a single atomic call.
-    # Multiple println calls on stdout can get chunked across libuv writes, so
-    # assemble the full output first and then emit it all at once.
     io = IOBuffer()
     println(io, "\n  [$(config["name"]) sample $sample_num/$(config["num_samples"])]")
     println(io, @sprintf("    Initial: %.6e", sample_result["initial_loss"]))
-    for opt_name in OPTIMIZER_ORDER
-        if haskey(sample_result["optimizers"], opt_name)
-            r = sample_result["optimizers"][opt_name]
+    
+    suites = get(sample_result, "suites", Dict())
+    # Sort suite names for consistent output
+    for suite_name in sort(collect(keys(suites)))
+        println(io, "    » Suite: $suite_name")
+        opt_results = suites[suite_name]
+        # Sort optimizer names for consistent output
+        for opt_name in sort(collect(keys(opt_results)))
+            r = opt_results[opt_name]
             if !haskey(r, "error")
                 println(io, Printf.format(
-                    Printf.Format("    %-$(NAME_WIDTH)s Final: %.6e (Δ: %.6e, %.1f%%)"),
+                    Printf.Format("      %-$(NAME_WIDTH)s Final: %.6e (Δ: %.6e, %.1f%%)"),
                     opt_name, r["final_loss"], r["improvement"],
                     r["improvement_ratio"] * 100))
+            else
+                println(io, "      %-$(NAME_WIDTH)s ERROR: $(r["error"])")
             end
         end
     end
@@ -244,7 +251,7 @@ if args.save_results
         experiment_type="polynomial_solving",
         n_epochs=args.n_epochs,
         quick_mode=args.quick_mode,
-        optimizer_order=OPTIMIZER_ORDER,
+        suites=collect(keys(get_optimizer_configs(configs[1], args))),
         description=args.description,
         git_commit=args.git_commit,
     )

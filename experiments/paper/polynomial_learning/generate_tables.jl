@@ -44,27 +44,32 @@ function generate_document(experiments, optimizer_order; verbose=false)
 
     push!(lines, polylearn_config_table(experiments))
 
-    push!(lines, as_landscape(generate_summary_table(experiments, optimizer_order,
-        "tab:poly-learning-summary",
-        "Polynomial learning: mean final loss across optimizers. Lower is better. Values are averaged over multiple random problem instances.")))
-
-    if verbose
-        push!(lines, generate_detailed_tables(experiments, optimizer_order,
-            "tab:poly-learning-detail",
-            "Detailed results for configuration"))
+    suites = list_suites(experiments)
+    if isempty(suites)
+        # Legacy flat-aggregate fallback
+        push!(lines, as_landscape(generate_summary_table(experiments, optimizer_order,
+            "tab:poly-learning-summary",
+            "Polynomial learning: mean final loss across optimizers.")))
+        push!(lines, as_landscape(generate_timing_table(experiments, optimizer_order,
+            "tab:poly-learning-timing",
+            "Mean wall-clock time (seconds) per optimizer across experiments.")))
+        push!(lines, as_landscape(generate_eval_count_table(experiments, optimizer_order,
+            "tab:poly-learning-evals",
+            "Mean number of function evaluations per optimizer.")))
+        push!(lines, as_landscape(generate_ranking_table(experiments, optimizer_order,
+            "tab:poly-learning-ranking",
+            "Polynomial learning: optimizer ranking by mean final loss per configuration.")))
+        if verbose
+            push!(lines, generate_detailed_tables(experiments, optimizer_order,
+                "tab:poly-learning-detail",
+                "Detailed results for configuration"))
+        end
+    else
+        for suite in suites
+            push!(lines, generate_suite_section(experiments, suite,
+                "tab:poly-learning", "Polynomial Learning"; verbose=verbose))
+        end
     end
-
-    push!(lines, as_landscape(generate_timing_table(experiments, optimizer_order,
-        "tab:poly-learning-timing",
-        "Mean wall-clock time (seconds) per optimizer across experiments.")))
-
-    push!(lines, as_landscape(generate_eval_count_table(experiments, optimizer_order,
-        "tab:poly-learning-evals",
-        "Mean number of function evaluations per optimizer (excluding monitoring calls). Lower is more efficient.")))
-
-    push!(lines, as_landscape(generate_ranking_table(experiments, optimizer_order,
-        "tab:poly-learning-ranking",
-        "Polynomial learning: optimizer ranking by mean final loss per configuration (rank 1 = best, lower is better). Averaged over random samples. Bold marks the best-ranked optimizer per row (excluding Random). The \\textit{Average} row shows the mean rank across all configurations.")))
 
     return join(lines, "\n")
 end

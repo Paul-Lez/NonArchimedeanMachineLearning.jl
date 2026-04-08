@@ -147,28 +147,20 @@ end
     initial_coeffs = [NAML.unwrap(c) for c in NAML.center(initial_param)]
     initial_accuracy = compute_accuracy(initial_coeffs, data, threshold, scale)
 
-    # Get optimizer configs
-    eff_degree = effective_degree(num_params, args.mcts_degree_override)
-    opt_configs = get_optimizer_configs(
-        quick=args.quick_mode, selection_mode=args.selection_mode,
-        degree=eff_degree, prime=p, dim=num_params
-    )
+    # Get suite configs (SuiteName => {OptName => Setup})
+    suite_configs = get_optimizer_configs(config, args)
 
-    # Post-run callback to compute accuracy
-    post_run_fn = (optim) -> begin
-        final_coeffs = [NAML.unwrap(c) for c in NAML.center(optim.param)]
-        final_accuracy = compute_accuracy(final_coeffs, data, threshold, scale)
-        Dict{String, Any}(
-            "final_accuracy" => final_accuracy,
-            "accuracy_improvement" => final_accuracy - initial_accuracy,
+    # Holder for all results: SuiteName => {OptName => Result}
+    suite_results = Dict{String, Any}()
+
+    # Run each suite independently
+    for (suite_name, opt_configs) in suite_configs
+        # Run all optimizers in this suite serially
+        suite_results[suite_name] = run_all_optimizers_serial(
+            opt_configs, initial_param, loss, args.n_epochs;
+            post_run_fn=post_run_fn
         )
     end
-
-    # Run all optimizers serially inside this task.
-    optimizer_results = run_all_optimizers_serial(
-        opt_configs, initial_param, loss, args.n_epochs;
-        post_run_fn=post_run_fn
-    )
 
     return Dict{String, Any}(
         "sample_num" => sample_num,
@@ -178,7 +170,7 @@ end
             "x_abs_values" => [Float64(abs(x)) for (x, _) in data],
             "y_values" => [y for (_, y) in data],
         ),
-        "optimizers" => optimizer_results,
+        "suites" => suite_results,
     )
 end
 
@@ -210,26 +202,29 @@ end
 # ============================================================================
 
 function print_sample_result(config::Dict, sample_num::Int, sample_result::Dict)
-    # Build the whole block in an IOBuffer, then write in a single atomic call.
-    # Multiple println calls on stdout can get chunked across libuv writes, so
-    # assemble the full output first and then emit it all at once.
     io = IOBuffer()
     println(io, "\n  [$(config["name"]) sample $sample_num/$(config["num_samples"])]")
     println(io, @sprintf("    Initial loss: %.6e, accuracy: %.2f%%",
         sample_result["initial_loss"], sample_result["initial_accuracy"] * 100))
-    for opt_name in OPTIMIZER_ORDER
-        if haskey(sample_result["optimizers"], opt_name)
-            r = sample_result["optimizers"][opt_name]
+    
+    suites = get(sample_result, "suites", Dict())
+    for suite_name in sort(collect(keys(suites)))
+        println(io, "    » Suite: $suite_name")
+        opt_results = suites[suite_name]
+        for opt_name in sort(collect(keys(opt_results)))
+            r = opt_results[opt_name]
             if !haskey(r, "error")
                 acc_imp = r["accuracy_improvement"] * 100
                 acc_imp_str = acc_imp >= 0 ? "+$(@sprintf("%.2f", acc_imp))" : @sprintf("%.2f", acc_imp)
                 println(io, Printf.format(
-                    Printf.Format("    %-$(NAME_WIDTH)s Final: %.6e, acc: %.2f%%  (loss: %.1f%%, acc: %s%%, %.2fs)"),
+                    Printf.Format("      %-$(NAME_WIDTH)s Final: %.6e, acc: %.2f%%  (loss: %.1f%%, acc: %s%%, %.2fs)"),
                     opt_name, r["final_loss"],
                     r["final_accuracy"] * 100,
                     r["improvement_ratio"] * 100,
                     acc_imp_str,
                     r["time"]))
+            else
+                println(io, "      %-$(NAME_WIDTH)s ERROR: $(r["error"])")
             end
         end
     end
@@ -308,7 +303,7 @@ if args.save_results
         experiment_type="function_learning",
         n_epochs=args.n_epochs,
         quick_mode=args.quick_mode,
-        optimizer_order=OPTIMIZER_ORDER,
+        suites=collect(keys(get_optimizer_configs(configs[1], args))),
         description=args.description,
         git_commit=args.git_commit,
     )

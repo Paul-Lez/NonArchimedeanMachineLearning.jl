@@ -45,27 +45,30 @@ function generate_document(experiments, optimizer_order; verbose=false)
 
     push!(lines, polysolve_config_table(experiments))
 
-    push!(lines, as_landscape(generate_summary_table(experiments, optimizer_order,
-        "tab:poly-solving-summary",
-        "Polynomial solving: mean final loss across optimizers. Lower is better. The polynomial \\(f\\) has a known root in \\(\\mathbb{Z}_p^n\\).")))
-
-    if verbose
-        push!(lines, generate_detailed_tables(experiments, optimizer_order,
-            "tab:poly-solving-detail",
-            "Detailed results for configuration"))
+    suites = list_suites(experiments)
+    if isempty(suites)
+        push!(lines, as_landscape(generate_summary_table(experiments, optimizer_order,
+            "tab:poly-solving-summary",
+            "Polynomial solving: mean final loss across optimizers.")))
+        push!(lines, as_landscape(generate_timing_table(experiments, optimizer_order,
+            "tab:poly-solving-timing",
+            "Mean wall-clock time (seconds) per optimizer.")))
+        push!(lines, as_landscape(generate_eval_count_table(experiments, optimizer_order,
+            "tab:poly-solving-evals",
+            "Mean number of function evaluations per optimizer.")))
+        push!(lines, as_landscape(generate_ranking_table(experiments, optimizer_order,
+            "tab:poly-solving-ranking",
+            "Polynomial solving: optimizer ranking by mean final loss.")))
+        if verbose
+            push!(lines, generate_detailed_tables(experiments, optimizer_order,
+                "tab:poly-solving-detail", "Detailed results for configuration"))
+        end
+    else
+        for suite in suites
+            push!(lines, generate_suite_section(experiments, suite,
+                "tab:poly-solving", "Polynomial Solving"; verbose=verbose))
+        end
     end
-
-    push!(lines, as_landscape(generate_timing_table(experiments, optimizer_order,
-        "tab:poly-solving-timing",
-        "Mean wall-clock time (seconds) per optimizer across polynomial solving experiments.")))
-
-    push!(lines, as_landscape(generate_eval_count_table(experiments, optimizer_order,
-        "tab:poly-solving-evals",
-        "Mean number of function evaluations per optimizer for polynomial solving (excluding monitoring calls). Lower is more efficient.")))
-
-    push!(lines, as_landscape(generate_ranking_table(experiments, optimizer_order,
-        "tab:poly-solving-ranking",
-        "Polynomial solving: optimizer ranking by mean final loss per configuration (rank 1 = best, lower is better). Averaged over random samples. Bold marks the best-ranked optimizer per row (excluding Random). The \\textit{Average} row shows the mean rank across all configurations.")))
 
     return join(lines, "\n")
 end

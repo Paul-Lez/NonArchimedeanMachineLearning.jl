@@ -15,6 +15,7 @@ or appending "_stats" before ".json" if no "_raw" suffix is found.
 
 using JSON
 using Printf
+using Dates
 
 # Load shared stats utilities
 include(joinpath(@__DIR__, "stats_utils.jl"))
@@ -117,46 +118,69 @@ for (i, exp) in enumerate(experiments)
 
     println("  [$(i)/$(length(experiments))] $(config_name): $(length(valid_samples))/$(length(samples)) valid samples")
 
-    # 1. Compute per-sample rankings
+    # suites_aggregate will store: SuiteName => {OptName => AggStats}
+    exp["suites_aggregate"] = Dict{String, Any}()
+
+    # 1. First, compute per-sample rankings for EACH suite independently
     for sample in valid_samples
-        if haskey(sample, "optimizers")
-            compute_sample_rankings!(sample)
+        if haskey(sample, "suites")
+            for (suite_name, opt_results) in sample["suites"]
+                compute_sample_rankings!(opt_results)
+            end
         end
     end
 
-    # 2. Compute aggregate statistics
-    if !isempty(valid_samples) && all(haskey(s, "optimizers") for s in valid_samples)
-        exp["aggregate"] = compute_aggregate_stats(valid_samples, optimizer_order;
-                                                    extra_fields=extra_fields)
-
-        # Print summary
-        agg = exp["aggregate"]
-        for opt_name in optimizer_order
-            if haskey(agg, opt_name) && !haskey(agg[opt_name], "error")
-                stats = agg[opt_name]
-                loss_str = @sprintf("%.4e ± %.4e", stats["mean_final_loss"],
-                                    get(stats, "std_final_loss", 0.0))
-                rank_str = haskey(stats, "mean_rank") ? @sprintf("%.2f", stats["mean_rank"]) : "N/A"
-                println("    $(rpad(opt_name, 20)) loss: $loss_str  rank: $rank_str")
+    # 2. Identify all suites present in this experiment
+    all_suites = Set{String}()
+    for sample in valid_samples
+        if haskey(sample, "suites")
+            for suite_name in keys(sample["suites"])
+                push!(all_suites, suite_name)
             end
         end
-    else
-        exp["aggregate"] = Dict("error" => "No valid samples with optimizer data")
+    end
+
+    # 3. Compute aggregate statistics for EACH suite
+    for suite_name in sort(collect(all_suites))
+        # Extract the results for this suite across all samples
+        samples_in_suite = [s["suites"][suite_name] for s in valid_samples if haskey(s["suites"], suite_name)]
+        
+        if !isempty(samples_in_suite)
+            exp["suites_aggregate"][suite_name] = compute_aggregate_stats(
+                samples_in_suite, suite_name; extra_fields=extra_fields
+            )
+
+            # Print summary for this suite
+            println("    » Suite: $suite_name")
+            agg = exp["suites_aggregate"][suite_name]
+            # Sort opt names for consistent output
+            for opt_name in sort(collect(keys(agg)))
+                if !haskey(agg[opt_name], "error")
+                    stats = agg[opt_name]
+                    loss_str = @sprintf("%.4e ± %.4e", stats["mean_final_loss"],
+                                        get(stats, "std_final_loss", 0.0))
+                    rank_str = haskey(stats, "mean_rank") ? @sprintf("%.2f", stats["mean_rank"]) : "N/A"
+                    println("      $(rpad(opt_name, 25)) loss: $loss_str  rank: $rank_str")
+                end
+            end
+        end
     end
 end
 
 # ============================================================================
-# Compute global ranking across experiments
+# Compute global ranking across experiments (per suite)
 # ============================================================================
 
-println("\nComputing global ranking...")
-global_ranking = compute_global_ranking(experiments, optimizer_order)
+println("\nComputing global ranking per suite...")
+global_ranking = compute_global_ranking(experiments)
 
 if !isempty(global_ranking)
-    println("Global ranking (avg rank across configs):")
-    sorted = sort(collect(global_ranking), by=x -> x[2]["avg_rank"])
-    for (opt_name, stats) in sorted
-        println("  $(rpad(opt_name, 20)) avg_rank: $(@sprintf("%.2f", stats["avg_rank"]))  (n_configs: $(stats["n_configs"]))")
+    for (suite_name, opt_ranks) in sort(collect(global_ranking); by=x -> x[1])
+        println("\nGlobal ranking for suite: $suite_name")
+        sorted = sort(collect(opt_ranks), by=x -> x[2]["avg_rank"])
+        for (opt_name, stats) in sorted
+            println("  $(rpad(opt_name, 25)) avg_rank: $(@sprintf("%.2f", stats["avg_rank"]))  (n_configs: $(stats["n_configs"]))")
+        end
     end
 end
 

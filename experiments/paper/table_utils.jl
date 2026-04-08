@@ -31,13 +31,26 @@ const DISPLAY_NAMES = Dict(
     "DAG-MCTS-k"          => "DAG-MCTS-\$k\$",
     "DAG-MCTS-5k"         => "DAG-MCTS-\$5k\$",
     "DAG-MCTS-10k"        => "DAG-MCTS-\$10k\$",
+    
+    # New suite-based names
+    "MCTS-10k-deg1"       => "MCTS-\$10k\$ (deg 1)",
+    "MCTS-10k-deg2"       => "MCTS-\$10k\$ (deg 2)",
+    "DAG-MCTS-10k-deg1"   => "DAG-MCTS-\$10k\$ (deg 1)",
+    "DAG-MCTS-10k-deg2"   => "DAG-MCTS-\$10k\$ (deg 2)",
+    "Greedy-deg1"         => "Greedy (deg 1)",
+    "Greedy-deg2"         => "Greedy (deg 2)",
+    "Gradient-deg1"       => "Gradient (deg 1)",
+    "Gradient-deg2"       => "Gradient (deg 2)",
 )
 display_name(n) = get(DISPLAY_NAMES, n, n)
 
 const DISPLAY_ORDER = [
     "Random", "Best-First", "Best-First-branch2", "Best-First-Gradient",
     "MCTS-k", "MCTS-5k", "MCTS-10k",
-    "DAG-MCTS-k", "DAG-MCTS-5k", "DAG-MCTS-10k", "DOO"
+    "DAG-MCTS-k", "DAG-MCTS-5k", "DAG-MCTS-10k", 
+    "MCTS-10k-deg1", "MCTS-10k-deg2", "DAG-MCTS-10k-deg1", "DAG-MCTS-10k-deg2",
+    "Greedy-deg1", "Greedy-deg2", "Gradient-deg1", "Gradient-deg2",
+    "DOO"
 ]
 
 # ============================================================================
@@ -106,11 +119,24 @@ function load_stats_json(filepath::String)
         experiments = [experiments[k] for k in sort(collect(keys(experiments)))]
     end
 
-    # Determine optimizer order
-    optimizer_order = if haskey(metadata, "optimizer_order")
+    # Determine optimizer order (legacy; for suite-based runs use get_optimizer_names per suite)
+    optimizer_order = if haskey(metadata, "optimizer_order") && !isempty(metadata["optimizer_order"])
         metadata["optimizer_order"]
     else
-        get_optimizer_names(experiments)
+        names = get_optimizer_names(experiments)
+        if isempty(names)
+            # Suite-based: take union across all suites
+            suite_names = list_suites(experiments)
+            union_names = String[]
+            for s in suite_names
+                for n in get_optimizer_names(experiments; suite_name=s)
+                    n in union_names || push!(union_names, n)
+                end
+            end
+            union_names
+        else
+            names
+        end
     end
 
     # Reorder to preferred display order
@@ -119,7 +145,12 @@ function load_stats_json(filepath::String)
         [n for n in optimizer_order if !(n in DISPLAY_ORDER)]
     )
 
+    suites = list_suites(experiments)
+
     println("Loaded $(length(experiments)) experiments from $filepath")
+    if !isempty(suites)
+        println("Suites: $(join(suites, ", "))")
+    end
     println("Optimizers: $(join(optimizer_order, ", "))")
     println()
 
@@ -128,17 +159,74 @@ end
 
 
 """
-    get_optimizer_names(experiments) -> Vector{String}
+    list_suites(experiments) -> Vector{String}
+
+Return the sorted list of suite names present in `experiments` (looking in
+`suites_aggregate`). Returns an empty vector if no suites are found (legacy
+flat-aggregate format).
+"""
+function list_suites(experiments)
+    suites = Set{String}()
+    for exp in experiments
+        haskey(exp, "error") && continue
+        if haskey(exp, "suites_aggregate")
+            for name in keys(exp["suites_aggregate"])
+                push!(suites, name)
+            end
+        end
+    end
+    # Prefer a canonical order: optimizer-comparison first, then alphabetical
+    ordered = String[]
+    if "optimizer-comparison" in suites
+        push!(ordered, "optimizer-comparison")
+        delete!(suites, "optimizer-comparison")
+    end
+    append!(ordered, sort(collect(suites)))
+    return ordered
+end
+
+"""
+    suite_display_name(suite_name) -> String
+
+Return a human-readable display name for a suite (for LaTeX captions/sections).
+"""
+function suite_display_name(suite_name::String)
+    mapping = Dict(
+        "optimizer-comparison"              => "Optimizer Comparison",
+        "mcts-branching"                    => "MCTS Branching Sweep",
+        "dag-mcts-branching"                => "DAG-MCTS Branching Sweep",
+        "greedy-descent-branching"          => "Greedy Descent Branching Sweep",
+        "gradient-descent-branching"        => "Gradient Descent Branching Sweep",
+        "mcts-number-of-simulations"        => "MCTS Simulation Count Sweep",
+        "dag-mcts-number-of-simulations"    => "DAG-MCTS Simulation Count Sweep",
+        "mcts-exploration-constant"         => "MCTS Exploration Constant Sweep",
+        "dag-mcts-exploration-constant"     => "DAG-MCTS Exploration Constant Sweep",
+    )
+    return get(mapping, suite_name, suite_name)
+end
+
+"""
+    get_optimizer_names(experiments; suite_name=nothing) -> Vector{String}
 
 Extract optimizer names from the first valid experiment's aggregate data.
+If suite_name is provided, look in suites_aggregate[suite_name].
 """
-function get_optimizer_names(experiments)
-    valid = filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+function get_optimizer_names(experiments; suite_name=nothing)
+    valid = if isnothing(suite_name)
+        filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+    else
+        filter(e -> !haskey(e, "error") && haskey(e, "suites_aggregate") && haskey(e["suites_aggregate"], suite_name), experiments)
+    end
+    
     if isempty(valid)
         return String[]
     end
 
-    agg = valid[1]["aggregate"]
+    agg = if isnothing(suite_name)
+        valid[1]["aggregate"]
+    else
+        valid[1]["suites_aggregate"][suite_name]
+    end
     if haskey(agg, "error")
         return String[]
     end
@@ -279,13 +367,17 @@ end
 
 
 """
-    generate_summary_table(experiments, optimizer_order, label, caption) -> String
+    generate_summary_table(experiments, optimizer_order, label, caption; suite_name=nothing) -> String
 
 Generate a grid table of mean final loss per optimizer per configuration.
 Best result per row (excluding Random) is bolded.
 """
-function generate_summary_table(experiments, optimizer_order, label::String, caption::String)
-    valid = filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+function generate_summary_table(experiments, optimizer_order, label::String, caption::String; suite_name=nothing)
+    valid = if isnothing(suite_name)
+        filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+    else
+        filter(e -> !haskey(e, "error") && haskey(e, "suites_aggregate") && haskey(e["suites_aggregate"], suite_name), experiments)
+    end
     if isempty(valid)
         return "% No valid experiments to tabulate\n"
     end
@@ -312,7 +404,7 @@ function generate_summary_table(experiments, optimizer_order, label::String, cap
 
     for exp in valid
         config = exp["config"]
-        agg = exp["aggregate"]
+        agg = isnothing(suite_name) ? exp["aggregate"] : exp["suites_aggregate"][suite_name]
 
         # Find best (excluding Random)
         best_loss = Inf
@@ -364,12 +456,16 @@ end
 
 
 """
-    generate_timing_table(experiments, optimizer_order, label, caption) -> String
+    generate_timing_table(experiments, optimizer_order, label, caption; suite_name=nothing) -> String
 
 Generate a grid table of mean wall-clock time per optimizer per configuration.
 """
-function generate_timing_table(experiments, optimizer_order, label::String, caption::String)
-    valid = filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+function generate_timing_table(experiments, optimizer_order, label::String, caption::String; suite_name=nothing)
+    valid = if isnothing(suite_name)
+        filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+    else
+        filter(e -> !haskey(e, "error") && haskey(e, "suites_aggregate") && haskey(e["suites_aggregate"], suite_name), experiments)
+    end
     if isempty(valid)
         return "% No valid experiments for timing table\n"
     end
@@ -396,7 +492,7 @@ function generate_timing_table(experiments, optimizer_order, label::String, capt
 
     for exp in valid
         config = exp["config"]
-        agg = exp["aggregate"]
+        agg = isnothing(suite_name) ? exp["aggregate"] : exp["suites_aggregate"][suite_name]
         name = "\\texttt{" * escape_latex(config["name"]) * "}"
 
         best_time = Inf
@@ -440,19 +536,23 @@ end
 
 
 """
-    generate_eval_count_table(experiments, optimizer_order, label, caption) -> String
+    generate_eval_count_table(experiments, optimizer_order, label, caption; suite_name=nothing) -> String
 
 Generate a grid table of mean function evaluations per optimizer per configuration.
 """
-function generate_eval_count_table(experiments, optimizer_order, label::String, caption::String)
-    valid = filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+function generate_eval_count_table(experiments, optimizer_order, label::String, caption::String; suite_name=nothing)
+    valid = if isnothing(suite_name)
+        filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+    else
+        filter(e -> !haskey(e, "error") && haskey(e, "suites_aggregate") && haskey(e["suites_aggregate"], suite_name), experiments)
+    end
     if isempty(valid)
         return "% No valid experiments for eval count table\n"
     end
 
     has_evals = false
     for exp in valid
-        agg = exp["aggregate"]
+        agg = isnothing(suite_name) ? exp["aggregate"] : exp["suites_aggregate"][suite_name]
         for opt_name in optimizer_order
             if haskey(agg, opt_name) && !haskey(agg[opt_name], "error") && haskey(agg[opt_name], "mean_total_evals")
                 has_evals = true
@@ -487,7 +587,7 @@ function generate_eval_count_table(experiments, optimizer_order, label::String, 
 
     for exp in valid
         config = exp["config"]
-        agg = exp["aggregate"]
+        agg = isnothing(suite_name) ? exp["aggregate"] : exp["suites_aggregate"][suite_name]
         name = "\\texttt{" * escape_latex(config["name"]) * "}"
 
         row = name
@@ -517,22 +617,26 @@ end
 
 
 """
-    generate_ranking_table(experiments, optimizer_order, label, caption) -> String
+    generate_ranking_table(experiments, optimizer_order, label, caption; suite_name=nothing) -> String
 
 Generate a grid table of optimizer rankings per configuration with an average row.
 """
-function generate_ranking_table(experiments, optimizer_order, label::String, caption::String)
-    valid = filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+function generate_ranking_table(experiments, optimizer_order, label::String, caption::String; suite_name=nothing)
+    valid = if isnothing(suite_name)
+        filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+    else
+        filter(e -> !haskey(e, "error") && haskey(e, "suites_aggregate") && haskey(e["suites_aggregate"], suite_name), experiments)
+    end
     if isempty(valid)
         return "% No valid experiments for ranking table\n"
     end
 
     has_ranks = any(
-        haskey(exp["aggregate"], opt) &&
-        !haskey(exp["aggregate"][opt], "error") &&
-        haskey(exp["aggregate"][opt], "mean_rank")
+        haskey(isnothing(suite_name) ? exp["aggregate"] : exp["suites_aggregate"][suite_name], opt) &&
+        !haskey((isnothing(suite_name) ? exp["aggregate"] : exp["suites_aggregate"][suite_name])[opt], "error") &&
+        haskey((isnothing(suite_name) ? exp["aggregate"] : exp["suites_aggregate"][suite_name])[opt], "mean_rank")
         for exp in valid for opt in optimizer_order
-        if haskey(exp["aggregate"], opt)
+        if haskey(isnothing(suite_name) ? exp["aggregate"] : exp["suites_aggregate"][suite_name], opt)
     )
     if !has_ranks
         return "% No ranking data available (re-run experiments to generate ranks)\n"
@@ -563,7 +667,7 @@ function generate_ranking_table(experiments, optimizer_order, label::String, cap
 
     for exp in valid
         config = exp["config"]
-        agg = exp["aggregate"]
+        agg = isnothing(suite_name) ? exp["aggregate"] : exp["suites_aggregate"][suite_name]
 
         best_rank = Inf
         for opt_name in optimizer_order
@@ -641,8 +745,12 @@ end
 
 Generate an overall optimizer comparison table aggregated across all configurations.
 """
-function generate_optimizer_aggregate_table(experiments, optimizer_order, label::String, caption::String)
-    valid = filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+function generate_optimizer_aggregate_table(experiments, optimizer_order, label::String, caption::String; suite_name=nothing)
+    valid = if isnothing(suite_name)
+        filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+    else
+        filter(e -> !haskey(e, "error") && haskey(e, "suites_aggregate") && haskey(e["suites_aggregate"], suite_name), experiments)
+    end
     if isempty(valid)
         return "% No valid experiments for optimizer aggregate\n"
     end
@@ -659,7 +767,7 @@ function generate_optimizer_aggregate_table(experiments, optimizer_order, label:
     end
 
     for exp in valid
-        agg = exp["aggregate"]
+        agg = isnothing(suite_name) ? exp["aggregate"] : exp["suites_aggregate"][suite_name]
         for opt_name in optimizer_order
             if haskey(agg, opt_name) && !haskey(agg[opt_name], "error")
                 stats = agg[opt_name]
@@ -728,8 +836,13 @@ Generate per-configuration detailed result tables.
 """
 function generate_detailed_tables(experiments, optimizer_order, label_prefix::String,
                                    caption_prefix::String;
-                                   extra_cols::Vector{Tuple{String,String,Function}}=Tuple{String,String,Function}[])
-    valid = filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+                                   extra_cols::Vector{Tuple{String,String,Function}}=Tuple{String,String,Function}[],
+                                   suite_name=nothing)
+    valid = if isnothing(suite_name)
+        filter(e -> !haskey(e, "error") && haskey(e, "aggregate"), experiments)
+    else
+        filter(e -> !haskey(e, "error") && haskey(e, "suites_aggregate") && haskey(e["suites_aggregate"], suite_name), experiments)
+    end
     if isempty(valid)
         return "% No valid experiments for detailed tables\n"
     end
@@ -738,7 +851,7 @@ function generate_detailed_tables(experiments, optimizer_order, label_prefix::St
 
     for (idx, exp) in enumerate(valid)
         config = exp["config"]
-        agg = exp["aggregate"]
+        agg = isnothing(suite_name) ? exp["aggregate"] : exp["suites_aggregate"][suite_name]
         name = "\\texttt{" * escape_latex(config["name"]) * "}"
 
         # Base columns
@@ -811,6 +924,94 @@ function generate_detailed_tables(experiments, optimizer_order, label_prefix::St
     end
 
     return join(all_lines, "\n") * "\n"
+end
+
+
+# ============================================================================
+# Per-suite section helper
+# ============================================================================
+
+"""
+    generate_suite_section(experiments, suite_name, label_prefix, caption_prefix;
+                           extra_table_fn=nothing, include_aggregate=false,
+                           verbose=false, detailed_extra_cols=[]) -> String
+
+Generate a full LaTeX section (summary + timing + eval counts + ranking, plus
+optionally the aggregate and verbose detailed tables) for a single suite.
+
+`extra_table_fn(experiments, optimizer_order, suite_name) -> String` may be
+passed to insert an experiment-specific table (e.g. accuracy) right after the
+timing table.
+"""
+function generate_suite_section(experiments, suite_name::String,
+                                 label_prefix::String, caption_prefix::String;
+                                 extra_table_fn=nothing,
+                                 include_aggregate::Bool=false,
+                                 verbose::Bool=false,
+                                 detailed_extra_cols::Vector{Tuple{String,String,Function}}=Tuple{String,String,Function}[])
+    opt_order = get_optimizer_names(experiments; suite_name=suite_name)
+    if isempty(opt_order)
+        return "% Suite $suite_name: no data\n"
+    end
+
+    # Ensure preferred order
+    opt_order = vcat(
+        [n for n in DISPLAY_ORDER if n in opt_order],
+        [n for n in opt_order if !(n in DISPLAY_ORDER)]
+    )
+
+    suite_label = replace(suite_name, "-" => "")
+    suite_title = suite_display_name(suite_name)
+
+    lines = String[]
+    push!(lines, "")
+    push!(lines, "\\subsection*{$caption_prefix: $suite_title}")
+    push!(lines, "")
+
+    push!(lines, as_landscape(generate_summary_table(experiments, opt_order,
+        "$label_prefix-summary-$suite_label",
+        "$caption_prefix ($suite_title): mean final loss per optimizer. Lower is better.";
+        suite_name=suite_name)))
+
+    push!(lines, as_landscape(generate_timing_table(experiments, opt_order,
+        "$label_prefix-timing-$suite_label",
+        "$caption_prefix ($suite_title): mean wall-clock time (seconds) per optimizer.";
+        suite_name=suite_name)))
+
+    if extra_table_fn !== nothing
+        extra = extra_table_fn(experiments, opt_order, suite_name)
+        if !isempty(extra)
+            push!(lines, as_landscape(extra))
+        end
+    end
+
+    if include_aggregate
+        push!(lines, generate_optimizer_aggregate_table(experiments, opt_order,
+            "$label_prefix-optimizer-aggregate-$suite_label",
+            "$caption_prefix ($suite_title): overall comparison aggregated across all configurations.";
+            suite_name=suite_name))
+    end
+
+    push!(lines, as_landscape(generate_eval_count_table(experiments, opt_order,
+        "$label_prefix-evals-$suite_label",
+        "$caption_prefix ($suite_title): mean number of function evaluations per optimizer.";
+        suite_name=suite_name)))
+
+    if verbose
+        push!(lines, generate_detailed_tables(experiments, opt_order,
+            "$label_prefix-detail-$suite_label",
+            "$caption_prefix ($suite_title) detailed results";
+            extra_cols=detailed_extra_cols,
+            suite_name=suite_name))
+    end
+
+    push!(lines, as_landscape(generate_ranking_table(experiments, opt_order,
+        "$label_prefix-ranking-$suite_label",
+        "$caption_prefix ($suite_title): optimizer ranking per configuration (rank 1 = best). " *
+        "Bold marks the best-ranked optimizer per row (excluding Random).";
+        suite_name=suite_name)))
+
+    return join(lines, "\n")
 end
 
 

@@ -44,7 +44,22 @@ function parse_experiment_args(args)
     quick_mode = "--quick" in args
     save_results = "--save" in args
     use_config_file = "--config" in args
-    use_paper_config = "--paper" in args
+    
+    # Paper-ready flags
+    use_optimizer_comparison = "--paper-optimizer-comparison" in args || "--paper" in args
+    use_mcts_branching = "--paper-mcts-branching" in args
+    use_dag_mcts_branching = "--paper-dag-mcts-branching" in args
+    use_greedy_branching = "--paper-greedy-descent-branching" in args
+    use_gradient_branching = "--paper-gradient-descent-branching" in args
+    use_mcts_sims = "--paper-mcts-number-of-simulations" in args
+    use_dag_mcts_sims = "--paper-dag-mcts-number-of-simulations" in args
+    use_mcts_exp = "--paper-mcts-exploration-constant" in args
+    use_dag_mcts_exp = "--paper-dag-mcts-exploration-constant" in args
+
+    use_paper_config = use_optimizer_comparison || use_mcts_branching || 
+                      use_dag_mcts_branching || use_greedy_branching || 
+                      use_gradient_branching || use_mcts_sims || 
+                      use_dag_mcts_sims || use_mcts_exp || use_dag_mcts_exp
 
     # Default epochs
     n_epochs = quick_mode ? 5 : 20
@@ -90,6 +105,15 @@ function parse_experiment_args(args)
         save_results = save_results,
         use_config_file = use_config_file,
         use_paper_config = use_paper_config,
+        use_optimizer_comparison = use_optimizer_comparison,
+        use_mcts_branching = use_mcts_branching,
+        use_dag_mcts_branching = use_dag_mcts_branching,
+        use_greedy_branching = use_greedy_branching,
+        use_gradient_branching = use_gradient_branching,
+        use_mcts_sims = use_mcts_sims,
+        use_dag_mcts_sims = use_dag_mcts_sims,
+        use_mcts_exp = use_mcts_exp,
+        use_dag_mcts_exp = use_dag_mcts_exp,
         n_epochs = n_epochs,
         output_filename = output_filename,
         n_samples_override = n_samples_override,
@@ -157,129 +181,173 @@ const OPTIMIZER_ORDER = [
 const NAME_WIDTH = maximum(length(n) for n in OPTIMIZER_ORDER)
 
 """
-    get_optimizer_configs(; quick, selection_mode, degree, prime, dim) -> Dict
+    get_optimizer_configs(config::Dict, args::NamedTuple) -> Dict{String, Dict{String, Any}}
 
-Return a Dict of optimizer name => Dict("init" => (param, loss) -> OptimSetup).
+Return a nested Dict of SuiteName => { OptimizerName => OptimizerSetup }.
+Each Setup is Dict("init" => (param, loss) -> OptimSetup).
 
-All experiments use the same set of optimizers. Prime is used only to compute
-k (number of polydisc children) and DOO's delta function.
+Results are organized by suite to allow rigorous comparison. Optimizers may 
+appear in multiple suites and will be run independently for each.
 """
-function get_optimizer_configs(; quick::Bool=false,
-                                 selection_mode=NAML.BestValue,
-                                 degree::Int=1,
-                                 prime::Int=2,
-                                 dim::Int=1)
-    # k = number of children of a polydisc
-    k = binomial(dim, degree) * prime^degree
-    sims_k   = quick ? 50 : k
-    sims_5k  = quick ? 100 : 5 * k
-    sims_10k = quick ? 200 : 10 * k
+function get_optimizer_configs(config::Dict, args::NamedTuple)
+    suites = Dict{String, Dict{String, Any}}()
 
+    prime = config["prime"]
+    # num_vars is the parameter-polydisc dimension. Some experiments (polynomial
+    # learning, function learning) do not set it explicitly — they learn
+    # degree+1 polynomial coefficients.
+    dim = if haskey(config, "num_vars")
+        config["num_vars"]
+    elseif haskey(config, "degree")
+        config["degree"] + 1
+    else
+        error("Cannot determine num_vars for config $(get(config, "name", "?"))")
+    end
+    quick = args.quick_mode
+    selection_mode = args.selection_mode
+    
     p_float = Float64(prime)
 
-    return Dict(
-        "Random" => Dict(
+    # Helper to create standard MCTS config
+    function mk_mcts(sims, deg, exp=1.41)
+        return Dict(
             "init" => (param, loss) -> begin
-                NAML.random_descent_init(param, loss, 1, (false, 1))
-            end
-        ),
-        "Best-First" => Dict(
-            "init" => (param, loss) -> begin
-                NAML.greedy_descent_init(param, loss, 1, (false, 1))
-            end
-        ),
-        "Best-First-branch2" => Dict(
-            "init" => (param, loss) -> begin
-                NAML.greedy_descent_init(param, loss, 1, (false, 2))
-            end
-        ),
-        "Best-First-Gradient" => Dict(
-            "init" => (param, loss) -> begin
-                NAML.gradient_descent_init(param, loss, 1, (false, 1))
-            end
-        ),
-        "MCTS-k" => Dict(
-            "init" => (param, loss) -> begin
-                config = NAML.MCTSConfig(
-                    num_simulations=sims_k,
-                    exploration_constant=1.41,
+                c = NAML.MCTSConfig(
+                    num_simulations=sims,
+                    exploration_constant=exp,
                     selection_mode=selection_mode,
-                    degree=degree
+                    degree=deg
                 )
-                NAML.mcts_descent_init(param, loss, config)
+                NAML.mcts_descent_init(param, loss, c)
             end
-        ),
-        "MCTS-5k" => Dict(
+        )
+    end
+
+    # Helper to create standard DAG-MCTS config
+    function mk_dag_mcts(sims, deg, exp=1.41)
+        return Dict(
             "init" => (param, loss) -> begin
-                config = NAML.MCTSConfig(
-                    num_simulations=sims_5k,
-                    exploration_constant=1.41,
-                    selection_mode=selection_mode,
-                    degree=degree
-                )
-                NAML.mcts_descent_init(param, loss, config)
-            end
-        ),
-        "MCTS-10k" => Dict(
-            "init" => (param, loss) -> begin
-                config = NAML.MCTSConfig(
-                    num_simulations=sims_10k,
-                    exploration_constant=1.41,
-                    selection_mode=selection_mode,
-                    degree=degree
-                )
-                NAML.mcts_descent_init(param, loss, config)
-            end
-        ),
-        "DAG-MCTS-k" => Dict(
-            "init" => (param, loss) -> begin
-                config = NAML.DAGMCTSConfig(
-                    num_simulations=sims_k,
-                    exploration_constant=1.41,
-                    degree=degree,
+                c = NAML.DAGMCTSConfig(
+                    num_simulations=sims,
+                    exploration_constant=exp,
+                    degree=deg,
                     persist_table=true,
                     selection_mode=NAML.BestValue
                 )
-                NAML.dag_mcts_descent_init(param, loss, config)
+                NAML.dag_mcts_descent_init(param, loss, c)
             end
-        ),
-        "DAG-MCTS-5k" => Dict(
-            "init" => (param, loss) -> begin
-                config = NAML.DAGMCTSConfig(
-                    num_simulations=sims_5k,
-                    exploration_constant=1.41,
-                    degree=degree,
-                    persist_table=true,
-                    selection_mode=NAML.BestValue
-                )
-                NAML.dag_mcts_descent_init(param, loss, config)
-            end
-        ),
-        "DAG-MCTS-10k" => Dict(
-            "init" => (param, loss) -> begin
-                config = NAML.DAGMCTSConfig(
-                    num_simulations=sims_10k,
-                    exploration_constant=1.41,
-                    degree=degree,
-                    persist_table=true,
-                    selection_mode=NAML.BestValue
-                )
-                NAML.dag_mcts_descent_init(param, loss, config)
-            end
-        ),
-        "DOO" => Dict(
+        )
+    end
+
+    # suite 0: Standard Optimizer Comparison (legacy --paper)
+    if args.use_optimizer_comparison
+        s = Dict{String, Any}()
+        deg = effective_degree(dim, args.mcts_degree_override)
+        k = binomial(dim, deg) * prime^deg
+        sims_10k = quick ? 200 : 10 * k
+
+        s["Random"] = Dict("init" => (param, loss) -> NAML.random_descent_init(param, loss, 1, (false, 1)))
+        s["Best-First"] = Dict("init" => (param, loss) -> NAML.greedy_descent_init(param, loss, 1, (false, deg)))
+        s["Best-First-Gradient"] = Dict("init" => (param, loss) -> NAML.gradient_descent_init(param, loss, 1, (false, deg)))
+        s["MCTS-10k"] = mk_mcts(sims_10k, deg)
+        s["DAG-MCTS-10k"] = mk_dag_mcts(sims_10k, deg)
+        s["DOO"] = Dict(
             "init" => (param, loss) -> begin
                 delta = h -> p_float^(-h)
-                config = NAML.DOOConfig(
-                    delta=delta,
-                    max_depth=quick ? 10 : 15,
-                    degree=degree,
-                    strict=false
-                )
-                NAML.doo_descent_init(param, loss, 1, config)
+                c = NAML.DOOConfig(delta=delta, max_depth=quick ? 10 : 15, degree=deg, strict=false)
+                NAML.doo_descent_init(param, loss, 1, c)
             end
-        ),
-    )
+        )
+        suites["optimizer-comparison"] = s
+    end
+
+    # suite 1: MCTS Branching (2+ vars, deg 1 & 2, 10k sims)
+    if args.use_mcts_branching && dim >= 2
+        s = Dict{String, Any}()
+        for deg in [1, 2]
+            k = binomial(dim, deg) * prime^deg
+            sims = quick ? 200 : 10 * k
+            s["MCTS-10k-deg$deg"] = mk_mcts(sims, deg)
+        end
+        suites["mcts-branching"] = s
+    end
+
+    # suite 2: DAG-MCTS Branching (2+ vars, deg 1 & 2, 10k sims)
+    if args.use_dag_mcts_branching && dim >= 2
+        s = Dict{String, Any}()
+        for deg in [1, 2]
+            k = binomial(dim, deg) * prime^deg
+            sims = quick ? 200 : 10 * k
+            s["DAG-MCTS-10k-deg$deg"] = mk_dag_mcts(sims, deg)
+        end
+        suites["dag-mcts-branching"] = s
+    end
+
+    # suite 3: Greedy Branching (2+ vars, deg 1 & 2)
+    if args.use_greedy_branching && dim >= 2
+        s = Dict{String, Any}()
+        s["Greedy-deg1"] = Dict("init" => (param, loss) -> NAML.greedy_descent_init(param, loss, 1, (false, 1)))
+        s["Greedy-deg2"] = Dict("init" => (param, loss) -> NAML.greedy_descent_init(param, loss, 1, (false, 2)))
+        suites["greedy-descent-branching"] = s
+    end
+
+    # suite 4: Gradient Branching (2+ vars, deg 1 & 2)
+    if args.use_gradient_branching && dim >= 2
+        s = Dict{String, Any}()
+        s["Gradient-deg1"] = Dict("init" => (param, loss) -> NAML.gradient_descent_init(param, loss, 1, (false, 1)))
+        s["Gradient-deg2"] = Dict("init" => (param, loss) -> NAML.gradient_descent_init(param, loss, 1, (false, 2)))
+        suites["gradient-descent-branching"] = s
+    end
+
+    # suite 5: MCTS Number of Simulations (2+ vars, deg 2, k/5k/10k sims)
+    if args.use_mcts_sims && dim >= 2
+        s = Dict{String, Any}()
+        deg = 2
+        k = binomial(dim, deg) * prime^deg
+        s["MCTS-k"] = mk_mcts(quick ? 50 : k, deg)
+        s["MCTS-5k"] = mk_mcts(quick ? 100 : 5 * k, deg)
+        s["MCTS-10k"] = mk_mcts(quick ? 200 : 10 * k, deg)
+        suites["mcts-number-of-simulations"] = s
+    end
+
+    # suite 6: DAG-MCTS Number of Simulations (2+ vars, deg 2, k/5k/10k sims)
+    if args.use_dag_mcts_sims && dim >= 2
+        s = Dict{String, Any}()
+        deg = 2
+        k = binomial(dim, deg) * prime^deg
+        s["DAG-MCTS-k"] = mk_dag_mcts(quick ? 50 : k, deg)
+        s["DAG-MCTS-5k"] = mk_dag_mcts(quick ? 100 : 5 * k, deg)
+        s["DAG-MCTS-10k"] = mk_dag_mcts(quick ? 200 : 10 * k, deg)
+        suites["dag-mcts-number-of-simulations"] = s
+    end
+
+    # suite 7: MCTS Exploration Constant (2+ vars, deg 2, 10k sims, sweep exp)
+    if args.use_mcts_exp && dim >= 2
+        s = Dict{String, Any}()
+        deg = 2
+        k = binomial(dim, deg) * prime^deg
+        sims = quick ? 200 : 10 * k
+        for exp in 1.4:0.1:2.4
+            name = @sprintf("MCTS-10k-exp%.1f", exp)
+            s[name] = mk_mcts(sims, deg, exp)
+        end
+        suites["mcts-exploration-constant"] = s
+    end
+
+    # suite 8: DAG-MCTS Exploration Constant (2+ vars, deg 2, 10k sims, sweep exp)
+    if args.use_dag_mcts_exp && dim >= 2
+        s = Dict{String, Any}()
+        deg = 2
+        k = binomial(dim, deg) * prime^deg
+        sims = quick ? 200 : 10 * k
+        for exp in 1.4:0.1:2.4
+            name = @sprintf("DAG-MCTS-10k-exp%.1f", exp)
+            s[name] = mk_dag_mcts(sims, deg, exp)
+        end
+        suites["dag-mcts-exploration-constant"] = s
+    end
+
+    return suites
 end
 
 """
@@ -434,7 +502,8 @@ Build metadata dict for JSON output.
 function build_metadata(; experiment_type::String,
                           n_epochs::Int,
                           quick_mode::Bool,
-                          optimizer_order::Vector{String},
+                          optimizer_order::Vector{String}=String[],
+                          suites::Vector{String}=String[],
                           description::String="",
                           git_commit::String="",
                           extra::Dict{String,Any}=Dict{String,Any}())
@@ -444,6 +513,7 @@ function build_metadata(; experiment_type::String,
         "n_epochs" => n_epochs,
         "quick_mode" => quick_mode,
         "optimizer_order" => optimizer_order,
+        "suites" => suites,
         "description" => description,
         "git_commit" => git_commit,
     )

@@ -46,37 +46,34 @@ function generate_document(experiments, optimizer_order; verbose=false)
     # Config table
     push!(lines, abssum_config_table(experiments))
 
-    # Summary (mean final loss)
-    push!(lines, as_landscape(generate_summary_table(experiments, optimizer_order,
-        "tab:abssum-summary",
-        "Absolute sum minimization: mean final loss across optimizers. Lower is better. Values are averaged over multiple random problem instances.")))
-
-    # Timing
-    push!(lines, as_landscape(generate_timing_table(experiments, optimizer_order,
-        "tab:abssum-timing",
-        "Mean wall-clock time (seconds) per optimizer for absolute sum minimization.")))
-
-    # Overall optimizer comparison
-    push!(lines, generate_optimizer_aggregate_table(experiments, optimizer_order,
-        "tab:abssum-optimizer-aggregate",
-        "Overall optimizer comparison aggregated across all absolute sum configurations. Shows mean performance metrics."))
-
-    # Eval counts
-    push!(lines, as_landscape(generate_eval_count_table(experiments, optimizer_order,
-        "tab:abssum-evals",
-        "Mean number of function evaluations per optimizer for absolute sum minimization (excluding monitoring calls). Lower is more efficient.")))
-
-    # Detailed (verbose only)
-    if verbose
-        push!(lines, generate_detailed_tables(experiments, optimizer_order,
-            "tab:abssum-detail",
-            "Detailed results for configuration"))
+    suites = list_suites(experiments)
+    if isempty(suites)
+        push!(lines, as_landscape(generate_summary_table(experiments, optimizer_order,
+            "tab:abssum-summary",
+            "Absolute sum minimization: mean final loss across optimizers.")))
+        push!(lines, as_landscape(generate_timing_table(experiments, optimizer_order,
+            "tab:abssum-timing",
+            "Mean wall-clock time (seconds) per optimizer.")))
+        push!(lines, generate_optimizer_aggregate_table(experiments, optimizer_order,
+            "tab:abssum-optimizer-aggregate",
+            "Overall optimizer comparison aggregated across configurations."))
+        push!(lines, as_landscape(generate_eval_count_table(experiments, optimizer_order,
+            "tab:abssum-evals",
+            "Mean number of function evaluations per optimizer.")))
+        if verbose
+            push!(lines, generate_detailed_tables(experiments, optimizer_order,
+                "tab:abssum-detail", "Detailed results for configuration"))
+        end
+        push!(lines, as_landscape(generate_ranking_table(experiments, optimizer_order,
+            "tab:abssum-ranking",
+            "Absolute sum minimization: optimizer ranking by mean final loss.")))
+    else
+        for suite in suites
+            push!(lines, generate_suite_section(experiments, suite,
+                "tab:abssum", "Absolute Sum Minimization";
+                include_aggregate=true, verbose=verbose))
+        end
     end
-
-    # Ranking
-    push!(lines, as_landscape(generate_ranking_table(experiments, optimizer_order,
-        "tab:abssum-ranking",
-        "Absolute sum minimization: optimizer ranking by mean final loss per configuration (rank 1 = best, lower is better). Averaged over random samples. Bold marks the best-ranked optimizer per row (excluding Random). The \\textit{Average} row shows the mean rank across all configurations.")))
 
     return join(lines, "\n")
 end

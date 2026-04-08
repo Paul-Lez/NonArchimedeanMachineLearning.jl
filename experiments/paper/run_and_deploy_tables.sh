@@ -6,7 +6,7 @@
 # the arXiv draft directory.
 #
 # Usage (from repo root):
-#   bash experiments/paper/run_and_deploy_tables.sh [--quick] [--epochs N] [--samples N] [--selection-mode M] [--degree D]
+#   bash experiments/paper/run_and_deploy_tables.sh [--quick] [--epochs N] [--samples N] [--selection-mode M] [--degree D] [-p N]
 #
 # Flags are forwarded to generate_paper_tables.sh:
 #   --quick           Use reduced epochs/simulations for a fast smoke-test run
@@ -15,6 +15,7 @@
 #   --selection-mode  MCTS/DAG-MCTS selection mode: BestValue, VisitCount, or BestLoss (default: BestValue)
 #   --degree D        Override tree branching degree for MCTS/DAG-MCTS/DOO optimizers (default: auto from dims)
 #   --verbose         Include per-configuration detailed tables (default: aggregate only)
+#   -p N, --procs N   Launch Julia with N additional worker processes for experiment runs
 # ==============================================================================
 
 set -euo pipefail
