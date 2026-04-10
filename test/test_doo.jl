@@ -25,7 +25,9 @@ using Oscar
     loss = MSE_loss_init(model, data)
 
     # Initial parameter: start at a = 0
-    param = ValuationPolydisc([K(0)], [0])
+    # Use explicit tuple constructor to avoid auto-wrapping to ValuedFieldPoint,
+    # which would cause a type mismatch with the PadicFieldElem evaluators
+    param = ValuationPolydisc{PadicFieldElem,Int,1}((K(0),), (0,))
 
     @testset "DOO Node Creation" begin
         node = DOONode(param, 0, 0, nothing)
@@ -43,7 +45,6 @@ using Oscar
 
         config = DOOConfig(
             delta=delta,
-            max_depth=5,
             degree=1,
             strict=false
         )
@@ -51,7 +52,6 @@ using Oscar
         @test config.delta(0) == 1.0
         @test config.delta(1) == 0.5
         @test config.delta(2) == 0.25
-        @test config.max_depth == 5
         @test config.degree == 1
         @test config.strict == false
     end
@@ -62,7 +62,6 @@ using Oscar
 
         config = DOOConfig(
             delta=delta,
-            max_depth=10,
             degree=1,
             strict=false
         )
@@ -104,7 +103,7 @@ using Oscar
 
     @testset "DOO Utility Functions" begin
         delta = h -> 2.0^(-h)
-        config = DOOConfig(delta=delta, max_depth=10, degree=1)
+        config = DOOConfig(delta=delta, degree=1)
         optim = doo_descent_init(param, loss, 1, config)
 
         # Run a few steps
@@ -133,7 +132,7 @@ using Oscar
 
     @testset "DOO B-value Computation" begin
         delta = h -> 2.0^(-h)
-        config = DOOConfig(delta=delta, max_depth=10)
+        config = DOOConfig(delta=delta)
 
         # Create nodes at different depths
         node0 = DOONode(param, 0, 0, nothing)
@@ -164,7 +163,7 @@ using Oscar
     @testset "DOO vs HOO Comparison" begin
         # Compare DOO with HOO on same problem
         delta = h -> 0.5^h
-        doo_config = DOOConfig(delta=delta, max_depth=10, degree=1)
+        doo_config = DOOConfig(delta=delta, degree=1)
         doo_optim = doo_descent_init(param, loss, 1, doo_config)
 
         hoo_config = HOOConfig(rho=0.5, nu1=0.1, max_depth=10, degree=1)
@@ -201,7 +200,7 @@ using Oscar
     @testset "DOO Strict Mode" begin
         # Test strict mode (expand one branch at a time)
         delta = h -> 2.0^(-h)
-        config = DOOConfig(delta=delta, max_depth=10, degree=1, strict=true)
+        config = DOOConfig(delta=delta, degree=1, strict=true)
         optim = doo_descent_init(param, loss, 1, config)
 
         initial_branch = optim.state.next_branch

@@ -73,7 +73,7 @@ function MSE_loss_init(model::AbstractModel{S}, data::Vector{Tuple{S,U}}) where 
     specialized_models = [specialise(model, [val]) for (val, _) in data]
 
     # Count parameters (false entries in param_info)
-    param_dim = count(!model.param_info)
+    param_dim = count(.!model.param_info)
 
     # Initialize TYPED batch evaluation for each specialized model
     # Specialized models are just PolydiscFunctions with only parameters
@@ -195,7 +195,7 @@ function MPE_loss_init(model::AbstractModel{S}, data::Vector{Tuple{S,U}}, p::Int
     specialized_models = [specialise(model, [val]) for (val, _) in data]
 
     # Count parameters (false entries in param_info)
-    param_dim = count(!model.param_info)
+    param_dim = count(.!model.param_info)
 
     # Initialize TYPED batch evaluation for each specialized model
     batch_evals = [batch_evaluate_init(specialized_models[i], ValuationPolydisc{S,Int,param_dim}) for i in eachindex(specialized_models)]
@@ -239,7 +239,7 @@ function MPE_loss_init(model::AbstractModel{S}, data::Vector{Tuple{Vector{S},U}}
     specialized_models = [specialise(model, val) for (val, _) in data]
 
     # Count parameters (false entries in param_info)
-    param_dim = count(!model.param_info)
+    param_dim = count(.!model.param_info)
 
     # Initialize TYPED batch evaluation for each specialized model
     batch_evals = [batch_evaluate_init(specialized_models[i], ValuationPolydisc{S,Int,param_dim}) for i in eachindex(specialized_models)]

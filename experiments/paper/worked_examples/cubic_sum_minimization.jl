@@ -115,7 +115,6 @@ println("Running DOO ($n_steps steps)...")
 p_val = Float64(p)
 doo_config = DOOConfig(
     delta     = h -> p_val^(-h),
-    max_depth = 15,
     degree    = 1
 )
 doo_optim = doo_descent_init(initial_param, loss, 1, doo_config)

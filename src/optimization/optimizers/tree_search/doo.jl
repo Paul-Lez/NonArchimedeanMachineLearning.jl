@@ -63,7 +63,6 @@ Fields:
 - `delta::Function`: Diameter function δ(h) providing upper bound on cell diameter at depth h.
                      Should be a decreasing function of depth.
                      NOTE: User will define this based on specific problem structure.
-- `max_depth::Int`: Maximum tree depth (default: 10)
 - `degree::Int`: Degree for child generation (default: 1)
 - `strict::Bool`: If true, expand children along single branch at a time (default: false)
 - `value_transform::Function`: Transform loss to value for maximization (default: loss -> -loss)
@@ -73,22 +72,24 @@ Theoretical Notes:
 - δ(h) should decrease at rate matching the partition refinement
 - For binary splits: δ(h) = 0.5^h is typical
 - For p-adic polydiscs: δ(h) depends on prime and radius shrinkage
+
+Note: DOO does not need an explicit max_depth parameter. The tree search naturally
+terminates when the polydisc `children()` function returns empty at the precision
+boundary of the p-adic field.
 """
 struct DOOConfig
     delta::Function
-    max_depth::Int
     degree::Int
     strict::Bool
     value_transform::Function
 
     function DOOConfig(;
         delta::Function,
-        max_depth::Int=10,
         degree::Int=1,
         strict::Bool=false,
         value_transform::Function = loss -> -loss
     )
-        new(delta, max_depth, degree, strict, value_transform)
+        new(delta, degree, strict, value_transform)
     end
 end
 
@@ -191,7 +192,7 @@ Returns: Vector of newly created child nodes (empty if node cannot be expanded)
 """
 function expand_node!(node::DOONode{S,T,N}, loss::Loss, config::DOOConfig,
                       state::DOOState{S,T,N}) where {S,T,N}
-    if node.is_expanded || node.depth >= config.max_depth
+    if node.is_expanded
         return DOONode{S,T,N}[]
     end
 
@@ -251,7 +252,7 @@ function doo_descent(loss::Loss, param::ValuationPolydisc{S,T,N},
     best_leaf = select_best_leaf(state, config)
 
     if best_leaf === nothing
-        # No leaves available (shouldn't happen in normal operation)
+        # No unexpanded leaves remain — fully converged
         return (param, state, true)
     end
 
@@ -276,9 +277,8 @@ function doo_descent(loss::Loss, param::ValuationPolydisc{S,T,N},
     # Return the best-valued node found so far as the new parameter
     best_node = get_best_node(state)
 
-    # Converged if the best node cannot be expanded further
-    # (expanded with no children means precision boundary reached)
-    converged = best_node.is_expanded && isempty(best_node.children)
+    # Converged when no unexpanded leaves remain (all reachable regions explored)
+    converged = isempty(state.leaves)
     return (best_node.polydisc, state, converged)
 end
 

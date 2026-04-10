@@ -254,7 +254,7 @@ function get_optimizer_configs(config::Dict, args::NamedTuple)
         s["DOO"] = Dict(
             "init" => (param, loss) -> begin
                 delta = h -> p_float^(-h)
-                c = NAML.DOOConfig(delta=delta, max_depth=quick ? 10 : 15, degree=deg, strict=false)
+                c = NAML.DOOConfig(delta=delta, degree=deg, strict=false)
                 NAML.doo_descent_init(param, loss, 1, c)
             end
         )
