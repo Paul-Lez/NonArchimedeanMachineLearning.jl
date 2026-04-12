@@ -97,3 +97,13 @@ src/
 test/                   Test suite
 docs/                   Documenter.jl source
 ```
+
+## Citing
+If this package was useful for your research, please consider adding the following citation (preprint to be uploaded to the arXiv very soon)
+```
+@article{lezeau2026nonarchimedean,
+  title={Non-Archimedean Polydisc Spaces and Applications to Optimisation},
+  author={Lezeau, Paul and Fam, Yiannis and Monod, Anthea and Ren, Yue},
+  year={2026}
+}
+```
