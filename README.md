@@ -1,8 +1,8 @@
 # NAML — Non-Archimedean Optimisation (and a bit of ML)
 
-[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://Paul-Lez.github.io/naml/dev/)
-[![Build Status](https://github.com/Paul-Lez/naml/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Paul-Lez/naml/actions/workflows/CI.yml?query=branch%3Amain)
-[![Codecov](https://codecov.io/gh/Paul-Lez/naml/branch/main/graph/badge.svg)](https://codecov.io/gh/Paul-Lez/naml)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://Paul-Lez.github.io/NAML.jl/dev/)
+[![Build Status](https://github.com/Paul-Lez/NAML.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Paul-Lez/NAML.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Codecov](https://codecov.io/gh/Paul-Lez/NAML.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/Paul-Lez/NAML.jl)
 
 NAML is a Julia package for optimization over non-Archimedean fields. It provides tools to define objective functions on p-adic polydiscs and minimize them using a range of optimizers, from greedy descent to tree-search methods (MCTS, DOO, plus other experimental implementations).
 
@@ -70,11 +70,11 @@ doo_optim = doo_descent_init(initial_param, loss, 1,
     DOOConfig(delta=h -> 2.0^(-h), degree=1))
 ```
 
-See [experiments/paper/worked_examples/](experiments/paper/worked_examples/) for complete runnable scripts.
+See [demos/](demos/) for complete runnable scripts.
 
 ## Documentation
 
-Full documentation is available at **[paul-lez.github.io/naml/dev/](https://Paul-Lez.github.io/naml/dev/)**.
+Full documentation is available at **[paul-lez.github.io/NAML.jl/dev/](https://Paul-Lez.github.io/NAML.jl/dev/)**.
 
 ## Repository structure
 
