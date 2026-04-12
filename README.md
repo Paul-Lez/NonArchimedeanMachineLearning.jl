@@ -1,30 +1,99 @@
-# Non-Archimedean Machine Learning 
+# NAML — Non-Archimedean Machine Learning
 
-This repository implements some algorithms for machine learning with inputs 
-and parameters in some non-Archimedean field (or more generally in some 
-polydisc space over a non-Archimedean field). 
+NAML is a Julia package for optimization over non-Archimedean fields. It provides tools to define objective functions on p-adic polydiscs and minimize them using a range of optimizers, from greedy descent to tree-search methods (MCTS, DOO, plus other experimental implementations).
 
-## Content
+## Installation
 
-- Basic structures (polydisc, tangent vectors, functions) and API are implemented in the files in folder `src/basic`:
-    - `valuation.jl` provides generic valuation and absolute value implementations
-    - `polydisc.jl` defines polydiscs and their operations
-    - `tangent_vector.jl` implements tangent vectors on polydisc spaces
-    - `functions.jl` provides a compositional function algebra for building complex functions
-- The folder `src/optimization` contains the infrastructure for training non-Archimedean models:
-    - `optim_setup.jl` develops core objects and API for setting up and training models
-    - `loss.jl` implements several "standard" loss functions (MSE, MPE)
-    - `model.jl` defines AbstractModel and Model structures
-    - `optimizers/` subdirectory contains optimization algorithms:
-        - `greedy_descent.jl` implements a "greedy" descent algorithm
-        - `gradient_descent.jl` implements a version of gradient descent
-        - `tree_search/` contains tree search algorithms (MCTS, UCT, HOO, etc.)
-- The folder `src/statistics` contains statistical tools like Frechet mean computation
+NAML depends on [Oscar.jl](https://github.com/oscar-system/Oscar.jl). From the Julia REPL:
 
-## See how this works
+```julia
+using Pkg
+Pkg.add(url="https://github.com/Paul-Lez/NAML.jl")
+```
 
-To see this in practice, run the demos in the `experiments/` directory:
-- `cubic_learning_experiment.ipynb` - learn the roots (which depend on some parameter `a`) of a cubic
-- `polynomial_learning.ipynb` - learn the roots of "random" polynomials of arbitrary degree
-- `linear_learning_experiment.ipynb` - linear learning experiments
-- `tree_colouring_learning.ipynb` - tree coloring task demonstration
+Or clone the repository and activate the project locally:
+
+```bash
+git clone https://github.com/Paul-Lez/NAML.jl.git
+cd NAML.jl
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+```
+
+## Quick start
+
+Minimize |x² - 1|₂ over the 2-adic integers — the true minimizers are x = ±1.
+
+```julia
+using NAML
+using Oscar
+
+# Set up the 2-adic field with precision 20
+K = PadicField(2, 20)
+R, (x,) = polynomial_ring(K, ["x"])
+
+# Define the objective: f(x) = |x² - 1|₂
+f = AbsolutePolynomialSum([x^2 - 1])
+
+# Build a typed loss function
+VP    = ValuationPolydisc{PadicFieldElem, Int, 1}
+batch = NAML.batch_evaluate_init(f, VP)
+loss  = Loss(params -> map(batch, params), _ -> 0)
+
+# Starting polydisc: the 2-adic unit ball centered at 1
+initial_param = VP((K(1),), (0,))
+
+# Initialize an optimizer (e.g. Greedy Descent) and run
+optim = greedy_descent_init(initial_param, loss, 1, (false, 1))
+for _ in 1:60
+    step!(optim)
+    has_converged(optim) && break
+end
+
+println("Best loss: ", eval_loss(optim))       # ≈ 0
+println("Center:    ", NAML.center(optim.param)) # ≈ ±1
+```
+
+Other optimizers can be swapped in just as easily:
+
+```julia
+# MCTS
+mcts_optim = mcts_descent_init(initial_param, loss,
+    MCTSConfig(num_simulations=50, exploration_constant=1.41,
+               degree=1, selection_mode=BestValue))
+
+# Deterministic Optimistic Optimization (DOO)
+doo_optim = doo_descent_init(initial_param, loss, 1,
+    DOOConfig(delta=h -> 2.0^(-h), degree=1))
+```
+
+See [experiments/paper/worked_examples/](experiments/paper/worked_examples/) for complete runnable scripts.
+
+## Documentation
+
+Full documentation is available at **[TODO: link to docs site]**.
+
+## Repository structure
+
+```
+src/
+├── basic/              Core algebraic structures
+│   ├── valuation.jl        Valuations and absolute values
+│   ├── polydisc.jl         Polydiscs and their operations
+│   ├── tangent_vector.jl   Tangent vectors on polydisc spaces
+│   ├── functions.jl        Compositional function algebra
+│   └── valued_point.jl     Valued field point wrapper
+├── optimization/       Optimization framework
+│   ├── model.jl            Abstract model interface
+│   ├── optim_setup.jl      Core optimizer API (step!, has_converged, ...)
+│   ├── loss.jl             Standard losses (MSE, MPE)
+│   └── optimizers/
+│       ├── greedy_descent.jl
+│       ├── gradient_descent.jl
+│       ├── random_descent.jl
+│       └── tree_search/    MCTS, DOO, DAG-MCTS
+├── statistics/         Frechet means, least squares
+└── visualization/      Loss landscape plots, search tree rendering
+
+test/                   Test suite
+docs/                   Documenter.jl source
+```
