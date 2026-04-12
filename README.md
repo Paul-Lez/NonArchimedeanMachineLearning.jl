@@ -1,5 +1,9 @@
 # NAML — Non-Archimedean Optimisation (and a bit of ML)
 
+[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://Paul-Lez.github.io/naml/dev/)
+[![Build Status](https://github.com/Paul-Lez/naml/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Paul-Lez/naml/actions/workflows/CI.yml?query=branch%3Amain)
+[![Codecov](https://codecov.io/gh/Paul-Lez/naml/branch/main/graph/badge.svg)](https://codecov.io/gh/Paul-Lez/naml)
+
 NAML is a Julia package for optimization over non-Archimedean fields. It provides tools to define objective functions on p-adic polydiscs and minimize them using a range of optimizers, from greedy descent to tree-search methods (MCTS, DOO, plus other experimental implementations).
 
 ## Installation
@@ -70,7 +74,7 @@ See [experiments/paper/worked_examples/](experiments/paper/worked_examples/) for
 
 ## Documentation
 
-Full documentation is available at **[TODO: link to docs site]**.
+Full documentation is available at **[paul-lez.github.io/naml/dev/](https://Paul-Lez.github.io/naml/dev/)**.
 
 ## Repository structure
 
