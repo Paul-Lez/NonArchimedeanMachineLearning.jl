@@ -4,8 +4,8 @@ DOO 3D Test: Compare DOO with MCTS on 3D polynomial optimization
 
 using Test
 using Printf
-include("../src/NAML.jl")
-using .NAML
+include("../src/NonArchimedeanMachineLearning.jl")
+using .NonArchimedeanMachineLearning
 using Oscar
 
 @testset "DOO 3D Experiments" begin

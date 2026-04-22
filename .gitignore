@@ -15,6 +15,7 @@ outputs/*
 *.ji
 *.o
 *.so
+docs/build/
 
 # OS files
 .DS_Store

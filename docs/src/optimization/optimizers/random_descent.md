@@ -1,6 +1,6 @@
 # Random Descent
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["optimization/optimizers/random_descent.jl"]
 ```

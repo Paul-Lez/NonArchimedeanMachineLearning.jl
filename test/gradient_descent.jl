@@ -5,7 +5,7 @@
 
 using Test
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
 
 @testset "Gradient Descent Optimization" begin
     # Set up synthetic data
@@ -38,7 +38,7 @@ using NAML
 
         # Define the loss function
         loss = Loss(
-            (params::Vector) -> [NAML.evaluate(abs_model, p2, param) for param in params],
+            (params::Vector) -> [NonArchimedeanMachineLearning.evaluate(abs_model, p2, param) for param in params],
             (vs::Vector) -> [gradient_param(abs_model, p2, v) for v in vs]
         )
 

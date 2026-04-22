@@ -1,6 +1,6 @@
 # Search Tree Viz
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["visualization/search_tree_viz.jl"]
 ```

@@ -2,7 +2,7 @@
 
 using Test
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
 
 @testset "Typed Evaluators" begin
     @testset "Basic Setup" begin
@@ -46,9 +46,9 @@ using NAML
         prec = 20
         K = PadicField(2, prec)
 
-        # Create a constant function using NAML.Constant
+        # Create a constant function using NonArchimedeanMachineLearning.Constant
         # Note: Constant takes a Number value, not a field element
-        c = NAML.Constant{PadicFieldElem}(5.0)
+        c = NonArchimedeanMachineLearning.Constant{PadicFieldElem}(5.0)
 
         # Create a polydisc
         center = [ValuedFieldPoint(K(1)), ValuedFieldPoint(K(2))]

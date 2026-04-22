@@ -5,7 +5,7 @@
 
 using Test
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
 
 @testset "Fréchet Mean" begin
     prec = 20

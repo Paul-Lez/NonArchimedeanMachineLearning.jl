@@ -1,6 +1,6 @@
 # Valued Point
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["basic/valued_point.jl"]
 ```

@@ -1,8 +1,8 @@
 ## Loss Landscape Visualization Demo
 ## This script demonstrates the complete loss landscape visualization pipeline
 
-include("../src/NAML.jl")
-using .NAML
+include("../src/NonArchimedeanMachineLearning.jl")
+using .NonArchimedeanMachineLearning
 using Oscar
 
 println("=== Loss Landscape Visualization Demo ===\n")
@@ -44,7 +44,7 @@ println("  d3: center = (4, 0), radius = (4, 4)\n")
 
 # Build the convex hull tree
 println("Building convex hull tree...")
-tree = NAML.convex_hull([d1, d2, d3])
+tree = NonArchimedeanMachineLearning.convex_hull([d1, d2, d3])
 
 println("Convex hull has $(length(tree.nodes)) nodes:")
 println("  - $(length(tree.leaf_indices)) leaves (original discs)")
@@ -59,7 +59,7 @@ function loss_function(param_disc::ValuationPolydisc)
     m = Model(model, param_disc)
 
     # Evaluate at the data point
-    val = NAML.evaluate(m, data_point)
+    val = NonArchimedeanMachineLearning.evaluate(m, data_point)
 
     return Float64(val)
 end

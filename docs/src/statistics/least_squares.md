@@ -1,6 +1,6 @@
 # Least Squares
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["statistics/least_squares.jl"]
 ```

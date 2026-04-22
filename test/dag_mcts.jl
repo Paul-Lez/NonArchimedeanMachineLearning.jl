@@ -9,7 +9,7 @@
 
 using Test
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
 
 @testset "DAG-MCTS" begin
     prec = 20
@@ -30,48 +30,48 @@ using NAML
     @testset "Transposition Table - Basic Operations" begin
         # Test get_or_create_node!
         # Note: Polydisc equality uses STRICT inequality: v(center_diff) > radius
-        table = Dict{NAML.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}}()
+        table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}}()
 
         p1 = ValuationPolydisc([K(1)], [2])
 
         # First call should create new node
-        node1 = NAML.get_or_create_node!(table, p1)
+        node1 = NonArchimedeanMachineLearning.get_or_create_node!(table, p1)
         @test length(table) == 1
         @test node1.polydisc == p1
 
         # Second call with same polydisc should return same node
-        node2 = NAML.get_or_create_node!(table, p1)
+        node2 = NonArchimedeanMachineLearning.get_or_create_node!(table, p1)
         @test node1 === node2  # Same object reference
         @test length(table) == 1  # No new entry
 
         # Equivalent polydisc (v(diff) > radius) should return same node
         p1_equiv = ValuationPolydisc([K(1 + 8)], [2])  # v(8) = 3 > 2
         @test p1 == p1_equiv  # Verify they're equal
-        node3 = NAML.get_or_create_node!(table, p1_equiv)
+        node3 = NonArchimedeanMachineLearning.get_or_create_node!(table, p1_equiv)
         @test node1 === node3  # Same object due to transposition
         @test length(table) == 1
 
         # Different polydisc should create new node
         p2 = ValuationPolydisc([K(2)], [2])
-        node4 = NAML.get_or_create_node!(table, p2)
+        node4 = NonArchimedeanMachineLearning.get_or_create_node!(table, p2)
         @test node4 !== node1
         @test length(table) == 2
     end
 
     @testset "Transposition Table - Parent Linking (track_parents=true)" begin
         # Use 2D to create truly different parent nodes via different refinement paths
-        table = Dict{NAML.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}}()
+        table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}}()
 
         # Start with a root polydisc
         root = ValuationPolydisc([K(0), K(0)], [0, 0])
-        root_node = NAML.get_or_create_node!(table, root)
+        root_node = NonArchimedeanMachineLearning.get_or_create_node!(table, root)
 
         # Create two different parents by refining different coordinates
         parent1 = children_along_branch(root, 1)[1]  # Refine coordinate 1
         parent2 = children_along_branch(root, 2)[1]  # Refine coordinate 2
 
-        parent1_node = NAML.get_or_create_node!(table, parent1, root_node)
-        parent2_node = NAML.get_or_create_node!(table, parent2, root_node)
+        parent1_node = NonArchimedeanMachineLearning.get_or_create_node!(table, parent1, root_node)
+        parent2_node = NonArchimedeanMachineLearning.get_or_create_node!(table, parent2, root_node)
 
         # Verify parents are different
         @test parent1 != parent2
@@ -81,12 +81,12 @@ using NAML
         child_p = ValuationPolydisc([K(0), K(0)], [1, 1])
 
         # Create child with first parent
-        child_node = NAML.get_or_create_node!(table, child_p, parent1_node)
+        child_node = NonArchimedeanMachineLearning.get_or_create_node!(table, child_p, parent1_node)
         @test length(child_node.parents) == 1
         @test parent1_node in child_node.parents
 
         # Link same child to second parent (transposition)
-        child_node2 = NAML.get_or_create_node!(table, child_p, parent2_node)
+        child_node2 = NonArchimedeanMachineLearning.get_or_create_node!(table, child_p, parent2_node)
         @test child_node === child_node2  # Same node instance
         @test length(child_node.parents) == 2
         @test parent1_node in child_node.parents
@@ -94,25 +94,25 @@ using NAML
     end
 
     @testset "Transposition Table - No Parent Tracking (track_parents=false)" begin
-        table = Dict{NAML.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}}()
+        table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}}()
 
         root = ValuationPolydisc([K(0), K(0)], [0, 0])
-        root_node = NAML.get_or_create_node!(table, root)
+        root_node = NonArchimedeanMachineLearning.get_or_create_node!(table, root)
 
         parent1 = children_along_branch(root, 1)[1]
         parent2 = children_along_branch(root, 2)[1]
 
         # Pass nothing as parent (simulating track_parents=false)
-        parent1_node = NAML.get_or_create_node!(table, parent1)
-        parent2_node = NAML.get_or_create_node!(table, parent2)
+        parent1_node = NonArchimedeanMachineLearning.get_or_create_node!(table, parent1)
+        parent2_node = NonArchimedeanMachineLearning.get_or_create_node!(table, parent2)
 
         child_p = ValuationPolydisc([K(0), K(0)], [1, 1])
 
         # Without parent tracking, parents vector stays empty
-        child_node = NAML.get_or_create_node!(table, child_p)
+        child_node = NonArchimedeanMachineLearning.get_or_create_node!(table, child_p)
         @test isempty(child_node.parents)
 
-        child_node2 = NAML.get_or_create_node!(table, child_p)
+        child_node2 = NonArchimedeanMachineLearning.get_or_create_node!(table, child_p)
         @test child_node === child_node2  # Transposition still detected
         @test isempty(child_node.parents)  # But no parents tracked
     end
@@ -122,7 +122,7 @@ using NAML
         node = DAGMCTSNode(p)
 
         # Unvisited node should have Inf score
-        @test NAML.uct_score(node, 10, sqrt(2.0)) == Inf
+        @test NonArchimedeanMachineLearning.uct_score(node, 10, sqrt(2.0)) == Inf
 
         # Visited node should have finite score
         node.visits = 5
@@ -130,21 +130,21 @@ using NAML
         parent_visits = 100
         c = sqrt(2.0)
 
-        score = NAML.uct_score(node, parent_visits, c)
+        score = NonArchimedeanMachineLearning.uct_score(node, parent_visits, c)
         expected = 0.5 + c * sqrt(log(parent_visits) / 5)
         @test abs(score - expected) < 1e-10
     end
 
     @testset "Node Expansion with Transposition Detection" begin
-        table = Dict{NAML.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}}()
+        table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}}()
         config = DAGMCTSConfig(num_simulations=10, degree=1)
 
         # Create 2D polydisc to test transpositions
         root_p = ValuationPolydisc([K(0), K(0)], [0, 0])
-        root = NAML.get_or_create_node!(table, root_p)
+        root = NonArchimedeanMachineLearning.get_or_create_node!(table, root_p)
 
         # Expand root
-        NAML.expand_node!(root, table, config)
+        NonArchimedeanMachineLearning.expand_node!(root, table, config)
         @test root.is_expanded
         @test !isempty(root.children)
 
@@ -153,7 +153,7 @@ using NAML
         # Now expand one of the children - this may create nodes
         # that could be reached via a different path
         first_child = first(root.children)
-        NAML.expand_node!(first_child, table, config)
+        NonArchimedeanMachineLearning.expand_node!(first_child, table, config)
         @test first_child.is_expanded
     end
 
@@ -168,14 +168,14 @@ using NAML
         node3 = DAGMCTSNode(p3)
 
         # Create a dummy state for backpropagation best-node tracking
-        table = Dict{NAML.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}}()
+        table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}}()
         dummy_state = DAGMCTSState{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}(node1, table, 0, nothing, -Inf, nothing, 0, nothing, Inf, nothing)
 
         path = [node1, node2, node3]
         value = 0.75
 
         # Backpropagate
-        NAML.backpropagate!(path, value, dummy_state)
+        NonArchimedeanMachineLearning.backpropagate!(path, value, dummy_state)
 
         # All nodes should have 1 visit and the value
         for node in path
@@ -184,7 +184,7 @@ using NAML
         end
 
         # Second backpropagation
-        NAML.backpropagate!(path, 0.25, dummy_state)
+        NonArchimedeanMachineLearning.backpropagate!(path, 0.25, dummy_state)
         for node in path
             @test node.visits == 2
             @test node.total_value == 1.0  # 0.75 + 0.25
@@ -277,29 +277,29 @@ using NAML
         # We manually create the "same" polydisc to ensure transposition detection works
         # by using the hash-based lookup
 
-        table = Dict{NAML.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}}()
+        table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}}()
 
         # Start point
         start = ValuationPolydisc([K(0), K(0)], [0, 0])
-        start_node = NAML.get_or_create_node!(table, start)
+        start_node = NonArchimedeanMachineLearning.get_or_create_node!(table, start)
 
         # Path A: shrink coord 1 first
         after_shrink_1 = children_along_branch(start, 1)[1]  # First child along branch 1
-        node_a1 = NAML.get_or_create_node!(table, after_shrink_1, start_node)
+        node_a1 = NonArchimedeanMachineLearning.get_or_create_node!(table, after_shrink_1, start_node)
 
         # Path B: shrink coord 2 first
         after_shrink_2 = children_along_branch(start, 2)[1]  # First child along branch 2
-        node_b1 = NAML.get_or_create_node!(table, after_shrink_2, start_node)
+        node_b1 = NonArchimedeanMachineLearning.get_or_create_node!(table, after_shrink_2, start_node)
 
         # Now create the "final" node that both paths should reach
         # This is radius (1, 1) with center (0, 0)
         final_polydisc = ValuationPolydisc([K(0), K(0)], [1, 1])
 
         # Add via path A
-        node_final_via_a = NAML.get_or_create_node!(table, final_polydisc, node_a1)
+        node_final_via_a = NonArchimedeanMachineLearning.get_or_create_node!(table, final_polydisc, node_a1)
 
         # Add via path B - should find the SAME node (transposition!)
-        node_final_via_b = NAML.get_or_create_node!(table, final_polydisc, node_b1)
+        node_final_via_b = NonArchimedeanMachineLearning.get_or_create_node!(table, final_polydisc, node_b1)
 
         # The key test: both paths should lead to the SAME node instance
         @test node_final_via_a === node_final_via_b  # Same node instance (transposition detected!)
@@ -408,7 +408,7 @@ using NAML
         terminal_node = MCTSNode(terminal_p)
 
         config = MCTSConfig(num_simulations=10)
-        NAML.expand_node!(terminal_node, config)
+        NonArchimedeanMachineLearning.expand_node!(terminal_node, config)
 
         @test terminal_node.is_terminal
         @test terminal_node.is_solved
@@ -418,7 +418,7 @@ using NAML
         # A polydisc at radius 2 (< prec 3) should NOT be terminal
         non_terminal_p = ValuationPolydisc([K_low(0)], [2])
         non_terminal_node = MCTSNode(non_terminal_p)
-        NAML.expand_node!(non_terminal_node, config)
+        NonArchimedeanMachineLearning.expand_node!(non_terminal_node, config)
 
         @test !non_terminal_node.is_terminal
         @test !non_terminal_node.is_solved
@@ -431,11 +431,11 @@ using NAML
         terminal_p = ValuationPolydisc([K_low(0)], [3])
         terminal_node = DAGMCTSNode(terminal_p)
 
-        table = Dict{NAML.HashedPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 1}, DAGMCTSNode{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 1}}()
-        table[NAML.HashedPolydisc(terminal_p)] = terminal_node
+        table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 1}, DAGMCTSNode{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 1}}()
+        table[NonArchimedeanMachineLearning.HashedPolydisc(terminal_p)] = terminal_node
         config = DAGMCTSConfig(num_simulations=10)
 
-        NAML.expand_node!(terminal_node, table, config)
+        NonArchimedeanMachineLearning.expand_node!(terminal_node, table, config)
 
         @test terminal_node.is_terminal
         @test terminal_node.is_solved
@@ -451,14 +451,14 @@ using NAML
         root_node = MCTSNode(root_p)
 
         config = MCTSConfig(num_simulations=10)
-        NAML.expand_node!(root_node, config)
+        NonArchimedeanMachineLearning.expand_node!(root_node, config)
 
         @test !root_node.is_terminal
         @test length(root_node.children) > 0
 
         # Expand all children - they should be terminal
         for child in root_node.children
-            NAML.expand_node!(child, config)
+            NonArchimedeanMachineLearning.expand_node!(child, config)
             @test child.is_terminal
             @test child.is_solved
             # Simulate setting proven_value (as mcts_search would)
@@ -467,7 +467,7 @@ using NAML
 
         # Now propagate solved status up from each child
         for child in root_node.children
-            NAML.propagate_solved_up!(child)
+            NonArchimedeanMachineLearning.propagate_solved_up!(child)
         end
 
         # Root should now be solved since all children are solved
@@ -483,18 +483,18 @@ using NAML
         # 2D polydisc: refine dim 1 then dim 2 vs dim 2 then dim 1 → same child
         root_p = ValuationPolydisc([K_low(0), K_low(0)], [1, 1])
 
-        table = Dict{NAML.HashedPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 2}}()
-        root_node = NAML.get_or_create_node!(table, root_p)
+        table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 2}}()
+        root_node = NonArchimedeanMachineLearning.get_or_create_node!(table, root_p)
 
         config = DAGMCTSConfig(num_simulations=10, track_parents=true)
-        NAML.expand_node!(root_node, table, config)
+        NonArchimedeanMachineLearning.expand_node!(root_node, table, config)
 
         # Each child refines one dimension
         @test length(root_node.children) > 0
 
         # Expand all children
         for child in root_node.children
-            NAML.expand_node!(child, table, config)
+            NonArchimedeanMachineLearning.expand_node!(child, table, config)
         end
 
         # Mark all terminal (leaf) nodes as solved with a value
@@ -507,7 +507,7 @@ using NAML
         # Propagate solved status from all terminal nodes
         for node in values(table)
             if node.is_terminal && node.is_solved
-                NAML.propagate_solved_up_dag!(node, [node])
+                NonArchimedeanMachineLearning.propagate_solved_up_dag!(node, [node])
             end
         end
 
@@ -529,10 +529,10 @@ using NAML
         root_node = MCTSNode(root_p)
 
         config = MCTSConfig(num_simulations=10)
-        NAML.expand_node!(root_node, config)
+        NonArchimedeanMachineLearning.expand_node!(root_node, config)
 
         # check_solved! should return false when children are unsolved
-        @test !NAML.check_solved!(root_node)
+        @test !NonArchimedeanMachineLearning.check_solved!(root_node)
 
         # Mark all children as solved manually
         for child in root_node.children
@@ -542,12 +542,12 @@ using NAML
         root_node.unsolved_children_count = 0
 
         # Now check_solved! should succeed
-        @test NAML.check_solved!(root_node)
+        @test NonArchimedeanMachineLearning.check_solved!(root_node)
         @test root_node.is_solved
         @test root_node.proven_value ≈ -0.5
 
         # Calling again should return false (already solved)
-        @test !NAML.check_solved!(root_node)
+        @test !NonArchimedeanMachineLearning.check_solved!(root_node)
     end
 
     @testset "Early Termination - MCTS on Tiny Space" begin
@@ -643,7 +643,7 @@ using NAML
         # The final parameter should be terminal: all radii == precision,
         # meaning children() returns an empty vector (no further refinement possible)
         final_param = optim.param
-        @test all(r -> r == 3, NAML.radius(final_param))
+        @test all(r -> r == 3, NonArchimedeanMachineLearning.radius(final_param))
         @test isempty(children(final_param, 1))
     end
 
@@ -677,7 +677,7 @@ using NAML
 
         # The final parameter should be terminal: all radii == precision
         final_param = optim.param
-        @test all(r -> r == 3, NAML.radius(final_param))
+        @test all(r -> r == 3, NonArchimedeanMachineLearning.radius(final_param))
         @test isempty(children(final_param, 1))
 
         # Transposition table should still be consistent

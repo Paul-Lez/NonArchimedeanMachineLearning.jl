@@ -4,7 +4,7 @@
 
 using Test
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
 
 @testset "Convergence Detection" begin
     # Use low precision so convergence happens quickly

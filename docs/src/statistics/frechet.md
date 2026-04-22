@@ -1,6 +1,6 @@
 # Frechet
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["statistics/frechet.jl"]
 ```

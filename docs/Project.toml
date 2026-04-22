@@ -1,6 +1,6 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-NAML = "aa0cea19-a6a0-4763-972a-18f6f03725f1"
+NonArchimedeanMachineLearning = "aa0cea19-a6a0-4763-972a-18f6f03725f1"
 
 [sources]
-NAML = {path = ".."}
+NonArchimedeanMachineLearning = {path = ".."}

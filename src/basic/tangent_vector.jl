@@ -1,5 +1,5 @@
 ## This file will contain the code for tangent vectors
-## Note: polydisc.jl is included by the main NAML module before this file
+## Note: polydisc.jl is included by the main NonArchimedeanMachineLearning module before this file
 
 @doc raw"""
     ValuationTangent{S, T, N}

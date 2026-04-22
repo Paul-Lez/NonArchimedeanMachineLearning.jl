@@ -3,8 +3,8 @@ Test file for DOO (Deterministic Optimistic Optimization) implementation.
 """
 
 using Test
-include("../src/NAML.jl")
-using .NAML
+include("../src/NonArchimedeanMachineLearning.jl")
+using .NonArchimedeanMachineLearning
 using Oscar
 
 @testset "DOO Optimizer Tests" begin
@@ -145,9 +145,9 @@ using Oscar
         node2.value = 1.0
 
         # B-values should decrease with depth (since delta decreases)
-        b0 = NAML.b_value(node0, config)
-        b1 = NAML.b_value(node1, config)
-        b2 = NAML.b_value(node2, config)
+        b0 = NonArchimedeanMachineLearning.b_value(node0, config)
+        b1 = NonArchimedeanMachineLearning.b_value(node1, config)
+        b2 = NonArchimedeanMachineLearning.b_value(node2, config)
 
         @test b0 == 1.0 + 1.0  # value + delta(0)
         @test b1 == 1.0 + 0.5  # value + delta(1)
@@ -157,7 +157,7 @@ using Oscar
 
         # Unexplored node should have infinite b-value
         unexplored = DOONode(param, 0, 0, nothing)
-        @test NAML.b_value(unexplored, config) == Inf
+        @test NonArchimedeanMachineLearning.b_value(unexplored, config) == Inf
     end
 
     @testset "DOO vs HOO Comparison" begin

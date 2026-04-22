@@ -1,7 +1,7 @@
 ## Test file for convex hull computation
 
-include("../src/naml.jl")
-using .NAML
+include("../src/NonArchimedeanMachineLearning.jl")
+using .NonArchimedeanMachineLearning
 using Oscar
 
 println("=== Testing Convex Hull Computation ===\n")
@@ -19,7 +19,7 @@ d2 = ValuationPolydisc([K(4)], [3])
 d3 = ValuationPolydisc([K(8)], [3])
 
 discs_3 = [d1, d2, d3]
-tree_3 = NAML.convex_hull(discs_3)
+tree_3 = NonArchimedeanMachineLearning.convex_hull(discs_3)
 
 println("Number of input discs: ", length(discs_3))
 println("Number of nodes in convex hull: ", length(tree_3.nodes))
@@ -59,7 +59,7 @@ d3 = ValuationPolydisc([K(16)], [4])
 d4 = ValuationPolydisc([K(24)], [4])
 
 discs_4 = [d1, d2, d3, d4]
-tree_4 = NAML.convex_hull(discs_4)
+tree_4 = NonArchimedeanMachineLearning.convex_hull(discs_4)
 
 println("Number of input discs: ", length(discs_4))
 println("Number of nodes in convex hull: ", length(tree_4.nodes))
@@ -93,7 +93,7 @@ println("\n")
 println("Test 3: Verification of join computation")
 println("-" ^ 40)
 # Manually verify a join
-j_12 = NAML.join(d1, d2)
+j_12 = NonArchimedeanMachineLearning.join(d1, d2)
 println("Join of d1 and d2:")
 println("  d1: center=$(d1.center), radius=$(d1.radius)")
 println("  d2: center=$(d2.center), radius=$(d2.radius)")

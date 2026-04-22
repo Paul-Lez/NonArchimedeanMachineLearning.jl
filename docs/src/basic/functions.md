@@ -1,6 +1,6 @@
 # Functions
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["basic/functions.jl"]
 ```

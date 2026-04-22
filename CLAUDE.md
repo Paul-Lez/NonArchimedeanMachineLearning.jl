@@ -1,4 +1,4 @@
-# NAML - Non-Archimedean Machine Learning
+# NonArchimedeanMachineLearning - Non-Archimedean Machine Learning
 
 A Julia library for machine learning over p-adic numbers and polydisc spaces.
 
@@ -37,8 +37,8 @@ julia --project=. experiments/paper/<name>/sanity_run.jl
 ### Basic Usage
 ```julia
 # Load the module
-include("src/NAML.jl")
-using .NAML
+include("src/NonArchimedeanMachineLearning.jl")
+using .NonArchimedeanMachineLearning
 
 # Set up p-adic field
 prec = 20
@@ -71,7 +71,7 @@ end
 ```
 naml-experiments/
 ├── src/
-│   ├── NAML.jl                    # Main module with exports
+│   ├── NonArchimedeanMachineLearning.jl                    # Main module with exports
 │   ├── basic/                     # Core mathematical structures
 │   │   ├── valuation.jl           # Valuation and absolute value
 │   │   ├── valued_point.jl        # ValuedFieldPoint wrapper
@@ -177,7 +177,7 @@ prime(p)                     # Prime p of the field
 children(p, degree)          # Generate p^degree children
 children_along_branch(p, i)  # Children along branch i
 
-NAML.join(p1, p2)           # Intersection (not exported, conflicts with Base.join)
+NonArchimedeanMachineLearning.join(p1, p2)           # Intersection (not exported, conflicts with Base.join)
 dist(p1, p2)                # Distance between polydiscs
 concatenate(p1, p2)         # Combine into higher dimension
 
@@ -207,8 +207,8 @@ ValuationTangent{S,T,N}
 
 **Key Functions:**
 ```julia
-NAML.zero(P::ValuationPolydisc, Q::ValuationPolydisc)  # Zero tangent at P toward Q
-NAML.basis_vector(P, Q, i)                              # i-th basis vector
+NonArchimedeanMachineLearning.zero(P::ValuationPolydisc, Q::ValuationPolydisc)  # Zero tangent at P toward Q
+NonArchimedeanMachineLearning.basis_vector(P, Q, i)                              # i-th basis vector
 Base.:+(v1, v2)                                         # Vector addition
 ```
 
@@ -282,7 +282,7 @@ f^n      # Repeated multiplication
 **Core Operations:**
 
 ```julia
-NAML.evaluate(f::PolydiscFunction, p::ValuationPolydisc)
+NonArchimedeanMachineLearning.evaluate(f::PolydiscFunction, p::ValuationPolydisc)
 ```
 Evaluate function at polydisc. Returns interval/polydisc representing range.
 **Note**: Not exported (conflicts with Oscar).
@@ -333,10 +333,10 @@ f = poly^2 + 3 * poly  # Creates: Add(Mul(poly, poly), SMul(3, poly))
 
 # Evaluate at polydisc
 p = ValuationPolydisc([K(0), K(0)], [0, 0])
-result = NAML.evaluate(f, p)
+result = NonArchimedeanMachineLearning.evaluate(f, p)
 
 # Compute derivative
-v = NAML.zero(p, p)
+v = NonArchimedeanMachineLearning.zero(p, p)
 df = directional_derivative(f, v)
 ```
 
@@ -618,7 +618,7 @@ Quick overview:
 
 **Module Structure:**
 ```julia
-module NAML
+module NonArchimedeanMachineLearning
     using Oscar
     using LinearAlgebra
     using Printf
@@ -627,7 +627,7 @@ module NAML
 end
 ```
 
-Not a registered package - use `include("src/NAML.jl"); using .NAML`.
+Not a registered package - use `include("src/NonArchimedeanMachineLearning.jl"); using .NonArchimedeanMachineLearning`.
 
 ---
 
@@ -703,12 +703,12 @@ plot_tree_with_loss, plot_tree_simple
 print_landscape_summary, plot_loss_landscape, export_landscape_csv
 ```
 
-**Non-exported (use NAML.function_name):**
+**Non-exported (use NonArchimedeanMachineLearning.function_name):**
 ```julia
-NAML.join          # Conflicts with Base.join
-NAML.zero          # Conflicts with Base.zero
-NAML.basis_vector  # Avoid Base conflict
-NAML.evaluate      # Conflicts with Oscar
+NonArchimedeanMachineLearning.join          # Conflicts with Base.join
+NonArchimedeanMachineLearning.zero          # Conflicts with Base.zero
+NonArchimedeanMachineLearning.basis_vector  # Avoid Base conflict
+NonArchimedeanMachineLearning.evaluate      # Conflicts with Oscar
 ```
 
 ---

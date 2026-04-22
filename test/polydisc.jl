@@ -5,7 +5,7 @@
 
 using Test
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
 
 @testset "Polydisc Operations" begin
     prec = 20
@@ -44,7 +44,7 @@ using NAML
 
     @testset "Polydisc Join" begin
         # Test: Join (smallest common ancestor) of two polydiscs
-        j = NAML.join(p1, p2)  # Using qualified name to avoid conflict with Base.join
+        j = NonArchimedeanMachineLearning.join(p1, p2)  # Using qualified name to avoid conflict with Base.join
         @test j isa ValuationPolydisc
         @test length(j.center) == 2
     end
@@ -62,19 +62,19 @@ using NAML
 
     @testset "Polydisc Accessors" begin
         # Test: center, radius, dim, prime accessors
-        @test collect(NAML.center(p1)) == a1
-        @test collect(NAML.radius(p1)) == r1
-        @test NAML.dim(p1) == 2
-        @test NAML.prime(p1) == 3
+        @test collect(NonArchimedeanMachineLearning.center(p1)) == a1
+        @test collect(NonArchimedeanMachineLearning.radius(p1)) == r1
+        @test NonArchimedeanMachineLearning.dim(p1) == 2
+        @test NonArchimedeanMachineLearning.prime(p1) == 3
     end
 
     @testset "Polydisc Distance" begin
         # Test: distance between polydiscs
-        d = NAML.dist(p1, p2)
+        d = NonArchimedeanMachineLearning.dist(p1, p2)
         @test d isa Float64
         @test d >= 0
         # Distance to self should be 0
-        @test NAML.dist(p1, p1) == 0.0
+        @test NonArchimedeanMachineLearning.dist(p1, p1) == 0.0
     end
 
     @testset "Polydisc Concatenate" begin
@@ -82,14 +82,14 @@ using NAML
         L = PadicField(2, prec)
         q1 = ValuationPolydisc([L(1)], [1])
         q2 = ValuationPolydisc([L(2)], [2])
-        q_concat = NAML.concatenate(q1, q2)
-        @test NAML.dim(q_concat) == 2
-        @test length(NAML.center(q_concat)) == 2
-        @test length(NAML.radius(q_concat)) == 2
-        @test NAML.center(q_concat)[1] == L(1)
-        @test NAML.center(q_concat)[2] == L(2)
-        @test NAML.radius(q_concat)[1] == 1
-        @test NAML.radius(q_concat)[2] == 2
+        q_concat = NonArchimedeanMachineLearning.concatenate(q1, q2)
+        @test NonArchimedeanMachineLearning.dim(q_concat) == 2
+        @test length(NonArchimedeanMachineLearning.center(q_concat)) == 2
+        @test length(NonArchimedeanMachineLearning.radius(q_concat)) == 2
+        @test NonArchimedeanMachineLearning.center(q_concat)[1] == L(1)
+        @test NonArchimedeanMachineLearning.center(q_concat)[2] == L(2)
+        @test NonArchimedeanMachineLearning.radius(q_concat)[1] == 1
+        @test NonArchimedeanMachineLearning.radius(q_concat)[2] == 2
     end
 
     @testset "Polydisc Children Along Branch" begin
@@ -98,11 +98,11 @@ using NAML
         gauss = ValuationPolydisc([L(0), L(0)], [2, 2])
         ch_branch = children_along_branch(gauss, 1)
         @test ch_branch isa Vector
-        @test length(ch_branch) == 2  # NAML.prime(gauss) = 2
+        @test length(ch_branch) == 2  # NonArchimedeanMachineLearning.prime(gauss) = 2
         # All children should have increased radius in first coordinate
-        @test all(c -> NAML.radius(c)[1] == 3, ch_branch)
+        @test all(c -> NonArchimedeanMachineLearning.radius(c)[1] == 3, ch_branch)
         # Second coordinate radius should be unchanged
-        @test all(c -> NAML.radius(c)[2] == 2, ch_branch)
+        @test all(c -> NonArchimedeanMachineLearning.radius(c)[2] == 2, ch_branch)
     end
 
     @testset "Polydisc Equality" begin
@@ -125,17 +125,17 @@ using NAML
 
     @testset "Polydisc Subdisc and Components" begin
         # Test: extract subdisc
-        p_sub = NAML.subdisc(p1, [1])
-        @test NAML.dim(p_sub) == 1
-        @test NAML.center(p_sub)[1] == K(1)
-        @test NAML.radius(p_sub)[1] == 1
+        p_sub = NonArchimedeanMachineLearning.subdisc(p1, [1])
+        @test NonArchimedeanMachineLearning.dim(p_sub) == 1
+        @test NonArchimedeanMachineLearning.center(p_sub)[1] == K(1)
+        @test NonArchimedeanMachineLearning.radius(p_sub)[1] == 1
 
         # Test: get components
-        comps = NAML.components(p1)
+        comps = NonArchimedeanMachineLearning.components(p1)
         @test length(comps) == 2
-        @test all(c -> NAML.dim(c) == 1, comps)
-        @test NAML.center(comps[1])[1] == K(1)
-        @test NAML.center(comps[2])[1] == K(2)
+        @test all(c -> NonArchimedeanMachineLearning.dim(c) == 1, comps)
+        @test NonArchimedeanMachineLearning.center(comps[1])[1] == K(1)
+        @test NonArchimedeanMachineLearning.center(comps[2])[1] == K(2)
     end
 
     @testset "Polydisc Hash and Canonical Center" begin

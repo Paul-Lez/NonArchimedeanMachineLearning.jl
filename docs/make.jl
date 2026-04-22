@@ -1,8 +1,8 @@
-using Documenter, NAML
+using Documenter, NonArchimedeanMachineLearning
 
 makedocs(
-    sitename="NAML.jl",
-    modules=[NAML],
+    sitename="NonArchimedeanMachineLearning.jl",
+    modules=[NonArchimedeanMachineLearning],
     warnonly=true,
     format=Documenter.HTML(
         prettyurls=get(ENV, "CI", "false") == "true",
@@ -46,7 +46,7 @@ makedocs(
 )
 
 deploydocs(
-    repo="github.com/Paul-Lez/NAML.jl.git",
+    repo="github.com/Paul-Lez/NAMLOptimization.jl.git",
     devbranch="main",
     push_preview=true
 )

@@ -958,7 +958,7 @@ Plot object from Plots.jl
 # Example
 ```julia
 using Plots
-tree = NAML.convex_hull([d1, d2, d3])
+tree = NonArchimedeanMachineLearning.convex_hull([d1, d2, d3])
 landscape = sample_loss_landscape(tree, loss_func, 20)
 plt = plot_tree_with_loss(tree, landscape)
 savefig(plt, "tree_landscape.png")

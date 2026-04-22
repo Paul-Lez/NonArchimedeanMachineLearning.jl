@@ -1,6 +1,6 @@
 # Optim Setup
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["optimization/optim_setup.jl"]
 ```

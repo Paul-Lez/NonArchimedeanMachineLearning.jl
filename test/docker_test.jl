@@ -1,7 +1,7 @@
 #!/usr/bin/env julia
 # Quick test to verify Docker setup works correctly
 
-println("=== NAML Docker Environment Test ===\n")
+println("=== NonArchimedeanMachineLearning Docker Environment Test ===\n")
 
 # Test 1: Check Julia version
 println("1. Julia version: $(VERSION)")
@@ -31,14 +31,14 @@ catch e
     exit(1)
 end
 
-# Test 5: Try to include NAML module
-println("5. Loading NAML module...")
+# Test 5: Try to include NonArchimedeanMachineLearning module
+println("5. Loading NonArchimedeanMachineLearning module...")
 try
-    include("../src/NAML.jl")
-    using .NAML
-    println("   ✓ NAML module loaded successfully")
+    include("../src/NonArchimedeanMachineLearning.jl")
+    using .NonArchimedeanMachineLearning
+    println("   ✓ NonArchimedeanMachineLearning module loaded successfully")
 catch e
-    println("   ✗ Failed to load NAML: $e")
+    println("   ✗ Failed to load NonArchimedeanMachineLearning: $e")
     exit(1)
 end
 
@@ -48,14 +48,14 @@ try
     K = PadicField(2, 10)
     center = [K(1), K(2)]
     radius = [0, 1]
-    p = NAML.ValuationPolydisc(center, radius)
+    p = NonArchimedeanMachineLearning.ValuationPolydisc(center, radius)
     println("   ✓ Created polydisc: center=$(center), radius=$(radius)")
-    println("   ✓ Dimension: $(NAML.dim(p))")
-    println("   ✓ Prime: $(NAML.prime(p))")
+    println("   ✓ Dimension: $(NonArchimedeanMachineLearning.dim(p))")
+    println("   ✓ Prime: $(NonArchimedeanMachineLearning.prime(p))")
 catch e
     println("   ✗ Failed to create polydisc: $e")
     exit(1)
 end
 
 println("\n=== All tests passed! ✓ ===")
-println("Docker environment is ready for NAML development.")
+println("Docker environment is ready for NonArchimedeanMachineLearning development.")

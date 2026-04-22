@@ -6,11 +6,11 @@
 # on a simple polynomial function.
 
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
 using Printf
 
 # Import functions that may have conflicts
-import NAML: center, radius
+import NonArchimedeanMachineLearning: center, radius
 
 println("="^70)
 println("Testing All Optimizers")

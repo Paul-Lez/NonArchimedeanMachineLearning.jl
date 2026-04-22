@@ -1,6 +1,6 @@
 # Loss Landscape
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["visualization/loss_landscape.jl"]
 ```

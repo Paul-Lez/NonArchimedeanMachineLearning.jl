@@ -1,4 +1,4 @@
-module NAML
+module NonArchimedeanMachineLearning
 
 using Oscar
 using LinearAlgebra
@@ -43,13 +43,13 @@ export unwrap, lift
 # From basic/polydisc.jl
 export ValuationPolydisc, AbsPolydisc
 export center, radius, dim, prime
-# Note: join is not exported to avoid conflict with Base.join - use NAML.join explicitly
+# Note: join is not exported to avoid conflict with Base.join - use NonArchimedeanMachineLearning.join explicitly
 export dist, children, children_along_branch, concatenate
 export canonical_center  # For computing canonical polydisc representation (used by hash)
 
 # From basic/tangent_vector.jl
 export ValuationTangent
-# Note: zero and basis_vector not exported to avoid conflicts with Base - use NAML.zero, NAML.basis_vector
+# Note: zero and basis_vector not exported to avoid conflicts with Base - use NonArchimedeanMachineLearning.zero, NonArchimedeanMachineLearning.basis_vector
 
 # From basic/functions.jl
 export PolydiscFunction, AbsolutePolynomialSum, LinearAbsolutePolynomialSum, LinearPolynomial
@@ -60,7 +60,7 @@ export AddEvaluator, SubEvaluator, MulEvaluator, DivEvaluator
 export SMulEvaluator, CompEvaluator, SumEvaluator
 export LambdaEvaluator, MPolyEvaluator
 export directional_exponent, directional_derivative, grad, eval_abs
-# Note: evaluate not exported to avoid conflicts with Oscar/AbstractAlgebra - use NAML.evaluate
+# Note: evaluate not exported to avoid conflicts with Oscar/AbstractAlgebra - use NonArchimedeanMachineLearning.evaluate
 
 # From optimization/model.jl
 export AbstractModel, Model, ModelEvaluator
@@ -134,4 +134,4 @@ export plot_tree_with_loss, plot_tree_simple
 # From visualization/search_tree_viz.jl
 export visualize_search_tree
 
-end # module NAML
+end # module NonArchimedeanMachineLearning

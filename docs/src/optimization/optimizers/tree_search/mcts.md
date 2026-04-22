@@ -1,6 +1,6 @@
 # Mcts
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["optimization/optimizers/tree_search/mcts.jl"]
 ```

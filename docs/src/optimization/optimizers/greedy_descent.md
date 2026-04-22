@@ -1,6 +1,6 @@
 # Greedy Descent
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["optimization/optimizers/greedy_descent.jl"]
 ```

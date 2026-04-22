@@ -1,6 +1,6 @@
 ########### Search Tree Visualization with D3Trees ###########
 
-# Interactive visualization of NAML tree search optimizer states using D3Trees.jl.
+# Interactive visualization of NonArchimedeanMachineLearning tree search optimizer states using D3Trees.jl.
 
 using D3Trees
 
@@ -201,7 +201,7 @@ end
 @doc raw"""
     visualize_search_tree(root_or_state; max_depth=10, max_nodes=10000, init_expand=3, kwargs...)
 
-Create an interactive D3Tree visualization from any NAML tree search node or state.
+Create an interactive D3Tree visualization from any NonArchimedeanMachineLearning tree search node or state.
 
 # Arguments
 - `root_or_state`: Any search tree node (MCTSNode, UCTNode, etc.), state (MCTSState, etc.),

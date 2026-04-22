@@ -1,6 +1,6 @@
 # Tangent Vector
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["basic/tangent_vector.jl"]
 ```

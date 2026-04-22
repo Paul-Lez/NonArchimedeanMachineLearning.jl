@@ -5,8 +5,8 @@
 # 2. solve_linear_system: Solve Ax + b = y for x
 
 using Oscar
-include("../src/NAML.jl")
-using .NAML
+include("../src/NonArchimedeanMachineLearning.jl")
+using .NonArchimedeanMachineLearning
 
 
 println("=" ^ 80)
