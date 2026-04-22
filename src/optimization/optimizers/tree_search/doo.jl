@@ -244,7 +244,7 @@ Algorithm:
 5. Update state (step count, next_branch for strict mode)
 6. Return best-valued node's polydisc as new parameter
 
-Returns: (new_param::ValuationPolydisc, updated_state::DOOState)
+Returns: `(new_param::ValuationPolydisc, updated_state::DOOState, converged::Bool)`.
 """
 function doo_descent(loss::Loss, param::ValuationPolydisc{S,T,N},
                      state::DOOState{S,T,N}, config::DOOConfig) where {S,T,N}

@@ -59,8 +59,8 @@ export LinearPolynomialEvaluator, ConstantEvaluator
 export AddEvaluator, SubEvaluator, MulEvaluator, DivEvaluator
 export SMulEvaluator, CompEvaluator, SumEvaluator
 export LambdaEvaluator, MPolyEvaluator
-export directional_exponent, directional_derivative, grad, eval_abs
-# Note: evaluate not exported to avoid conflicts with Oscar/AbstractAlgebra - use NonArchimedeanMachineLearning.evaluate
+export directional_exponent, directional_derivative, grad
+# Note: evaluate not exported to avoid conflicts with Oscar/AbstractAlgebra - use NAML.evaluate
 
 # From optimization/model.jl
 export AbstractModel, Model, ModelEvaluator

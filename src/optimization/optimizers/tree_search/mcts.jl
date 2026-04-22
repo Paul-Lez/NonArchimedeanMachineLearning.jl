@@ -387,7 +387,7 @@ Performs `config.num_simulations` iterations of:
 3. Evaluation: Compute value using -loss
 4. Backpropagation: Update all nodes on the path
 
-Returns the child of root with the highest visit count (most promising).
+Returns the selected child and whether the root has converged.
 """
 function mcts_search(root::MCTSNode{S,T,N}, loss::Loss, config::MCTSConfig) where {S,T,N}
     # Ensure root is expanded
@@ -671,7 +671,8 @@ making it compatible with `OptimSetup`.
 - `config::MCTSConfig`: Configuration parameters
 
 # Returns
-`Tuple{ValuationPolydisc{S,T,N}, MCTSState{S,T,N}}`: New parameters and updated state
+`Tuple{ValuationPolydisc{S,T,N}, MCTSState{S,T,N}, Bool}`: New parameters,
+updated state, and convergence status
 """
 function mcts_descent(
     loss::Loss,

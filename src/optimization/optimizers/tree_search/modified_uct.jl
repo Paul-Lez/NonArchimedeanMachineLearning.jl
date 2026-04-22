@@ -409,7 +409,7 @@ Run Modified UCT from a root node and return the best child.
 Performs `config.num_simulations` iterations of the full Modified UCT algorithm.
 After all simulations, selects the child with the best average value.
 
-Returns: (best_polydisc, best_child_node)
+Returns: `(best_polydisc, best_child_node, converged)`.
 """
 function modified_uct_search(root::ModifiedUCTNode{S,T,N}, loss::Loss, config::ModifiedUCTConfig) where {S,T,N}
     # Ensure root is expanded (needed to have children to select from)
@@ -444,7 +444,7 @@ Perform one step of Modified UCT optimization.
 This function is designed to work with the OptimSetup interface.
 It creates a fresh tree rooted at the current parameter and runs Modified UCT search.
 
-Returns: (next_param, updated_state)
+Returns: `(next_param, updated_state, converged)`.
 """
 function modified_uct_descent(
     loss::Loss,
@@ -499,173 +499,4 @@ function modified_uct_descent_init(
         config,
         false
     )
-end
-
-##################################################
-# Testing Functions
-##################################################
-
-@doc raw"""
-    test_modified_uct_basic()
-
-Run basic unit tests for Modified UCT implementation.
-
-Tests:
-1. Node creation and average_value computation
-2. Coefficient computation (k_d and k'_d)
-3. Modified UCB score formula (including Inf for unvisited)
-4. Node expansion
-5. Backpropagation
-"""
-function test_modified_uct_basic()
-    println("Running Modified UCT basic tests...")
-
-    # Setup
-    prec = 10
-    K = PadicField(2, prec)
-    param = ValuationPolydisc([K(5)], [3])
-
-    # Test 1: Node creation
-    println("  Test 1: Node creation and average_value")
-    node = ModifiedUCTNode(param, nothing, 0)
-    @assert node.visits == 0
-    @assert node.total_value == 0.0
-    @assert node.depth == 0
-    @assert average_value(node) == 0.0
-    println("    ✓ Node initialized correctly")
-
-    # Test 2: Coefficient computation
-    println("  Test 2: Depth-dependent coefficients")
-    D = 5
-    config = ModifiedUCTConfig(max_depth=D, num_simulations=10)
-
-    # Check k_0 (depth 0, horizon D)
-    k_0 = config.k_coeffs[1]  # 1-indexed
-    sqrt2 = sqrt(2.0)
-    expected_k_0 = ((1+sqrt2)/sqrt2) * ((1+sqrt2)^D - 1)
-    @assert abs(k_0 - expected_k_0) < 1e-10
-    println("    ✓ k_0 = $(round(k_0, digits=3)) (correct)")
-
-    # Check k_D (depth D, horizon 0)
-    k_D = config.k_coeffs[D+1]
-    @assert abs(k_D - 0.0) < 1e-10  # Should be 0 at max depth
-    println("    ✓ k_D = 0.0 (correct)")
-
-    # Check k'_0
-    k_prime_0 = config.k_prime_coeffs[1]
-    expected_k_prime_0 = (3.0^D - 1) / 2
-    @assert abs(k_prime_0 - expected_k_prime_0) < 1e-10
-    println("    ✓ k'_0 = $(round(k_prime_0, digits=3)) (correct)")
-
-    # Test 3: Modified UCB score (unvisited nodes)
-    println("  Test 3: Modified UCB score for unvisited node")
-    score = modified_ucb_score(node, config)
-    @assert isinf(score)
-    println("    ✓ Unvisited node returns Inf")
-
-    # Test 4: Modified UCB score (visited node)
-    println("  Test 4: Modified UCB score for visited node")
-    node.visits = 5
-    node.total_value = 10.0
-    score = modified_ucb_score(node, config)
-    @assert isfinite(score)
-    @assert score > average_value(node)  # Should include exploration bonus
-    println("    ✓ Score = $(round(score, digits=3)) > average = $(average_value(node))")
-
-    # Test 5: Node expansion
-    println("  Test 5: Node expansion")
-    expand_node!(node, config)
-    @assert length(node.children) == 2  # Binary branching for degree=1
-    @assert all(c.depth == 1 for c in node.children)  # Children at depth 1
-    @assert all(c.parent === node for c in node.children)  # Parent set correctly
-    println("    ✓ Expanded to $(length(node.children)) children at depth 1")
-
-    # Test 6: Backpropagation
-    println("  Test 6: Backpropagation")
-    path = [node, node.children[1]]
-    initial_visits = [n.visits for n in path]
-    initial_totals = [n.total_value for n in path]
-
-    value = 3.5
-    backpropagate!(path, value)
-
-    for (i, n) in enumerate(path)
-        @assert n.visits == initial_visits[i] + 1
-        @assert n.total_value == initial_totals[i] + value
-    end
-    println("    ✓ Visits and totals updated correctly")
-
-    println("✓ All basic tests passed!\n")
-end
-
-@doc raw"""
-    test_modified_uct_simple_optimization()
-
-Test Modified UCT on a simple optimization problem: minimize |x|^2.
-
-Starting from x=16, should converge toward x=0.
-"""
-function test_modified_uct_simple_optimization()
-    println("Running Modified UCT simple optimization test...")
-    println("  Problem: minimize |x|^2, starting from x=16")
-
-    # Setup
-    prec = 20
-    K = PadicField(2, prec)
-    R, x_vars = polynomial_ring(K, ["x"])
-    x = x_vars[1]
-
-    # Create loss: |x|^2
-    poly = AbsolutePolynomialSum([x^2])
-    batch_eval = batch_evaluate_init(poly)
-
-    function loss_eval(params::Vector)
-        return [batch_eval(p) for p in params]
-    end
-
-    function loss_grad(vs::Vector)
-        return [directional_derivative(poly, v) for v in vs]
-    end
-
-    loss = Loss(loss_eval, loss_grad)
-
-    # Initial parameter: x = 16 with radius 5
-    param = ValuationPolydisc([K(16)], [5])
-
-    # Configure Modified UCT
-    config = ModifiedUCTConfig(
-        max_depth=10,
-        num_simulations=50,
-        beta=0.05,
-        degree=1
-    )
-
-    # Initialize optimizer
-    optim = modified_uct_descent_init(param, loss, config)
-
-    println("  Initial loss: $(round(eval_loss(optim), digits=6))")
-
-    # Run optimization
-    n_steps = 15
-    for i in 1:n_steps
-        step!(optim)
-        current_loss = eval_loss(optim)
-
-        if i <= 5 || i == n_steps
-            println("    Step $i: loss = $(round(current_loss, digits=6))")
-        elseif i == 6
-            println("    ...")
-        end
-    end
-
-    final_loss = eval_loss(optim)
-    initial_loss_value = loss.eval([param])[1]
-    println("  Final loss: $(round(final_loss, digits=6))")
-
-    # Modified UCT may not converge as quickly due to strong exploration
-    # Just check that we're still getting valid results
-    @assert isfinite(final_loss) "Expected finite loss, got $final_loss"
-    println("  Note: Modified UCT may require more steps or different hyperparameters")
-    println("        due to strong depth-dependent exploration bonuses")
-    println("✓ Optimization test passed (basic functionality verified)!\n")
 end

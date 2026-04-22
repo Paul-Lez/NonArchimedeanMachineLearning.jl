@@ -17,7 +17,8 @@ Can operate in strict mode (one coordinate at a time) or full mode (all coordina
 - `settings::Tuple{Bool,Int}`: `(strict, degree)` where `strict` enables single-coordinate descent
 
 # Returns
-`Tuple{ValuationPolydisc{S,T,N}, Int}`: New parameters and next branch index
+`Tuple{ValuationPolydisc{S,T,N}, Int, Bool}`: New parameters, next branch index,
+and convergence status
 """
 function greedy_descent(
     loss::Loss,

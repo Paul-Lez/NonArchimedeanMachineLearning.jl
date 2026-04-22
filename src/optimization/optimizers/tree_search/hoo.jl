@@ -449,7 +449,8 @@ Each "step" performs multiple HOO iterations (samples) and returns the best poly
 - `config::HOOConfig`: Configuration parameters
 
 # Returns
-`Tuple{ValuationPolydisc{S,T,N}, HOOState{S,T,N}}`: Best parameters found and updated state
+`Tuple{ValuationPolydisc{S,T,N}, HOOState{S,T,N}, Bool}`: Best parameters found,
+updated state, and convergence status
 """
 function hoo_descent(
     loss::Loss,

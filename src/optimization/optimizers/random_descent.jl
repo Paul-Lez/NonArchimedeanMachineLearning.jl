@@ -22,7 +22,8 @@ that structured optimization algorithms outperform random exploration.
 - `settings::Tuple{Bool,Int}`: `(strict, degree)` where `strict` enables single-coordinate descent
 
 # Returns
-`Tuple{ValuationPolydisc{S,T,N}, Int}`: Randomly selected child and state
+`Tuple{ValuationPolydisc{S,T,N}, Int, Bool}`: Randomly selected child, updated
+state, and convergence status
 """
 function random_descent(
     loss::Loss,
