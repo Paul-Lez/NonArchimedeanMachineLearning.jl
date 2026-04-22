@@ -23,12 +23,12 @@ A node in the HOO search tree.
 - `sum_values::Float64`: Sum of function values sampled at this node (for computing μ̂)
 - `is_expanded::Bool`: Whether this node's children have been generated
 """
-mutable struct HOONode{S,T,N}
-    polydisc::ValuationPolydisc{S,T,N}
+mutable struct HOONode{S, T, N}
+    polydisc::ValuationPolydisc{S, T, N}
     depth::Int
     position::Int
-    parent::Union{HOONode{S,T,N}, Nothing}
-    children::Vector{HOONode{S,T,N}}
+    parent::Union{HOONode{S, T, N}, Nothing}
+    children::Vector{HOONode{S, T, N}}
     visits::Int
     sum_values::Float64
     is_expanded::Bool
@@ -40,17 +40,17 @@ end
 Create a new HOO node with the given polydisc, depth, position, and optional parent.
 """
 function HOONode(
-    polydisc::ValuationPolydisc{S,T,N},
-    depth::Int=0,
-    position::Int=0,
-    parent=nothing
-) where {S,T,N}
-    return HOONode{S,T,N}(
+        polydisc::ValuationPolydisc{S, T, N},
+        depth::Int = 0,
+        position::Int = 0,
+        parent = nothing
+) where {S, T, N}
+    return HOONode{S, T, N}(
         polydisc,
         depth,
         position,
         parent,
-        HOONode{S,T,N}[],
+        HOONode{S, T, N}[],
         0,
         0.0,
         false
@@ -107,12 +107,12 @@ Create an HOO configuration with sensible defaults.
 - `value_transform::Function=loss -> 1.0 / (loss + 1e-10)`: Loss to reward transformation (default: 1/loss for minimization)
 """
 function HOOConfig(;
-    rho::Float64=0.5,
-    nu1::Float64=0.1,
-    max_depth::Int=10,
-    degree::Int=1,
-    strict::Bool=false,
-    value_transform::Function=loss -> 1.0 / (loss + 1e-10)
+        rho::Float64 = 0.5,
+        nu1::Float64 = 0.1,
+        max_depth::Int = 10,
+        degree::Int = 1,
+        strict::Bool = false,
+        value_transform::Function = loss -> 1.0 / (loss + 1e-10)
 )
     @assert 0 < rho < 1 "rho must be in (0,1)"
     @assert nu1 > 0 "nu1 must be positive"
@@ -143,8 +143,8 @@ State maintained across HOO optimization steps.
 - `next_branch::Int`: Next branch index for strict mode
 - `step_count::Int`: Number of optimization steps taken
 """
-mutable struct HOOState{S,T,N}
-    root::HOONode{S,T,N}
+mutable struct HOOState{S, T, N}
+    root::HOONode{S, T, N}
     total_samples::Int
     next_branch::Int
     step_count::Int
@@ -251,7 +251,7 @@ Expand a node by generating its child polydiscs.
 
 Creates child nodes at depth h+1, each representing a subregion of the parent.
 """
-function expand_node!(node::HOONode{S,T,N}, config::HOOConfig) where {S,T,N}
+function expand_node!(node::HOONode{S, T, N}, config::HOOConfig) where {S, T, N}
     if node.is_expanded
         return
     end
@@ -368,11 +368,11 @@ Complete HOO iteration following the specification:
 Returns the selected node and its loss value.
 """
 function hoo_iteration(
-    root::HOONode{S,T,N},
-    loss::Loss,
-    state::HOOState{S,T,N},
-    config::HOOConfig
-) where {S,T,N}
+        root::HOONode{S, T, N},
+        loss::Loss,
+        state::HOOState{S, T, N},
+        config::HOOConfig
+) where {S, T, N}
     # Phase 1: Select node to sample (returns node and path from root)
     selected_node, path = select_node(root, state.total_samples + 1, config)
 
@@ -453,11 +453,11 @@ Each "step" performs multiple HOO iterations (samples) and returns the best poly
 updated state, and convergence status
 """
 function hoo_descent(
-    loss::Loss,
-    param::ValuationPolydisc{S,T,N},
-    state::HOOState{S,T,N},
-    config::HOOConfig
-) where {S,T,N}
+        loss::Loss,
+        param::ValuationPolydisc{S, T, N},
+        state::HOOState{S, T, N},
+        config::HOOConfig
+) where {S, T, N}
     # Perform multiple HOO iterations per optimization step
     # (You can make this configurable if needed)
     num_iterations = 10
@@ -511,15 +511,15 @@ end
 ```
 """
 function hoo_descent_init(
-    param::ValuationPolydisc{S,T,N},
-    loss::Loss,
-    config::HOOConfig=HOOConfig()
-) where {S,T,N}
+        param::ValuationPolydisc{S, T, N},
+        loss::Loss,
+        config::HOOConfig = HOOConfig()
+) where {S, T, N}
     # Initialize root node at depth 0, position 1 (as per spec: (h,i) = (0,1))
     root = HOONode(param, 0, 1, nothing)
 
     # Initialize state
-    state = HOOState{S,T,N}(root, 0, 1, 0)
+    state = HOOState{S, T, N}(root, 0, 1, 0)
 
     # Sample at the root to initialize
     loss_value = loss.eval([root.polydisc])[1]
@@ -553,7 +553,7 @@ Print statistics about the HOO tree for debugging.
 
 Displays depth, position, visits, empirical mean, and number of children for each node.
 """
-function print_tree_stats(node::HOONode, max_depth::Int=3, depth::Int=0)
+function print_tree_stats(node::HOONode, max_depth::Int = 3, depth::Int = 0)
     if depth > max_depth
         return
     end
@@ -564,7 +564,7 @@ function print_tree_stats(node::HOONode, max_depth::Int=3, depth::Int=0)
             "visits=$(node.visits), μ̂=$(mean_str), children=$(length(node.children))")
 
     # Sort children by visits for display
-    sorted_children = sort(node.children, by=c -> c.visits, rev=true)
+    sorted_children = sort(node.children, by = c -> c.visits, rev = true)
     for child in sorted_children[1:min(5, length(sorted_children))]
         print_tree_stats(child, max_depth, depth + 1)
     end

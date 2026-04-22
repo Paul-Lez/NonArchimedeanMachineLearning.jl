@@ -202,7 +202,8 @@ using NonArchimedeanMachineLearning
         R, x = polynomial_ring(K, ["x"])
 
         poly = AbsolutePolynomialSum([x[1]^2])
-        batch_eval = batch_evaluate_init(poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1})
+        batch_eval = batch_evaluate_init(
+            poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1})
 
         function loss_eval(params::Vector)
             return [batch_eval(p) for p in params]
@@ -217,10 +218,10 @@ using NonArchimedeanMachineLearning
 
         # Configure DAG-MCTS
         config = DAGMCTSConfig(
-            num_simulations=50,
-            exploration_constant=1.41,
-            degree=1,
-            persist_table=false
+            num_simulations = 50,
+            exploration_constant = 1.41,
+            degree = 1,
+            persist_table = false
         )
 
         # Initialize optimizer
@@ -242,7 +243,8 @@ using NonArchimedeanMachineLearning
     @testset "DAG Stats and Verification" begin
         R, x = polynomial_ring(K, ["x"])
         poly = AbsolutePolynomialSum([x[1]^2])
-        batch_eval = batch_evaluate_init(poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1})
+        batch_eval = batch_evaluate_init(
+            poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1})
 
         function loss_eval(params::Vector)
             return [batch_eval(p) for p in params]
@@ -254,7 +256,7 @@ using NonArchimedeanMachineLearning
 
         initial_param = ValuationPolydisc([K(4)], [0])
         # Use persist_table=false for simpler verification
-        config = DAGMCTSConfig(num_simulations=30, persist_table=false)
+        config = DAGMCTSConfig(num_simulations = 30, persist_table = false)
 
         optim = dag_mcts_descent_init(initial_param, loss, config)
 
@@ -316,7 +318,8 @@ using NonArchimedeanMachineLearning
     @testset "Persist Table Option" begin
         R, x = polynomial_ring(K, ["x"])
         poly = AbsolutePolynomialSum([x[1]^2])
-        batch_eval = batch_evaluate_init(poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1})
+        batch_eval = batch_evaluate_init(
+            poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1})
 
         function loss_eval(params::Vector)
             return [batch_eval(p) for p in params]
@@ -331,7 +334,7 @@ using NonArchimedeanMachineLearning
         # Test with persist_table=true
         # With the DAG-first architecture, the table is rebuilt from the active subtree
         # after each step, so it only contains reachable nodes (not the whole history)
-        config_persist = DAGMCTSConfig(num_simulations=20, persist_table=true)
+        config_persist = DAGMCTSConfig(num_simulations = 20, persist_table = true)
         optim_persist = dag_mcts_descent_init(initial_param, loss, config_persist)
 
         step!(optim_persist)
@@ -348,7 +351,7 @@ using NonArchimedeanMachineLearning
         @test verify_transposition_table(optim_persist.state)
 
         # Test with persist_table=false
-        config_no_persist = DAGMCTSConfig(num_simulations=20, persist_table=false)
+        config_no_persist = DAGMCTSConfig(num_simulations = 20, persist_table = false)
         optim_no_persist = dag_mcts_descent_init(initial_param, loss, config_no_persist)
 
         step!(optim_no_persist)
@@ -362,7 +365,8 @@ using NonArchimedeanMachineLearning
     @testset "MCTS Persist Tree Option" begin
         R, x = polynomial_ring(K, ["x"])
         poly = AbsolutePolynomialSum([x[1]^2])
-        batch_eval = batch_evaluate_init(poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1})
+        batch_eval = batch_evaluate_init(
+            poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1})
 
         function mcts_loss_eval(params::Vector)
             return [batch_eval(p) for p in params]
@@ -375,7 +379,7 @@ using NonArchimedeanMachineLearning
         initial_param = ValuationPolydisc([K(4)], [0])
 
         # Test with persist_tree=true
-        config_persist = MCTSConfig(num_simulations=20, persist_tree=true)
+        config_persist = MCTSConfig(num_simulations = 20, persist_tree = true)
         optim_persist = mcts_descent_init(initial_param, loss, config_persist)
 
         step!(optim_persist)
@@ -386,7 +390,7 @@ using NonArchimedeanMachineLearning
         @test get_tree_size(optim_persist.state.root) > 1
 
         # Test with persist_tree=false (default)
-        config_no_persist = MCTSConfig(num_simulations=20, persist_tree=false)
+        config_no_persist = MCTSConfig(num_simulations = 20, persist_tree = false)
         optim_no_persist = mcts_descent_init(initial_param, loss, config_no_persist)
 
         step!(optim_no_persist)
@@ -423,7 +427,8 @@ using NonArchimedeanMachineLearning
         @test !non_terminal_node.is_terminal
         @test !non_terminal_node.is_solved
         @test !isempty(non_terminal_node.children)
-        @test non_terminal_node.unsolved_children_count == length(non_terminal_node.children)
+        @test non_terminal_node.unsolved_children_count ==
+              length(non_terminal_node.children)
     end
 
     @testset "Terminal Node Detection - DAG-MCTS" begin
@@ -564,7 +569,7 @@ using NonArchimedeanMachineLearning
         )
 
         initial_p = ValuationPolydisc([K_low(0)], [0])
-        config = MCTSConfig(num_simulations=1000, persist_tree=false)
+        config = MCTSConfig(num_simulations = 1000, persist_tree = false)
         optim = mcts_descent_init(initial_p, loss_low, config)
 
         # Run enough steps that the tree should become fully solved
@@ -593,7 +598,7 @@ using NonArchimedeanMachineLearning
         )
 
         initial_p = ValuationPolydisc([K_low(0)], [0])
-        config = DAGMCTSConfig(num_simulations=1000, persist_table=false, track_parents=true)
+        config = DAGMCTSConfig(num_simulations = 1000, persist_table = false, track_parents = true)
         optim = dag_mcts_descent_init(initial_p, loss_low, config)
 
         converged = false
@@ -625,7 +630,7 @@ using NonArchimedeanMachineLearning
         )
 
         initial_p = ValuationPolydisc([K_low(0)], [0])
-        config = MCTSConfig(num_simulations=1000, persist_tree=false)
+        config = MCTSConfig(num_simulations = 1000, persist_tree = false)
         optim = mcts_descent_init(initial_p, loss_low, config)
 
         # Run until convergence
@@ -660,7 +665,7 @@ using NonArchimedeanMachineLearning
         )
 
         initial_p = ValuationPolydisc([K_low(0)], [0])
-        config = DAGMCTSConfig(num_simulations=1000, persist_table=false, track_parents=true)
+        config = DAGMCTSConfig(num_simulations = 1000, persist_table = false, track_parents = true)
         optim = dag_mcts_descent_init(initial_p, loss_low, config)
 
         # Run until convergence
@@ -697,7 +702,7 @@ using NonArchimedeanMachineLearning
         )
 
         initial_p = ValuationPolydisc([K_low(0)], [0])
-        config = DAGMCTSConfig(num_simulations=500, persist_table=true, track_parents=true)
+        config = DAGMCTSConfig(num_simulations = 500, persist_table = true, track_parents = true)
         optim = dag_mcts_descent_init(initial_p, loss_low, config)
 
         for _ in 1:5

@@ -21,10 +21,10 @@ A node in the UCT search tree.
 - `total_value::Float64`: Sum of all values backpropagated through this node
 - `depth::Int`: Depth of this node in the tree (0 for root)
 """
-mutable struct UCTNode{S,T,N}
-    polydisc::ValuationPolydisc{S,T,N}
-    parent::Union{UCTNode{S,T,N}, Nothing}
-    children::Vector{UCTNode{S,T,N}}
+mutable struct UCTNode{S, T, N}
+    polydisc::ValuationPolydisc{S, T, N}
+    parent::Union{UCTNode{S, T, N}, Nothing}
+    children::Vector{UCTNode{S, T, N}}
     visits::Int
     total_value::Float64
     depth::Int
@@ -35,11 +35,12 @@ end
 
 Create a new UCT node with the given polydisc, optional parent, and depth.
 """
-function UCTNode(polydisc::ValuationPolydisc{S,T,N}, parent=nothing, depth=0) where {S,T,N}
-    return UCTNode{S,T,N}(
+function UCTNode(polydisc::ValuationPolydisc{S, T, N}, parent = nothing, depth = 0) where {
+        S, T, N}
+    return UCTNode{S, T, N}(
         polydisc,
         parent,
-        UCTNode{S,T,N}[],
+        UCTNode{S, T, N}[],
         0,
         0.0,
         depth
@@ -96,12 +97,12 @@ Create a UCT configuration.
 - `value_transform::Function=loss -> 1.0 / (loss + 1e-10)`: Loss to value transformation
 """
 function UCTConfig(;
-    max_depth::Int=10,
-    num_simulations::Int=100,
-    exploration_constant::Float64=sqrt(2.0),
-    degree::Int=1,
-    strict::Bool=false,
-    value_transform::Function=loss -> 1.0 / (loss + 1e-10)
+        max_depth::Int = 10,
+        num_simulations::Int = 100,
+        exploration_constant::Float64 = sqrt(2.0),
+        degree::Int = 1,
+        strict::Bool = false,
+        value_transform::Function = loss -> 1.0 / (loss + 1e-10)
 )
     return UCTConfig(
         max_depth,
@@ -126,8 +127,8 @@ State maintained across UCT optimization steps.
 - `root::UCTNode{S,T,N}`: The current root node of the search tree
 - `step_count::Int`: Number of optimization steps taken
 """
-mutable struct UCTState{S,T,N}
-    root::UCTNode{S,T,N}
+mutable struct UCTState{S, T, N}
+    root::UCTNode{S, T, N}
     step_count::Int
 end
 
@@ -196,7 +197,7 @@ end
 Expand a node by generating all its child polydiscs.
 Children are created at depth = parent.depth + 1.
 """
-function expand_node!(node::UCTNode{S,T,N}, config::UCTConfig) where {S,T,N}
+function expand_node!(node::UCTNode{S, T, N}, config::UCTConfig) where {S, T, N}
     if !isempty(node.children)
         return  # Already expanded
     end
@@ -259,7 +260,8 @@ Evaluate the loss at a node and transform to value.
 
 Returns the transformed value (higher is better).
 """
-function evaluate_node(node::UCTNode{S,T,N}, loss::Loss, config::UCTConfig) where {S,T,N}
+function evaluate_node(node::UCTNode{S, T, N}, loss::Loss, config::UCTConfig) where {
+        S, T, N}
     # Get reward x_n from environment (spec Phase 2)
     loss_value = loss.eval([node.polydisc])[1]
 
@@ -330,7 +332,7 @@ After all simulations, selects the child with the best average value.
 
 Returns: `(best_polydisc, best_child_node, converged)`.
 """
-function uct_search(root::UCTNode{S,T,N}, loss::Loss, config::UCTConfig) where {S,T,N}
+function uct_search(root::UCTNode{S, T, N}, loss::Loss, config::UCTConfig) where {S, T, N}
     # Ensure root is expanded (needed to have children to select from)
     expand_node!(root, config)
 
@@ -373,11 +375,11 @@ making it compatible with `OptimSetup`.
 updated state, and convergence status
 """
 function uct_descent(
-    loss::Loss,
-    param::ValuationPolydisc{S,T,N},
-    state::UCTState{S,T,N},
-    config::UCTConfig
-) where {S,T,N}
+        loss::Loss,
+        param::ValuationPolydisc{S, T, N},
+        state::UCTState{S, T, N},
+        config::UCTConfig
+) where {S, T, N}
     # Update root if param changed (shouldn't normally happen)
     if state.root.polydisc != param
         state.root = UCTNode(param, nothing, 0)
@@ -407,13 +409,13 @@ Initialize an optimization setup for UCT.
 `OptimSetup`: Configured optimization setup for UCT
 """
 function uct_descent_init(
-    param::ValuationPolydisc{S,T,N},
-    loss::Loss,
-    config::UCTConfig=UCTConfig()
-) where {S,T,N}
+        param::ValuationPolydisc{S, T, N},
+        loss::Loss,
+        config::UCTConfig = UCTConfig()
+) where {S, T, N}
     # Initialize state with root at depth 0
     root = UCTNode(param, nothing, 0)
-    state = UCTState{S,T,N}(root, 0)
+    state = UCTState{S, T, N}(root, 0)
 
     return OptimSetup(
         loss,
@@ -434,7 +436,7 @@ end
 
 Print statistics about the UCT tree for debugging.
 """
-function print_uct_tree_stats(node::UCTNode, max_depth::Int=3)
+function print_uct_tree_stats(node::UCTNode, max_depth::Int = 3)
     if node.depth > max_depth
         return
     end
@@ -443,7 +445,7 @@ function print_uct_tree_stats(node::UCTNode, max_depth::Int=3)
     println("$(indent)Depth $(node.depth): visits=$(node.visits), avg_value=$(round(average_value(node), digits=6)), children=$(length(node.children))")
 
     # Sort children by visits for display
-    sorted_children = sort(node.children, by=c -> c.visits, rev=true)
+    sorted_children = sort(node.children, by = c -> c.visits, rev = true)
     for child in sorted_children[1:min(3, length(sorted_children))]
         print_uct_tree_stats(child, max_depth)
     end

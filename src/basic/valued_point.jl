@@ -48,7 +48,7 @@ x + x          # Works like normal arithmetic
 With this wrapper, `ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}` knows
 `P` at compile time, enabling loop optimizations in hot-path functions.
 """
-struct ValuedFieldPoint{P,Prec,S} <: RingElem
+struct ValuedFieldPoint{P, Prec, S} <: RingElem
     elem::S
 end
 
@@ -64,8 +64,8 @@ Return the prime of the underlying p-adic field.
 
 This is a compile-time constant available via the type parameter `P`.
 """
-@inline prime(::Type{ValuedFieldPoint{P,Prec,S}}) where {P,Prec,S} = P
-@inline prime(::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} = P
+@inline prime(::Type{ValuedFieldPoint{P, Prec, S}}) where {P, Prec, S} = P
+@inline prime(::ValuedFieldPoint{P, Prec, S}) where {P, Prec, S} = P
 
 @doc raw"""
     precision(::Type{ValuedFieldPoint{P,Prec,S}}) where {P,Prec,S}
@@ -75,8 +75,8 @@ Return the precision of the underlying p-adic field.
 
 This is a compile-time constant available via the type parameter `Prec`.
 """
-@inline Base.precision(::Type{ValuedFieldPoint{P,Prec,S}}) where {P,Prec,S} = Prec
-@inline Base.precision(::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} = Prec
+@inline Base.precision(::Type{ValuedFieldPoint{P, Prec, S}}) where {P, Prec, S} = Prec
+@inline Base.precision(::ValuedFieldPoint{P, Prec, S}) where {P, Prec, S} = Prec
 
 #=============================================================================
  Constructors
@@ -98,7 +98,7 @@ function ValuedFieldPoint(x::PadicFieldElem)
     K = Base.parent(x)
     P = Int(Nemo.prime(K))
     Prec = Int(Oscar.precision(K))
-    return ValuedFieldPoint{P,Prec,PadicFieldElem}(x)
+    return ValuedFieldPoint{P, Prec, PadicFieldElem}(x)
 end
 
 @doc raw"""
@@ -107,8 +107,8 @@ end
 Construct a `ValuedFieldPoint` with explicit type parameters.
 Useful when you already know P and Prec.
 """
-function ValuedFieldPoint{P,Prec}(x::S) where {P,Prec,S}
-    return ValuedFieldPoint{P,Prec,S}(x)
+function ValuedFieldPoint{P, Prec}(x::S) where {P, Prec, S}
+    return ValuedFieldPoint{P, Prec, S}(x)
 end
 
 #=============================================================================
@@ -134,7 +134,7 @@ unwrap(x::ValuedFieldPoint) = x.elem
 
 Unwrap a tuple of `ValuedFieldPoint`s into a tuple of underlying elements.
 """
-unwrap(v::NTuple{N,<:ValuedFieldPoint}) where N = ntuple(i -> v[i].elem, N)
+unwrap(v::NTuple{N, <:ValuedFieldPoint}) where {N} = ntuple(i -> v[i].elem, N)
 
 @doc raw"""
     unwrap(v::Vector{<:ValuedFieldPoint})
@@ -158,24 +158,35 @@ Base.parent(x::ValuedFieldPoint) = Base.parent(x.elem)
  Arithmetic Operations (Delegate to Oscar)
 =============================================================================#
 
-Base.:+(a::ValuedFieldPoint{P,Prec,S}, b::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(a.elem + b.elem)
+function Base.:+(a::ValuedFieldPoint{P, Prec, S}, b::ValuedFieldPoint{
+        P, Prec, S}) where {P, Prec, S}
+    ValuedFieldPoint{P, Prec, S}(a.elem + b.elem)
+end
 
-Base.:-(a::ValuedFieldPoint{P,Prec,S}, b::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(a.elem - b.elem)
+function Base.:-(a::ValuedFieldPoint{P, Prec, S}, b::ValuedFieldPoint{
+        P, Prec, S}) where {P, Prec, S}
+    ValuedFieldPoint{P, Prec, S}(a.elem - b.elem)
+end
 
-Base.:-(a::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(-a.elem)
+function Base.:-(a::ValuedFieldPoint{P, Prec, S}) where {P, Prec, S}
+    ValuedFieldPoint{P, Prec, S}(-a.elem)
+end
 
-Base.:*(a::ValuedFieldPoint{P,Prec,S}, b::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(a.elem * b.elem)
+function Base.:*(a::ValuedFieldPoint{P, Prec, S}, b::ValuedFieldPoint{
+        P, Prec, S}) where {P, Prec, S}
+    ValuedFieldPoint{P, Prec, S}(a.elem * b.elem)
+end
 
 # Division using Oscar's divexact (exact division in p-adic fields)
-Base.:/(a::ValuedFieldPoint{P,Prec,S}, b::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(divexact(a.elem, b.elem))
+function Base.:/(a::ValuedFieldPoint{P, Prec, S}, b::ValuedFieldPoint{
+        P, Prec, S}) where {P, Prec, S}
+    ValuedFieldPoint{P, Prec, S}(divexact(a.elem, b.elem))
+end
 
-Base.://(a::ValuedFieldPoint{P,Prec,S}, b::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(divexact(a.elem, b.elem))
+function Base.://(a::ValuedFieldPoint{P, Prec, S}, b::ValuedFieldPoint{
+        P, Prec, S}) where {P, Prec, S}
+    ValuedFieldPoint{P, Prec, S}(divexact(a.elem, b.elem))
+end
 
 #=============================================================================
  Mixed-Type Operations (PadicFieldElem ↔ ValuedFieldPoint)
@@ -185,56 +196,81 @@ Base.://(a::ValuedFieldPoint{P,Prec,S}, b::ValuedFieldPoint{P,Prec,S}) where {P,
 # MPoly{PadicFieldElem} at ValuedFieldPoint values, coefficients (PadicFieldElem)
 # must interact with substituted values (ValuedFieldPoint).
 
-Base.:+(a::ValuedFieldPoint{P,Prec,PadicFieldElem}, b::PadicFieldElem) where {P,Prec} =
-    ValuedFieldPoint{P,Prec,PadicFieldElem}(a.elem + b)
+function Base.:+(a::ValuedFieldPoint{P, Prec, PadicFieldElem}, b::PadicFieldElem) where {
+        P, Prec}
+    ValuedFieldPoint{P, Prec, PadicFieldElem}(a.elem + b)
+end
 
-Base.:+(a::PadicFieldElem, b::ValuedFieldPoint{P,Prec,PadicFieldElem}) where {P,Prec} =
-    ValuedFieldPoint{P,Prec,PadicFieldElem}(a + b.elem)
+function Base.:+(a::PadicFieldElem, b::ValuedFieldPoint{
+        P, Prec, PadicFieldElem}) where {P, Prec}
+    ValuedFieldPoint{P, Prec, PadicFieldElem}(a + b.elem)
+end
 
-Base.:-(a::ValuedFieldPoint{P,Prec,PadicFieldElem}, b::PadicFieldElem) where {P,Prec} =
-    ValuedFieldPoint{P,Prec,PadicFieldElem}(a.elem - b)
+function Base.:-(a::ValuedFieldPoint{P, Prec, PadicFieldElem}, b::PadicFieldElem) where {
+        P, Prec}
+    ValuedFieldPoint{P, Prec, PadicFieldElem}(a.elem - b)
+end
 
-Base.:-(a::PadicFieldElem, b::ValuedFieldPoint{P,Prec,PadicFieldElem}) where {P,Prec} =
-    ValuedFieldPoint{P,Prec,PadicFieldElem}(a - b.elem)
+function Base.:-(a::PadicFieldElem, b::ValuedFieldPoint{
+        P, Prec, PadicFieldElem}) where {P, Prec}
+    ValuedFieldPoint{P, Prec, PadicFieldElem}(a - b.elem)
+end
 
-Base.:*(a::ValuedFieldPoint{P,Prec,PadicFieldElem}, b::PadicFieldElem) where {P,Prec} =
-    ValuedFieldPoint{P,Prec,PadicFieldElem}(a.elem * b)
+function Base.:*(a::ValuedFieldPoint{P, Prec, PadicFieldElem}, b::PadicFieldElem) where {
+        P, Prec}
+    ValuedFieldPoint{P, Prec, PadicFieldElem}(a.elem * b)
+end
 
-Base.:*(a::PadicFieldElem, b::ValuedFieldPoint{P,Prec,PadicFieldElem}) where {P,Prec} =
-    ValuedFieldPoint{P,Prec,PadicFieldElem}(a * b.elem)
+function Base.:*(a::PadicFieldElem, b::ValuedFieldPoint{
+        P, Prec, PadicFieldElem}) where {P, Prec}
+    ValuedFieldPoint{P, Prec, PadicFieldElem}(a * b.elem)
+end
 
-Base.:/(a::ValuedFieldPoint{P,Prec,PadicFieldElem}, b::PadicFieldElem) where {P,Prec} =
-    ValuedFieldPoint{P,Prec,PadicFieldElem}(divexact(a.elem, b))
+function Base.:/(a::ValuedFieldPoint{P, Prec, PadicFieldElem}, b::PadicFieldElem) where {
+        P, Prec}
+    ValuedFieldPoint{P, Prec, PadicFieldElem}(divexact(a.elem, b))
+end
 
-Base.:/(a::PadicFieldElem, b::ValuedFieldPoint{P,Prec,PadicFieldElem}) where {P,Prec} =
-    ValuedFieldPoint{P,Prec,PadicFieldElem}(divexact(a, b.elem))
+function Base.:/(a::PadicFieldElem, b::ValuedFieldPoint{
+        P, Prec, PadicFieldElem}) where {P, Prec}
+    ValuedFieldPoint{P, Prec, PadicFieldElem}(divexact(a, b.elem))
+end
 
 #=============================================================================
  Scalar Operations (Integer ↔ ValuedFieldPoint)
 =============================================================================#
 
-Base.:*(a::Integer, b::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(a * b.elem)
+function Base.:*(a::Integer, b::ValuedFieldPoint{P, Prec, S}) where {P, Prec, S}
+    ValuedFieldPoint{P, Prec, S}(a * b.elem)
+end
 
-Base.:*(a::ValuedFieldPoint{P,Prec,S}, b::Integer) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(a.elem * b)
+function Base.:*(a::ValuedFieldPoint{P, Prec, S}, b::Integer) where {P, Prec, S}
+    ValuedFieldPoint{P, Prec, S}(a.elem * b)
+end
 
-Base.:^(a::ValuedFieldPoint{P,Prec,S}, n::Integer) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(a.elem^n)
+function Base.:^(a::ValuedFieldPoint{P, Prec, S}, n::Integer) where {P, Prec, S}
+    ValuedFieldPoint{P, Prec, S}(a.elem^n)
+end
 
 #=============================================================================
  Comparison
 =============================================================================#
 
-Base.:(==)(a::ValuedFieldPoint{P,Prec,S}, b::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} =
+function Base.:(==)(a::ValuedFieldPoint{P, Prec, S}, b::ValuedFieldPoint{
+        P, Prec, S}) where {P, Prec, S}
     a.elem == b.elem
+end
 
 # Allow comparison with unwrapped elements
-Base.:(==)(a::ValuedFieldPoint{P,Prec,PadicFieldElem}, b::PadicFieldElem) where {P,Prec} =
+function Base.:(==)(a::ValuedFieldPoint{P, Prec, PadicFieldElem}, b::PadicFieldElem) where {
+        P, Prec}
     a.elem == b
+end
 
-Base.:(==)(a::PadicFieldElem, b::ValuedFieldPoint{P,Prec,PadicFieldElem}) where {P,Prec} =
+function Base.:(==)(a::PadicFieldElem, b::ValuedFieldPoint{
+        P, Prec, PadicFieldElem}) where {P, Prec}
     a == b.elem
+end
 
 Base.hash(x::ValuedFieldPoint, h::UInt) = hash(x.elem, h)
 
@@ -272,7 +308,8 @@ Compute the absolute value of a wrapped valued field element.
 
 Uses the type-level prime `P` for efficiency: `|x|_p = P^(-v(x))`
 """
-Base.abs(x::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} = Float64(P)^(-valuation(x.elem))
+Base.abs(x::ValuedFieldPoint{
+    P, Prec, S}) where {P, Prec, S} = Float64(P)^(-valuation(x.elem))
 
 #=============================================================================
  Zero and One
@@ -283,16 +320,16 @@ Base.abs(x::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} = Float64(P)^(-valuatio
 
 Return the zero element in the same field as `x`.
 """
-Base.zero(x::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(Base.parent(x.elem)(0))
+Base.zero(x::ValuedFieldPoint{
+    P, Prec, S}) where {P, Prec, S} = ValuedFieldPoint{P, Prec, S}(Base.parent(x.elem)(0))
 
 @doc raw"""
     Base.one(x::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S}
 
 Return the one element in the same field as `x`.
 """
-Base.one(x::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(Base.parent(x.elem)(1))
+Base.one(x::ValuedFieldPoint{
+    P, Prec, S}) where {P, Prec, S} = ValuedFieldPoint{P, Prec, S}(Base.parent(x.elem)(1))
 
 @doc raw"""
     Oscar.zero(::Type{ValuedFieldPoint{P,Prec,S}}, K) where {P,Prec,S}
@@ -300,8 +337,9 @@ Base.one(x::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S} =
 Return the zero element of the valued field `K` wrapped as a `ValuedFieldPoint`.
 Note: requires the field K to be passed since type alone doesn't contain field reference.
 """
-Oscar.zero(::Type{ValuedFieldPoint{P,Prec,S}}, K) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(zero(K))
+Oscar.zero(::Type{ValuedFieldPoint{
+        P, Prec, S}},
+    K) where {P, Prec, S} = ValuedFieldPoint{P, Prec, S}(zero(K))
 
 @doc raw"""
     Oscar.one(::Type{ValuedFieldPoint{P,Prec,S}}, K) where {P,Prec,S}
@@ -309,14 +347,15 @@ Oscar.zero(::Type{ValuedFieldPoint{P,Prec,S}}, K) where {P,Prec,S} =
 Return the one element of the valued field `K` wrapped as a `ValuedFieldPoint`.
 Note: requires the field K to be passed since type alone doesn't contain field reference.
 """
-Oscar.one(::Type{ValuedFieldPoint{P,Prec,S}}, K) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(one(K))
+Oscar.one(
+    ::Type{ValuedFieldPoint{
+        P, Prec, S}}, K) where {P, Prec, S} = ValuedFieldPoint{P, Prec, S}(one(K))
 
 #=============================================================================
  Display
 =============================================================================#
 
-function Base.show(io::IO, x::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S}
+function Base.show(io::IO, x::ValuedFieldPoint{P, Prec, S}) where {P, Prec, S}
     print(io, "ValuedFieldPoint{", P, ",", Prec, "}(", x.elem, ")")
 end
 
@@ -325,12 +364,15 @@ end
 =============================================================================#
 
 # Allow implicit conversion from the underlying type
-Base.convert(::Type{ValuedFieldPoint{P,Prec,S}}, x::S) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}(x)
+function Base.convert(::Type{ValuedFieldPoint{P, Prec, S}}, x::S) where {P, Prec, S}
+    ValuedFieldPoint{P, Prec, S}(x)
+end
 
 # Promote operations between wrapped and unwrapped
-Base.promote_rule(::Type{ValuedFieldPoint{P,Prec,S}}, ::Type{S}) where {P,Prec,S} =
-    ValuedFieldPoint{P,Prec,S}
+function Base.promote_rule(::Type{ValuedFieldPoint{P, Prec, S}}, ::Type{S}) where {
+        P, Prec, S}
+    ValuedFieldPoint{P, Prec, S}
+end
 
 #=============================================================================
  Lifting Functions
@@ -349,12 +391,12 @@ v = [K(1), K(2), K(3)]
 lifted = lift(v)  # Vector{ValuedFieldPoint{2,20,PadicFieldElem}}
 ```
 """
-function lift(v::Vector{S}) where S<:PadicFieldElem
+function lift(v::Vector{S}) where {S <: PadicFieldElem}
     isempty(v) && error("Cannot lift empty vector - need field information")
     K = Base.parent(first(v))
     P = Int(Nemo.prime(K))
     Prec = Int(Oscar.precision(K))
-    return [ValuedFieldPoint{P,Prec,S}(x) for x in v]
+    return [ValuedFieldPoint{P, Prec, S}(x) for x in v]
 end
 
 @doc raw"""
@@ -362,12 +404,12 @@ end
 
 Lift a tuple of p-adic field elements to `ValuedFieldPoint` wrappers.
 """
-function lift(t::NTuple{N,S}) where {N,S<:PadicFieldElem}
+function lift(t::NTuple{N, S}) where {N, S <: PadicFieldElem}
     N == 0 && error("Cannot lift empty tuple - need field information")
     K = Base.parent(first(t))
     P = Int(Nemo.prime(K))
     Prec = Int(Oscar.precision(K))
-    return ntuple(i -> ValuedFieldPoint{P,Prec,S}(t[i]), N)
+    return ntuple(i -> ValuedFieldPoint{P, Prec, S}(t[i]), N)
 end
 
 @doc raw"""
@@ -383,7 +425,7 @@ x = ValuedFieldPoint{2,20,PadicFieldElem}(K(5))
 lifted = lift(ZZ, x)  # ZZRingElem
 ```
 """
-function lift(R::ZZRing, x::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S}
+function lift(R::ZZRing, x::ValuedFieldPoint{P, Prec, S}) where {P, Prec, S}
     return Oscar.lift(R, x.elem)
 end
 
@@ -399,7 +441,7 @@ K = PadicField(2, 20)
 lifted = lift(ZZ, K(5))  # ZZRingElem
 ```
 """
-function lift(R::ZZRing, x::S) where S<:PadicFieldElem
+function lift(R::ZZRing, x::S) where {S <: PadicFieldElem}
     return Oscar.lift(R, x)
 end
 
@@ -409,7 +451,6 @@ end
 Scalar lift for `ValuedFieldPoint` (delegates to underlying element).
 Provided for consistency with Oscar's lift interface.
 """
-function lift(x::ValuedFieldPoint{P,Prec,S}) where {P,Prec,S}
+function lift(x::ValuedFieldPoint{P, Prec, S}) where {P, Prec, S}
     return Oscar.lift(x.elem)
 end
-

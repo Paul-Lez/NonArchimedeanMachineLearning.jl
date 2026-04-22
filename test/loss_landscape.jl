@@ -78,7 +78,7 @@ println("Sampled $(length(landscape)) geodesics\n")
 # Display results for each edge
 println("=== Loss Landscape Results ===\n")
 
-for ((parent_idx, child_idx), samples) in sort(collect(landscape), by=first)
+for ((parent_idx, child_idx), samples) in sort(collect(landscape), by = first)
     parent_disc = tree.nodes[parent_idx]
     child_disc = tree.nodes[child_idx]
 

@@ -26,10 +26,10 @@ that structured optimization algorithms outperform random exploration.
 state, and convergence status
 """
 function random_descent(
-    loss::Loss,
-    param::ValuationPolydisc{S,T,N},
-    state::Int,
-    settings::Tuple{Bool,Int}
+        loss::Loss,
+        param::ValuationPolydisc{S, T, N},
+        state::Int,
+        settings::Tuple{Bool, Int}
 ) where {S, T, N}
     (strict, degree) = settings
     if strict
@@ -85,10 +85,10 @@ println("Greedy: ", eval_loss(greedy_optim))  # Should be much better
 ```
 """
 function random_descent_init(
-    param::ValuationPolydisc{S,T,N},
-    loss::Loss,
-    state::Int,
-    settings::Tuple{Bool,Int}
+        param::ValuationPolydisc{S, T, N},
+        loss::Loss,
+        state::Int,
+        settings::Tuple{Bool, Int}
 ) where {S, T, N}
     return OptimSetup(
         loss,

@@ -8,16 +8,20 @@ using D3Trees
 # Internal accessors to normalize across node types
 ##################################################
 
-const _TreeNode{S,T,N} = Union{
-    MCTSNode{S,T,N}, UCTNode{S,T,N}, DAGMCTSNode{S,T,N},
-    HOONode{S,T,N}, ModifiedUCTNode{S,T,N}, FlatUCBNode{S,T,N},
-    DOONode{S,T,N}
+const _TreeNode{S,
+    T,
+    N} = Union{
+    MCTSNode{S, T, N}, UCTNode{S, T, N}, DAGMCTSNode{S, T, N},
+    HOONode{S, T, N}, ModifiedUCTNode{S, T, N}, FlatUCBNode{S, T, N},
+    DOONode{S, T, N}
 }
 
-const _TreeState{S,T,N} = Union{
-    MCTSState{S,T,N}, UCTState{S,T,N}, DAGMCTSState{S,T,N},
-    HOOState{S,T,N}, ModifiedUCTState{S,T,N}, FlatUCBState{S,T,N},
-    DOOState{S,T,N}
+const _TreeState{S,
+    T,
+    N} = Union{
+    MCTSState{S, T, N}, UCTState{S, T, N}, DAGMCTSState{S, T, N},
+    HOOState{S, T, N}, ModifiedUCTState{S, T, N}, FlatUCBState{S, T, N},
+    DOOState{S, T, N}
 }
 
 _polydisc(node::_TreeNode) = node.polydisc
@@ -58,7 +62,7 @@ _num_parents(::_TreeNode) = -1  # not applicable
 # Flatten tree/DAG to indexed arrays
 ##################################################
 
-function _flatten_search_tree(root::_TreeNode; max_depth::Int=10, max_nodes::Int=10000)
+function _flatten_search_tree(root::_TreeNode; max_depth::Int = 10, max_nodes::Int = 10000)
     children_vec = Vector{Int}[]
     nodes_vec = Any[]
     node_to_idx = Dict{UInt, Int}()
@@ -118,7 +122,7 @@ function _value_to_color(avg::Float64, min_val::Float64, max_val::Float64, visit
     return "hsl($hue, 70%, 55%)"
 end
 
-function _truncate_padic(s::String; maxlen::Int=16)
+function _truncate_padic(s::String; maxlen::Int = 16)
     length(s) <= maxlen ? s : s[1:maxlen] * "…"
 end
 
@@ -131,7 +135,7 @@ function _build_d3_arrays(nodes_vec, children_vec, depths)
 
     visits_vec = [_visits(nd) for nd in nodes_vec]
     values_vec = [_avg_value(nd) for nd in nodes_vec]
-    max_visits = maximum(visits_vec; init=1)
+    max_visits = maximum(visits_vec; init = 1)
     visited_values = [values_vec[i] for i in 1:n if visits_vec[i] > 0]
     min_val = isempty(visited_values) ? 0.0 : minimum(visited_values)
     max_val = isempty(visited_values) ? 1.0 : maximum(visited_values)
@@ -148,7 +152,8 @@ function _build_d3_arrays(nodes_vec, children_vec, depths)
 
         # Polydisc info (used in both label and tooltip)
         p = _polydisc(node)
-        c_strs = [_truncate_padic(string(c isa ValuedFieldPoint ? unwrap(c) : c)) for c in center(p)]
+        c_strs = [_truncate_padic(string(c isa ValuedFieldPoint ? unwrap(c) : c))
+                  for c in center(p)]
         r_strs = [string(r) for r in radius(p)]
         center_str = Base.join(c_strs, ", ")
         radius_str = Base.join(r_strs, ", ")
@@ -227,24 +232,25 @@ tree = visualize_search_tree(optim)
 # or: tree = visualize_search_tree(optim.state.root)
 ```
 """
-function visualize_search_tree(node::_TreeNode{S,T,N};
-        max_depth::Int=10,
-        max_nodes::Int=10000,
-        init_expand::Int=3,
-        title::String="$(_node_type_name(node)) Search Tree",
-        svg_height::Int=800,
-        kwargs...) where {S,T,N}
-    children_vec, nodes_vec, depths = _flatten_search_tree(node; max_depth=max_depth, max_nodes=max_nodes)
+function visualize_search_tree(node::_TreeNode{S, T, N};
+        max_depth::Int = 10,
+        max_nodes::Int = 10000,
+        init_expand::Int = 3,
+        title::String = "$(_node_type_name(node)) Search Tree",
+        svg_height::Int = 800,
+        kwargs...) where {S, T, N}
+    children_vec, nodes_vec,
+    depths = _flatten_search_tree(node; max_depth = max_depth, max_nodes = max_nodes)
     text, tooltip, style, link_style = _build_d3_arrays(nodes_vec, children_vec, depths)
 
     return D3Tree(children_vec;
-        text=text,
-        tooltip=tooltip,
-        style=style,
-        link_style=link_style,
-        title=title,
-        init_expand=init_expand,
-        svg_height=svg_height,
+        text = text,
+        tooltip = tooltip,
+        style = style,
+        link_style = link_style,
+        title = title,
+        init_expand = init_expand,
+        svg_height = svg_height,
         kwargs...
     )
 end

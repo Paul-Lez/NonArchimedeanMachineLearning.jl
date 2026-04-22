@@ -60,8 +60,8 @@ for x in x_values
     println("  x=$x: radius=$(d.radius[1])")
 end
 # Check that radii are increasing
-for i in 1:(length(radii)-1)
-    @assert radii[i] <= radii[i+1] "Radii should be non-decreasing"
+for i in 1:(length(radii) - 1)
+    @assert radii[i] <= radii[i + 1] "Radii should be non-decreasing"
 end
 println("✓ Radii are monotonically increasing\n")
 

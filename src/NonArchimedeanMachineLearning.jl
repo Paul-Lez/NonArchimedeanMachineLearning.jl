@@ -52,7 +52,8 @@ export ValuationTangent
 # Note: zero and basis_vector not exported to avoid conflicts with Base - use NonArchimedeanMachineLearning.zero, NonArchimedeanMachineLearning.basis_vector
 
 # From basic/functions.jl
-export PolydiscFunction, AbsolutePolynomialSum, LinearAbsolutePolynomialSum, LinearPolynomial
+export PolydiscFunction, AbsolutePolynomialSum, LinearAbsolutePolynomialSum,
+       LinearPolynomial
 export DifferentiableFunction
 export PolydiscFunctionEvaluator  # Abstract evaluator type
 export LinearPolynomialEvaluator, ConstantEvaluator

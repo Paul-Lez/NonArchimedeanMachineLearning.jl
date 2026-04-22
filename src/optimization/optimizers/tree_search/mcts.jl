@@ -26,10 +26,10 @@ A node in the MCTS search tree.
 - `proven_value::Float64`: Exact value once solved (NaN if unsolved)
 - `unsolved_children_count::Int`: Number of children not yet marked solved
 """
-mutable struct MCTSNode{S,T,N}
-    polydisc::ValuationPolydisc{S,T,N}
-    parent::Union{MCTSNode{S,T,N}, Nothing}
-    children::Vector{MCTSNode{S,T,N}}
+mutable struct MCTSNode{S, T, N}
+    polydisc::ValuationPolydisc{S, T, N}
+    parent::Union{MCTSNode{S, T, N}, Nothing}
+    children::Vector{MCTSNode{S, T, N}}
     visits::Int
     total_value::Float64
     is_expanded::Bool
@@ -45,11 +45,11 @@ end
 
 Create a new MCTS node with the given polydisc and optional parent.
 """
-function MCTSNode(polydisc::ValuationPolydisc{S,T,N}, parent=nothing) where {S,T,N}
-    return MCTSNode{S,T,N}(
+function MCTSNode(polydisc::ValuationPolydisc{S, T, N}, parent = nothing) where {S, T, N}
+    return MCTSNode{S, T, N}(
         polydisc,
         parent,
-        MCTSNode{S,T,N}[],
+        MCTSNode{S, T, N}[],
         0,
         0.0,
         false,
@@ -129,14 +129,14 @@ Create an MCTS configuration with sensible defaults.
 - `persist_tree::Bool=false`: If true, reuse subtree across optimization steps
 """
 function MCTSConfig(;
-    num_simulations::Int=100,
-    exploration_constant::Float64=1.41,
-    degree::Int=1,
-    max_children::Union{Int, Nothing}=nothing,
-    strict::Bool=false,
-    value_transform::Function=DEFAULT_VALUE_TRANSFORM,
-    selection_mode::SelectionMode=VisitCount,
-    persist_tree::Bool=true
+        num_simulations::Int = 100,
+        exploration_constant::Float64 = 1.41,
+        degree::Int = 1,
+        max_children::Union{Int, Nothing} = nothing,
+        strict::Bool = false,
+        value_transform::Function = DEFAULT_VALUE_TRANSFORM,
+        selection_mode::SelectionMode = VisitCount,
+        persist_tree::Bool = true
 )
     return MCTSConfig(
         num_simulations,
@@ -164,8 +164,8 @@ State maintained across MCTS optimization steps.
 - `next_branch::Int`: Next branch index for strict mode
 - `step_count::Int`: Number of optimization steps taken
 """
-mutable struct MCTSState{S,T,N}
-    root::MCTSNode{S,T,N}
+mutable struct MCTSState{S, T, N}
+    root::MCTSNode{S, T, N}
     next_branch::Int
     step_count::Int
 end
@@ -230,7 +230,7 @@ Expand a node by generating its child polydiscs.
 
 Uses the same children generation as greedy/gradient descent.
 """
-function expand_node!(node::MCTSNode{S,T,N}, config::MCTSConfig) where {S,T,N}
+function expand_node!(node::MCTSNode{S, T, N}, config::MCTSConfig) where {S, T, N}
     if node.is_expanded
         return
     end
@@ -293,7 +293,8 @@ Evaluate a node using the loss function.
 
 Returns the transformed value (by default, -loss).
 """
-function evaluate_node(node::MCTSNode{S,T,N}, loss::Loss, config::MCTSConfig) where {S,T,N}
+function evaluate_node(node::MCTSNode{S, T, N}, loss::Loss, config::MCTSConfig) where {
+        S, T, N}
     # Evaluate the loss at this polydisc
     loss_value = loss.eval([node.polydisc])[1]
     # Transform to value (higher is better for MCTS)
@@ -307,7 +308,7 @@ Backpropagate a value from a leaf node up to the root.
 
 Updates visits and total_value for all nodes on the path.
 """
-function backpropagate!(node::MCTSNode, value::Float64, loss_value::Float64=NaN)
+function backpropagate!(node::MCTSNode, value::Float64, loss_value::Float64 = NaN)
     current = node
     while !isnothing(current)
         current.visits += 1
@@ -389,7 +390,8 @@ Performs `config.num_simulations` iterations of:
 
 Returns the selected child and whether the root has converged.
 """
-function mcts_search(root::MCTSNode{S,T,N}, loss::Loss, config::MCTSConfig) where {S,T,N}
+function mcts_search(root::MCTSNode{S, T, N}, loss::Loss, config::MCTSConfig) where {
+        S, T, N}
     # Ensure root is expanded
     expand_node!(root, config)
 
@@ -675,11 +677,11 @@ making it compatible with `OptimSetup`.
 updated state, and convergence status
 """
 function mcts_descent(
-    loss::Loss,
-    param::ValuationPolydisc{S,T,N},
-    state::MCTSState{S,T,N},
-    config::MCTSConfig
-) where {S,T,N}
+        loss::Loss,
+        param::ValuationPolydisc{S, T, N},
+        state::MCTSState{S, T, N},
+        config::MCTSConfig
+) where {S, T, N}
     # Update root if param changed (shouldn't normally happen)
     if state.root.polydisc != param
         state.root = MCTSNode(param)
@@ -717,13 +719,13 @@ Initialize an optimization setup for MCTS.
 `OptimSetup`: Configured optimization setup for MCTS
 """
 function mcts_descent_init(
-    param::ValuationPolydisc{S,T,N},
-    loss::Loss,
-    config::MCTSConfig=MCTSConfig()
-) where {S,T,N}
+        param::ValuationPolydisc{S, T, N},
+        loss::Loss,
+        config::MCTSConfig = MCTSConfig()
+) where {S, T, N}
     # Initialize state
     root = MCTSNode(param)
-    state = MCTSState{S,T,N}(root, 1, 0)
+    state = MCTSState{S, T, N}(root, 1, 0)
 
     return OptimSetup(
         loss,
@@ -744,7 +746,7 @@ end
 
 Print statistics about the MCTS tree for debugging.
 """
-function print_tree_stats(node::MCTSNode, depth::Int=0, max_depth::Int=3)
+function print_tree_stats(node::MCTSNode, depth::Int = 0, max_depth::Int = 3)
     if depth > max_depth
         return
     end
@@ -755,7 +757,7 @@ function print_tree_stats(node::MCTSNode, depth::Int=0, max_depth::Int=3)
     println("$(indent)Node: visits=$(node.visits), avg_value=$(round(average_value(node), digits=4)), children=$(length(node.children))$(terminal_str)$(solved_str)")
 
     # Sort children by visits for display
-    sorted_children = sort(node.children, by=c -> c.visits, rev=true)
+    sorted_children = sort(node.children, by = c -> c.visits, rev = true)
     for (i, child) in enumerate(sorted_children[1:min(3, length(sorted_children))])
         print_tree_stats(child, depth + 1, max_depth)
     end

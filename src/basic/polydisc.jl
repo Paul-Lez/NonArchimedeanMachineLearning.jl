@@ -25,17 +25,17 @@ where each disc ``B(c_i, r_i) = \{x : v(x - c_i) \geq r_i\}`` with ``v`` the p-a
 - `T`: The type of the radius values (typically integers or rationals)
 - `N`: The dimension of the polydisc
 """
-struct ValuationPolydisc{S,T,N}
-    center::NTuple{N,S}
+struct ValuationPolydisc{S, T, N}
+    center::NTuple{N, S}
     # For valued points, the radius is measured with respect to the valuation
-    radius::NTuple{N,T}
+    radius::NTuple{N, T}
 end
 
 # Convenience constructor that accepts vectors and converts to tuples
-function ValuationPolydisc(center::Vector{S}, radius::Vector{T}) where {S,T}
+function ValuationPolydisc(center::Vector{S}, radius::Vector{T}) where {S, T}
     N = length(center)
     @assert length(radius) == N "center and radius must have the same length"
-    return ValuationPolydisc{S,T,N}(tuple(center...), tuple(radius...))
+    return ValuationPolydisc{S, T, N}(tuple(center...), tuple(radius...))
 end
 
 @doc raw"""
@@ -55,7 +55,7 @@ p = ValuationPolydisc([K(1), K(2)], [0, 0])
 # Creates ValuationPolydisc{ValuedFieldPoint{2,20,PadicFieldElem}, Int, 2}
 ```
 """
-function ValuationPolydisc(center::Vector{PadicFieldElem}, radius::Vector{T}) where T
+function ValuationPolydisc(center::Vector{PadicFieldElem}, radius::Vector{T}) where {T}
     N = length(center)
     @assert length(radius) == N "center and radius must have the same length"
     @assert 0 < N "The polydisc can't have dimension 0"
@@ -66,10 +66,10 @@ function ValuationPolydisc(center::Vector{PadicFieldElem}, radius::Vector{T}) wh
     Prec = Int(Oscar.precision(K))
 
     # Wrap elements in ValuedFieldPoint
-    wrapped_center = tuple([ValuedFieldPoint{P,Prec,PadicFieldElem}(c) for c in center]...)
+    wrapped_center = tuple([ValuedFieldPoint{P, Prec, PadicFieldElem}(c) for c in center]...)
     wrapped_radius = tuple(radius...)
 
-    return ValuationPolydisc{ValuedFieldPoint{P,Prec,PadicFieldElem},T,N}(wrapped_center, wrapped_radius)
+    return ValuationPolydisc{ValuedFieldPoint{P, Prec, PadicFieldElem}, T, N}(wrapped_center, wrapped_radius)
 end
 
 @doc raw"""
@@ -85,7 +85,7 @@ p = ValuationPolydisc(K, Vector{PadicFieldElem}(), Vector{Int}())
 # Creates ValuationPolydisc{ValuedFieldPoint{2,20,PadicFieldElem}, Int, 0}
 ```
 """
-function ValuationPolydisc(K::PadicField, center::Vector{PadicFieldElem}, radius::Vector{T}) where T
+function ValuationPolydisc(K::PadicField, center::Vector{PadicFieldElem}, radius::Vector{T}) where {T}
     N = length(center)
     @assert length(radius) == N "center and radius must have the same length"
 
@@ -95,14 +95,14 @@ function ValuationPolydisc(K::PadicField, center::Vector{PadicFieldElem}, radius
 
     if N == 0
         # Return empty polydisc with ValuedFieldPoint type
-        return ValuationPolydisc{ValuedFieldPoint{P,Prec,PadicFieldElem},T,0}(tuple(), tuple())
+        return ValuationPolydisc{ValuedFieldPoint{P, Prec, PadicFieldElem}, T, 0}(tuple(), tuple())
     end
 
     # Wrap elements in ValuedFieldPoint
-    wrapped_center = tuple([ValuedFieldPoint{P,Prec,PadicFieldElem}(c) for c in center]...)
+    wrapped_center = tuple([ValuedFieldPoint{P, Prec, PadicFieldElem}(c) for c in center]...)
     wrapped_radius = tuple(radius...)
 
-    return ValuationPolydisc{ValuedFieldPoint{P,Prec,PadicFieldElem},T,N}(wrapped_center, wrapped_radius)
+    return ValuationPolydisc{ValuedFieldPoint{P, Prec, PadicFieldElem}, T, N}(wrapped_center, wrapped_radius)
 end
 
 @doc raw"""
@@ -123,7 +123,7 @@ Note: we generally prefer the valuation format.
 - `S`: The type of the center coordinates (typically p-adic numbers)
 - `T`: The type of the radius values (typically real numbers)
 """
-struct AbsPolydisc{S,T}
+struct AbsPolydisc{S, T}
     center::Vector{S}
     # For normed points, the radius is measured with respect to the norm
     radius::Vector{T}
@@ -228,7 +228,8 @@ This is the correct condition for Berkovich equality in non-Archimedean geometry
 The condition v(a-b) >= r (not > r) is crucial: if v(a-b) = r exactly, then
 D(a, r) and D(b, r) are the same disc by the ultrametric property.
 """
-function Base.:(==)(p::ValuationPolydisc{S,T,N}, q::ValuationPolydisc{S,T,N}) where {S,T,N}
+function Base.:(==)(p::ValuationPolydisc{S, T, N}, q::ValuationPolydisc{
+        S, T, N}) where {S, T, N}
     # Check if radii are equal
     if radius(p) != radius(q)
         return false
@@ -251,7 +252,8 @@ We use the same definition as `==` to ensure Dict lookups work correctly.
 Julia's Dict uses `isequal` (not `==`) for key comparison. Without this definition,
 Dict would use `===` (identity), which is too strict for our purposes.
 """
-function Base.isequal(p::ValuationPolydisc{S,T,N}, q::ValuationPolydisc{S,T,N}) where {S,T,N}
+function Base.isequal(p::ValuationPolydisc{S, T, N}, q::ValuationPolydisc{
+        S, T, N}) where {S, T, N}
     return p == q
 end
 
@@ -274,7 +276,7 @@ prime ≤ 7, radius ≤ 20), falling back to BigInt for extreme cases.
 `NTuple{N, Int64}` (fast path) or `NTuple{N, BigInt}` (fallback): Canonical integer
 representation of the center
 """
-function canonical_center(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+function canonical_center(p::ValuationPolydisc{S, T, N}) where {S, T, N}
     pr = Int64(prime(p))
     # Maximum radius where pr^r fits in Int64 (conservative: leave room for multiplication)
     max_r = floor(Int, 63 / log2(pr))
@@ -287,7 +289,7 @@ function canonical_center(p::ValuationPolydisc{S,T,N}) where {S,T,N}
 end
 
 # Int64 fast path: zero BigInt allocations
-function _canonical_center_int64(p::ValuationPolydisc{S,T,N}, pr::Int64) where {S,T,N}
+function _canonical_center_int64(p::ValuationPolydisc{S, T, N}, pr::Int64) where {S, T, N}
     return ntuple(N) do i
         c = p.center[i]
         r = p.radius[i]
@@ -304,7 +306,7 @@ function _canonical_center_int64(p::ValuationPolydisc{S,T,N}, pr::Int64) where {
 end
 
 # BigInt fallback for extreme parameters
-function _canonical_center_bigint(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+function _canonical_center_bigint(p::ValuationPolydisc{S, T, N}) where {S, T, N}
     pr = BigInt(prime(p))
     return ntuple(N) do i
         c = p.center[i]
@@ -334,13 +336,12 @@ hash to the same value. This is essential for transposition table lookups in DAG
 # Returns
 `UInt`: The hash value
 """
-function Base.hash(m::ValuationPolydisc{S,T,N}, h::UInt) where {S,T,N}
+function Base.hash(m::ValuationPolydisc{S, T, N}, h::UInt) where {S, T, N}
     # Hash based on radius and canonical center representation
     # Two polydiscs are equal iff they have same radius and centers differ
     # by elements with valuation > radius, so canonical_center captures this
     return hash((m.radius, canonical_center(m)), h)
 end
-
 
 # Some of the code (e.g the function below) might be nicer if we can use some unifying type
 # E.g. Polydisk
@@ -371,7 +372,8 @@ optimizations in hot-path functions like `children()`.
 # Returns
 `Int`: The prime `P` (compile-time constant)
 """
-@inline prime(p::ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}) where {P,Prec,S,T,N} = P
+@inline prime(p::ValuationPolydisc{
+    ValuedFieldPoint{P, Prec, S}, T, N}) where {P, Prec, S, T, N} = P
 
 function base_field(p::ValuationPolydisc)
     return p.center[1].parent
@@ -426,10 +428,12 @@ of polydisc ``j`` and ``c_j^i`` is the ``i``-th center coordinate.
 # Returns
 `ValuationPolydisc{S,T,N}`: The join polydisc with center from `b1` and computed radii
 """
-function join(b1::ValuationPolydisc{S,T,N}, b2::ValuationPolydisc{S,T,N}) where {S, T, N}
-    r = tuple([min(b1.radius[i], valuation(b1.center[i] - b2.center[i]), b2.radius[i]) for i in Base.eachindex(b1)]...)
+function join(b1::ValuationPolydisc{S, T, N}, b2::ValuationPolydisc{
+        S, T, N}) where {S, T, N}
+    r = tuple([min(b1.radius[i], valuation(b1.center[i] - b2.center[i]), b2.radius[i])
+               for i in Base.eachindex(b1)]...)
     # check correctness (max vs min)
-    return ValuationPolydisc{S,T,N}(b1.center, r)
+    return ValuationPolydisc{S, T, N}(b1.center, r)
 end
 
 @doc raw"""
@@ -449,12 +453,13 @@ where ``r_j^i`` is the radius of the join in coordinate ``i``.
 # Returns
 `Float64`: The distance between the two polydiscs
 """
-function dist(b1::ValuationPolydisc{S,T,N}, b2::ValuationPolydisc{S,T,N}) where {S, T, N}
+function dist(b1::ValuationPolydisc{S, T, N}, b2::ValuationPolydisc{
+        S, T, N}) where {S, T, N}
     p = prime(b1)
     b = Float64(p)
     j = join(b1, b2)
-    return sum([b^(-j.radius[i]) - b^(-b1.radius[i]) + b^(-j.radius[i]) - b^(-b2.radius[i]) for i in Base.eachindex(b1)])
-
+    return sum([b^(-j.radius[i]) - b^(-b1.radius[i]) + b^(-j.radius[i]) - b^(-b2.radius[i])
+                for i in Base.eachindex(b1)])
 end
 
 # TODO: this should also work when the valuation is negative...
@@ -479,9 +484,9 @@ coordinates and adjusting centers according to residue classes. For `degree=1`, 
 - Currently only works for ``\mathbb{Q}_p`` (not general extensions)
 - Enumerates residue classes as `0:prime(p)-1`
 """
-function children(p::ValuationPolydisc{S,T,N}, degree=1) where {S, T, N}
+function children(p::ValuationPolydisc{S, T, N}, degree = 1) where {S, T, N}
     @req dim(p) >= degree "degree exceeding dimension of polydisc"
-    output = Vector{ValuationPolydisc{S,T,N}}()
+    output = Vector{ValuationPolydisc{S, T, N}}()
     P = Int(prime(p))
     K = base_field(p)
     prec = Int(Oscar.precision(K))
@@ -493,7 +498,7 @@ function children(p::ValuationPolydisc{S,T,N}, degree=1) where {S, T, N}
     # Pre-compute prime powers for each radius value to avoid repeated exponentiation
     prime_powers = ntuple(i -> prime_as_padic ^ p.radius[i], N)
     # Pre-compute the residue class product iterator once (avoids allocating [0:P-1 for ...] per combination)
-    residue_product = Iterators.product(ntuple(_ -> 0:P-1, degree)...)
+    residue_product = Iterators.product(ntuple(_ -> 0:(P - 1), degree)...)
     # iterate over all possible lists that have precisely degree times the value 1 and 0 everywhere else
     for combination_indices in AbstractAlgebra.combinations(length(valid_dims), degree)
         coordinatesToShrink = [valid_dims[j] for j in combination_indices]
@@ -519,7 +524,7 @@ function children(p::ValuationPolydisc{S,T,N}, degree=1) where {S, T, N}
                     p.center[i]
                 end
             end
-            push!(output, ValuationPolydisc{S,T,N}(new_center, new_radius))
+            push!(output, ValuationPolydisc{S, T, N}(new_center, new_radius))
         end
     end
     return output
@@ -533,21 +538,22 @@ Specialized version of `children()` for `ValuedFieldPoint` that leverages compil
 This version benefits from having `P` available at compile time, allowing the compiler to
 optimize loops and potentially unroll iterations for small primes.
 """
-function children(p::ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N}, degree=1) where {P,Prec,PFE,T,N}
+function children(p::ValuationPolydisc{ValuedFieldPoint{P, Prec, PFE}, T, N},
+        degree = 1) where {P, Prec, PFE, T, N}
     @req dim(p) >= degree "degree exceeding dimension of polydisc"
-    output = Vector{ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N}}()
+    output = Vector{ValuationPolydisc{ValuedFieldPoint{P, Prec, PFE}, T, N}}()
     # Only produce children along dimensions where precision > radius
     valid_dims = [i for i in 1:N if Prec > p.radius[i]]
     length(valid_dims) < degree && return output
     sizehint!(output, binomial(length(valid_dims), degree) * P^degree)
     K = Base.parent(p.center[1].elem)
     # Create prime as ValuedFieldPoint
-    prime_as_valued = ValuedFieldPoint{P,Prec,PFE}(K(P))
+    prime_as_valued = ValuedFieldPoint{P, Prec, PFE}(K(P))
     # Pre-compute prime powers for each radius value to avoid repeated exponentiation
     prime_powers = ntuple(i -> prime_as_valued ^ p.radius[i], N)
     # Pre-compute the residue class product iterator once (avoids allocating [0:P-1 for ...] per combination)
     # P is compile-time constant, so this loop bound is known at compile time
-    residue_product = Iterators.product(ntuple(_ -> 0:P-1, degree)...)
+    residue_product = Iterators.product(ntuple(_ -> 0:(P - 1), degree)...)
     # iterate over all possible lists that have precisely degree times the value 1 and 0 everywhere else
     for combination_indices in AbstractAlgebra.combinations(length(valid_dims), degree)
         coordinatesToShrink = [valid_dims[j] for j in combination_indices]
@@ -573,7 +579,7 @@ function children(p::ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N}, degree
                     p.center[i]
                 end
             end
-            push!(output, ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N}(new_center, new_radius))
+            push!(output, ValuationPolydisc{ValuedFieldPoint{P, Prec, PFE}, T, N}(new_center, new_radius))
         end
     end
     return output
@@ -597,10 +603,10 @@ Produces ``p`` children (where ``p`` is the prime) by increasing the radius in c
 `Vector{ValuationPolydisc{S,T,N}}`: All child polydiscs along this branch (of length `prime(p)`)
 """
 function children_along_branch(
-    p::ValuationPolydisc{S,T,N},
-    branch_index::Int
+        p::ValuationPolydisc{S, T, N},
+        branch_index::Int
 ) where {S, T, N}
-    output = Vector{ValuationPolydisc{S,T,N}}()
+    output = Vector{ValuationPolydisc{S, T, N}}()
     K = base_field(p)
     Int(Oscar.precision(K)) > p.radius[branch_index] || return output
     P = Int(prime(p))
@@ -612,7 +618,7 @@ function children_along_branch(
     # Pre-compute prime power to avoid repeated exponentiation
     prime_power = prime_as_padic ^ p.radius[branch_index]
     # We can shrink along various centers so we need to be sure to include them all
-    for residue_class in 0:P-1
+    for residue_class in 0:(P - 1)
         new_center = ntuple(N) do i
             if i == branch_index
                 p.center[i] + residue_class * prime_power
@@ -620,7 +626,7 @@ function children_along_branch(
                 p.center[i]
             end
         end
-        push!(output, ValuationPolydisc{S,T,N}(new_center, new_radius))
+        push!(output, ValuationPolydisc{S, T, N}(new_center, new_radius))
     end
     return output
 end
@@ -634,10 +640,10 @@ This version benefits from having `P` available at compile time, allowing the co
 optimize loops and potentially unroll iterations for small primes.
 """
 function children_along_branch(
-    p::ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N},
-    branch_index::Int
-) where {P,Prec,PFE,T,N}
-    output = Vector{ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N}}()
+        p::ValuationPolydisc{ValuedFieldPoint{P, Prec, PFE}, T, N},
+        branch_index::Int
+) where {P, Prec, PFE, T, N}
+    output = Vector{ValuationPolydisc{ValuedFieldPoint{P, Prec, PFE}, T, N}}()
     # Only produce children if precision >= radius
     Prec > p.radius[branch_index] || return output
     # P is compile-time constant, so this loop bound is known at compile time
@@ -647,11 +653,11 @@ function children_along_branch(
     new_radius = ntuple(i -> i == branch_index ? p.radius[i] + 1 : p.radius[i], N)
     K = Base.parent(p.center[1].elem)
     # Create prime as ValuedFieldPoint
-    prime_as_valued = ValuedFieldPoint{P,Prec,PFE}(K(P))
+    prime_as_valued = ValuedFieldPoint{P, Prec, PFE}(K(P))
     # Pre-compute prime power to avoid repeated exponentiation
     prime_power = prime_as_valued ^ p.radius[branch_index]
     # We can shrink along various centers so we need to be sure to include them all
-    for residue_class in 0:P-1
+    for residue_class in 0:(P - 1)
         new_center = ntuple(N) do i
             if i == branch_index
                 p.center[i] + residue_class * prime_power
@@ -659,11 +665,10 @@ function children_along_branch(
                 p.center[i]
             end
         end
-        push!(output, ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N}(new_center, new_radius))
+        push!(output, ValuationPolydisc{ValuedFieldPoint{P, Prec, PFE}, T, N}(new_center, new_radius))
     end
     return output
 end
-
 
 @doc raw"""
     concatenate(p::ValuationPolydisc{S,T,N1}, q::ValuationPolydisc{S,T,N2}) where {S,T,N1,N2}
@@ -680,28 +685,30 @@ polydisc, returns the ``(n+m)``-dimensional polydisc ``B((a, a'), (r, r'))``.
 # Returns
 `ValuationPolydisc{S,T,N1+N2}`: The concatenated polydisc with `dim(p) + dim(q)` dimensions
 """
-function concatenate(p::ValuationPolydisc{S,T,N1}, q::ValuationPolydisc{S,T,N2}) where {S, T, N1, N2}
+function concatenate(p::ValuationPolydisc{S, T, N1}, q::ValuationPolydisc{
+        S, T, N2}) where {S, T, N1, N2}
     new_center = (p.center..., q.center...)
     new_radius = (p.radius..., q.radius...)
-    return ValuationPolydisc{S,T,N1+N2}(new_center, new_radius)
+    return ValuationPolydisc{S, T, N1+N2}(new_center, new_radius)
 end
 
 # function aggregate(p::ValuationPolydisc{S, T}, q::ValuationPolydisc{S, T}, p_coords::Vector{Bool}) where {S, T}
 #     new_center = Vector{T}
 # end
 
-function subdisc(p::ValuationPolydisc{S,T,N}, idx::Array{Int}) where {S, T, N}
+function subdisc(p::ValuationPolydisc{S, T, N}, idx::Array{Int}) where {S, T, N}
     new_center = [p.center[i] for i in idx]
     new_radius = [p.radius[i] for i in idx]
     return ValuationPolydisc(new_center, new_radius)
 end
 
-function components(p::ValuationPolydisc{S,T,N}) where {S, T, N}
+function components(p::ValuationPolydisc{S, T, N}) where {S, T, N}
     # There will be a less cursed implementation for this:)
     return [subdisc(p, [i]) for i in 1:length(p.center)]
 end
 
-function Base.:<=(p::ValuationPolydisc{S,T,N}, q::ValuationPolydisc{S,T,N})::Bool where {S, T, N}
+function Base.:<=(p::ValuationPolydisc{S, T, N}, q::ValuationPolydisc{
+        S, T, N})::Bool where {S, T, N}
     return all(p.radius .>= q.radius) && all(valuation.(p.center .- q.center) .>= q.radius)
 end
 
@@ -732,8 +739,8 @@ hashing overhead.
 - `polydisc::ValuationPolydisc{S,T,N}`: The underlying polydisc
 - `_hash::UInt`: The cached hash value
 """
-struct HashedPolydisc{S,T,N}
-    polydisc::ValuationPolydisc{S,T,N}
+struct HashedPolydisc{S, T, N}
+    polydisc::ValuationPolydisc{S, T, N}
     _hash::UInt
 end
 
@@ -742,13 +749,18 @@ end
 
 Create a `HashedPolydisc` by computing and caching the hash of `p`.
 """
-function HashedPolydisc(p::ValuationPolydisc{S,T,N}) where {S,T,N}
-    return HashedPolydisc{S,T,N}(p, hash(p))
+function HashedPolydisc(p::ValuationPolydisc{S, T, N}) where {S, T, N}
+    return HashedPolydisc{S, T, N}(p, hash(p))
 end
 
 Base.hash(hp::HashedPolydisc, h::UInt) = hash(hp._hash, h)
-Base.:(==)(a::HashedPolydisc{S,T,N}, b::HashedPolydisc{S,T,N}) where {S,T,N} = a.polydisc == b.polydisc
-Base.isequal(a::HashedPolydisc{S,T,N}, b::HashedPolydisc{S,T,N}) where {S,T,N} = a == b
+function Base.:(==)(a::HashedPolydisc{S, T, N}, b::HashedPolydisc{S, T, N}) where {S, T, N}
+    a.polydisc == b.polydisc
+end
+function Base.isequal(a::HashedPolydisc{S, T, N}, b::HashedPolydisc{
+        S, T, N}) where {S, T, N}
+    a == b
+end
 
 # Forwarding methods so HashedPolydisc can be used transparently
 center(hp::HashedPolydisc) = center(hp.polydisc)

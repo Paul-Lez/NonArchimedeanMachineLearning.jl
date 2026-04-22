@@ -9,7 +9,8 @@ using NonArchimedeanMachineLearning
     K = PadicField(2, prec)
 
     # Helper to create polydiscs without auto-wrapping to ValuedFieldPoint
-    make_polydisc(centers, radii) = ValuationPolydisc{PadicFieldElem,Int,length(centers)}(tuple(centers...), tuple(radii...))
+    make_polydisc(centers,
+        radii) = ValuationPolydisc{PadicFieldElem, Int, length(centers)}(tuple(centers...), tuple(radii...))
 
     @testset "ConstantEvaluator derivative" begin
         c = NonArchimedeanMachineLearning.Constant{PadicFieldElem}(5.0)
@@ -27,7 +28,7 @@ using NonArchimedeanMachineLearning
         poly = x^2 + y
 
         # Create evaluator
-        eval_typed = batch_evaluate_init(poly, ValuationPolydisc{PadicFieldElem,Int,2})
+        eval_typed = batch_evaluate_init(poly, ValuationPolydisc{PadicFieldElem, Int, 2})
 
         p = make_polydisc([K(3), K(1)], [0, 0])
         dir = make_polydisc([K(1), K(0)], [1, 0])
@@ -44,7 +45,7 @@ using NonArchimedeanMachineLearning
         R, (x, y) = polynomial_ring(K, ["x", "y"])
         f = AbsolutePolynomialSum([x^2, y^2])
 
-        eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem,Int,2})
+        eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem, Int, 2})
 
         p = make_polydisc([K(3), K(5)], [0, 0])
         dir = make_polydisc([K(1), K(1)], [1, 1])
@@ -62,7 +63,7 @@ using NonArchimedeanMachineLearning
         f2 = AbsolutePolynomialSum([x])
         f = f1 + f2
 
-        eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem,Int,1})
+        eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem, Int, 1})
 
         p = make_polydisc([K(3)], [0])
         dir = make_polydisc([K(1)], [1])
@@ -80,7 +81,7 @@ using NonArchimedeanMachineLearning
         f2 = AbsolutePolynomialSum([x + K(1)])
         f = f1 * f2
 
-        eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem,Int,1})
+        eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem, Int, 1})
 
         p = make_polydisc([K(3)], [0])
         dir = make_polydisc([K(1)], [1])
@@ -96,7 +97,7 @@ using NonArchimedeanMachineLearning
         R, (x,) = polynomial_ring(K, ["x"])
         f = 3 * AbsolutePolynomialSum([x^2])
 
-        eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem,Int,1})
+        eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem, Int, 1})
 
         p = make_polydisc([K(5)], [0])
         dir = make_polydisc([K(1)], [1])
@@ -114,7 +115,7 @@ using NonArchimedeanMachineLearning
         outer = DifferentiableFunction(x -> x^2, x -> 2x)
         f = NonArchimedeanMachineLearning.Comp(outer, inner)
 
-        eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem,Int,1})
+        eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem, Int, 1})
 
         p = make_polydisc([K(3)], [0])
         dir = make_polydisc([K(1)], [1])
@@ -133,7 +134,7 @@ using NonArchimedeanMachineLearning
             v -> 0.5  # dummy derivative for testing
         )
 
-        eval_typed = batch_evaluate_init(l, ValuationPolydisc{PadicFieldElem,Int,1})
+        eval_typed = batch_evaluate_init(l, ValuationPolydisc{PadicFieldElem, Int, 1})
 
         p = make_polydisc([K(3)], [0])
         dir = make_polydisc([K(1)], [1])
@@ -152,8 +153,8 @@ using NonArchimedeanMachineLearning
         poly = x^2 + K(1)
 
         # Create VFP evaluator (should use LambdaEvaluator with derivative)
-        VFP = ValuedFieldPoint{2,20,PadicFieldElem}
-        eval_typed = batch_evaluate_init(poly, ValuationPolydisc{VFP,Int,1})
+        VFP = ValuedFieldPoint{2, 20, PadicFieldElem}
+        eval_typed = batch_evaluate_init(poly, ValuationPolydisc{VFP, Int, 1})
 
         # Use VFP-wrapped polydisc for VFP evaluator
         p = ValuationPolydisc([K(3)], [0])

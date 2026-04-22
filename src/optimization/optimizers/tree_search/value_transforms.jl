@@ -20,7 +20,7 @@ The `scale` parameter controls the steepness of the transition.
 - `scale::Float64=1.0`: Steepness of the sigmoid. Larger = sharper transition.
 - `center::Float64=0.0`: Loss value at which the output is 0.5.
 """
-function sigmoid_transform(; scale::Float64=1.0, center::Float64=0.0)
+function sigmoid_transform(; scale::Float64 = 1.0, center::Float64 = 0.0)
     return loss -> 1.0 / (1.0 + exp(scale * (loss - center)))
 end
 
@@ -35,7 +35,7 @@ Rescaled to [0, 1] range. Low loss maps to high value (~1), high loss maps to lo
 - `scale::Float64=1.0`: Steepness of the transition.
 - `center::Float64=0.0`: Loss value at which the output is 0.5.
 """
-function tanh_transform(; scale::Float64=1.0, center::Float64=0.0)
+function tanh_transform(; scale::Float64 = 1.0, center::Float64 = 0.0)
     return loss -> (1.0 - tanh(scale * (loss - center))) / 2.0
 end
 
@@ -59,7 +59,7 @@ Create the inverse transform: `loss → 1 / (loss + epsilon)`.
 # Keyword Arguments
 - `epsilon::Float64=1e-10`: Small constant to avoid division by zero.
 """
-function inverse_transform(; epsilon::Float64=1e-10)
+function inverse_transform(; epsilon::Float64 = 1e-10)
     return loss -> 1.0 / (loss + epsilon)
 end
 

@@ -17,10 +17,11 @@ using NonArchimedeanMachineLearning
 function _make_loss(K)
     R, x = polynomial_ring(K, ["x"])
     poly = AbsolutePolynomialSum([x[1]^2])
-    batch_eval = batch_evaluate_init(poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1})
+    batch_eval = batch_evaluate_init(poly, ValuationPolydisc{
+        ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1})
     Loss(
         params -> [batch_eval(p) for p in params],
-        vs    -> [directional_derivative(poly, v) for v in vs],
+        vs -> [directional_derivative(poly, v) for v in vs]
     )
 end
 
@@ -65,9 +66,11 @@ end
         loss = _make_loss(K)
         param = ValuationPolydisc([K(4)], [0])
 
-        config = MCTSConfig(num_simulations=30, persist_tree=false)
-        optim  = mcts_descent_init(param, loss, config)
-        for _ in 1:3; step!(optim); end
+        config = MCTSConfig(num_simulations = 30, persist_tree = false)
+        optim = mcts_descent_init(param, loss, config)
+        for _ in 1:3
+            step!(optim)
+        end
 
         root = optim.state.root
 
@@ -101,18 +104,19 @@ end
     # -------------------------------------------------------------------
     @testset "DAG deduplication in _flatten_search_tree" begin
         # Build a small DAG manually: root → A, root → B; A → child, B → child (same object)
-        p_root  = ValuationPolydisc([K(0), K(0)], [0, 0])
-        p_a     = children_along_branch(p_root, 1)[1]
-        p_b     = children_along_branch(p_root, 2)[1]
+        p_root = ValuationPolydisc([K(0), K(0)], [0, 0])
+        p_a = children_along_branch(p_root, 1)[1]
+        p_b = children_along_branch(p_root, 2)[1]
         p_child = ValuationPolydisc([K(0), K(0)], [1, 1])
 
-        config = DAGMCTSConfig(num_simulations=5, persist_table=false)
+        config = DAGMCTSConfig(num_simulations = 5, persist_table = false)
         loss = begin
             R, (x, y) = polynomial_ring(K, ["x", "y"])
             poly = AbsolutePolynomialSum([x^2 + y^2])
             VP = ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}
             be = batch_evaluate_init(poly, VP)
-            Loss(ps -> [be(p) for p in ps], vs -> [directional_derivative(poly, v) for v in vs])
+            Loss(ps -> [be(p) for p in ps], vs -> [directional_derivative(poly, v)
+                                                   for v in vs])
         end
         optim = dag_mcts_descent_init(p_root, loss, config)
         step!(optim)
@@ -125,15 +129,15 @@ end
 
     # -------------------------------------------------------------------
     @testset "visualize_search_tree dispatch" begin
-        loss  = _make_loss(K)
+        loss = _make_loss(K)
         param = ValuationPolydisc([K(4)], [0])
 
         @testset "MCTS: node / state / OptimSetup" begin
-            config = MCTSConfig(num_simulations=20, persist_tree=false)
-            optim  = mcts_descent_init(param, loss, config)
+            config = MCTSConfig(num_simulations = 20, persist_tree = false)
+            optim = mcts_descent_init(param, loss, config)
             step!(optim)
 
-            root  = optim.state.root
+            root = optim.state.root
             state = optim.state
 
             t1 = visualize_search_tree(root)
@@ -143,8 +147,8 @@ end
             for t in (t1, t2, t3)
                 @test t isa D3Tree
                 @test length(t.children) >= 1
-                @test length(t.text)     == length(t.children)
-                @test length(t.tooltip)  == length(t.children)
+                @test length(t.text) == length(t.children)
+                @test length(t.tooltip) == length(t.children)
             end
 
             # All three dispatch routes should produce the same tree size
@@ -152,8 +156,8 @@ end
         end
 
         @testset "DAG-MCTS: OptimSetup" begin
-            config = DAGMCTSConfig(num_simulations=20, persist_table=false)
-            optim  = dag_mcts_descent_init(param, loss, config)
+            config = DAGMCTSConfig(num_simulations = 20, persist_table = false)
+            optim = dag_mcts_descent_init(param, loss, config)
             step!(optim)
 
             t = visualize_search_tree(optim)
@@ -162,8 +166,8 @@ end
         end
 
         @testset "HOO: OptimSetup" begin
-            config = HOOConfig(max_depth=4)
-            optim  = hoo_descent_init(param, loss, config)
+            config = HOOConfig(max_depth = 4)
+            optim = hoo_descent_init(param, loss, config)
             step!(optim)
 
             t = visualize_search_tree(optim)
@@ -172,8 +176,8 @@ end
         end
 
         @testset "UCT: OptimSetup" begin
-            config = UCTConfig(num_simulations=20)
-            optim  = uct_descent_init(param, loss, config)
+            config = UCTConfig(num_simulations = 20)
+            optim = uct_descent_init(param, loss, config)
             step!(optim)
 
             t = visualize_search_tree(optim)
@@ -184,13 +188,13 @@ end
 
     # -------------------------------------------------------------------
     @testset "D3Tree content" begin
-        loss  = _make_loss(K)
+        loss = _make_loss(K)
         param = ValuationPolydisc([K(4)], [0])
-        config = MCTSConfig(num_simulations=40, persist_tree=false)
-        optim  = mcts_descent_init(param, loss, config)
+        config = MCTSConfig(num_simulations = 40, persist_tree = false)
+        optim = mcts_descent_init(param, loss, config)
         step!(optim)
 
-        t = visualize_search_tree(optim; max_depth=3, init_expand=2)
+        t = visualize_search_tree(optim; max_depth = 3, init_expand = 2)
         n = length(t.children)
 
         @testset "label format" begin
@@ -217,7 +221,7 @@ end
         end
 
         @testset "keyword args forwarded to D3Tree" begin
-            t_titled = visualize_search_tree(optim; title="TestTitle", svg_height=600)
+            t_titled = visualize_search_tree(optim; title = "TestTitle", svg_height = 600)
             @test t_titled isa D3Tree
         end
     end

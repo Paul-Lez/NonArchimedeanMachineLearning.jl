@@ -23,10 +23,10 @@ A node in the Flat UCB search tree.
 - `b_value::Float64`: Cached B-value for this node (updated bottom-up)
 - `is_leaf::Bool`: Whether this node is currently a leaf (no children expanded)
 """
-mutable struct FlatUCBNode{S,T,N}
-    polydisc::ValuationPolydisc{S,T,N}
-    parent::Union{FlatUCBNode{S,T,N}, Nothing}
-    children::Vector{FlatUCBNode{S,T,N}}
+mutable struct FlatUCBNode{S, T, N}
+    polydisc::ValuationPolydisc{S, T, N}
+    parent::Union{FlatUCBNode{S, T, N}, Nothing}
+    children::Vector{FlatUCBNode{S, T, N}}
     visits::Int
     total_value::Float64
     depth::Int
@@ -39,11 +39,12 @@ end
 
 Create a new Flat UCB node with the given polydisc, optional parent, and depth.
 """
-function FlatUCBNode(polydisc::ValuationPolydisc{S,T,N}, parent=nothing, depth=0) where {S,T,N}
-    return FlatUCBNode{S,T,N}(
+function FlatUCBNode(polydisc::ValuationPolydisc{S, T, N}, parent = nothing, depth = 0) where {
+        S, T, N}
+    return FlatUCBNode{S, T, N}(
         polydisc,
         parent,
-        FlatUCBNode{S,T,N}[],
+        FlatUCBNode{S, T, N}[],
         0,
         0.0,
         depth,
@@ -141,12 +142,12 @@ The constructor computes:
 - `total_nodes`: Estimated as 2^(D+1) for binary tree (upper bound)
 """
 function FlatUCBConfig(;
-    max_depth::Int=10,
-    num_simulations::Int=100,
-    beta::Float64=0.05,
-    degree::Int=1,
-    strict::Bool=false,
-    value_transform::Function=loss -> 1.0 / (loss + 1e-10)
+        max_depth::Int = 10,
+        num_simulations::Int = 100,
+        beta::Float64 = 0.05,
+        degree::Int = 1,
+        strict::Bool = false,
+        value_transform::Function = loss -> 1.0 / (loss + 1e-10)
 )
     # Compute total nodes (use 2^(D+1) as upper bound for simplicity)
     total_nodes = 2^(max_depth + 1)
@@ -175,8 +176,8 @@ State for the Flat UCB optimizer.
 - `root::FlatUCBNode{S,T,N}`: Root node of the search tree
 - `step_count::Int`: Number of optimization steps completed
 """
-mutable struct FlatUCBState{S,T,N}
-    root::FlatUCBNode{S,T,N}
+mutable struct FlatUCBState{S, T, N}
+    root::FlatUCBNode{S, T, N}
     step_count::Int
 end
 
@@ -266,7 +267,7 @@ Expand a node by generating all its children.
 
 Returns the vector of newly created children.
 """
-function expand_node!(node::FlatUCBNode{S,T,N}, config::FlatUCBConfig) where {S,T,N}
+function expand_node!(node::FlatUCBNode{S, T, N}, config::FlatUCBConfig) where {S, T, N}
     # Don't expand if already expanded
     if !isempty(node.children)
         return node.children
@@ -274,7 +275,7 @@ function expand_node!(node::FlatUCBNode{S,T,N}, config::FlatUCBConfig) where {S,
 
     # Don't expand beyond max depth
     if node.depth >= config.max_depth
-        return FlatUCBNode{S,T,N}[]
+        return FlatUCBNode{S, T, N}[]
     end
 
     # Generate child polydiscs
@@ -285,7 +286,7 @@ function expand_node!(node::FlatUCBNode{S,T,N}, config::FlatUCBConfig) where {S,
     end
 
     # Create child nodes
-    new_children = FlatUCBNode{S,T,N}[]
+    new_children = FlatUCBNode{S, T, N}[]
     for child_polydisc in child_polydiscs
         child_node = FlatUCBNode(child_polydisc, node, node.depth + 1)
         push!(new_children, child_node)
@@ -408,7 +409,8 @@ Updates:
 1. Increment visit count and add value to total for all nodes in path
 2. Update B-values bottom-up (from leaf to root)
 """
-function backpropagate!(path::Vector{FlatUCBNode{S,T,N}}, value::Float64, config::FlatUCBConfig) where {S,T,N}
+function backpropagate!(path::Vector{FlatUCBNode{S, T, N}}, value::Float64,
+        config::FlatUCBConfig) where {S, T, N}
     # Update all nodes in the path
     for node in path
         node.visits += 1
@@ -472,11 +474,11 @@ Returns:
 - `converged`: Whether no child was available and optimization has converged
 """
 function flat_ucb_descent(
-    loss::Loss,
-    param::ValuationPolydisc{S,T,N},
-    state::FlatUCBState{S,T,N},
-    config::FlatUCBConfig
-) where {S,T,N}
+        loss::Loss,
+        param::ValuationPolydisc{S, T, N},
+        state::FlatUCBState{S, T, N},
+        config::FlatUCBConfig
+) where {S, T, N}
     # Create fresh root at current parameter
     root = FlatUCBNode(param, nothing, 0)
 
@@ -540,13 +542,13 @@ Returns an `OptimSetup` configured for Flat UCB optimization.
 - `OptimSetup`: Optimizer ready for `step!(optim)` calls
 """
 function flat_ucb_descent_init(
-    param::ValuationPolydisc{S,T,N},
-    loss::Loss,
-    config::FlatUCBConfig=FlatUCBConfig()
-) where {S,T,N}
+        param::ValuationPolydisc{S, T, N},
+        loss::Loss,
+        config::FlatUCBConfig = FlatUCBConfig()
+) where {S, T, N}
     # Initialize state
     root = FlatUCBNode(param, nothing, 0)
-    state = FlatUCBState{S,T,N}(root, 0)
+    state = FlatUCBState{S, T, N}(root, 0)
 
     # Create OptimSetup
     return OptimSetup(
