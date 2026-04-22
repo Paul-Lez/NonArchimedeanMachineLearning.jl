@@ -72,30 +72,8 @@ function gradient_param(
     return partial_gradient(fun_eval, new_v, grad_indices)
 end
 
-# TODO: Function below is generally less useful, but would be nice to have
-# for completness.
-
 @doc raw"""
-    gradient_data(m::Model, data)
-
-Compute the gradient of a model with respect to data variables.
-
-# Arguments
-- `m::Model`: The model
-- `data`: Data values
-
-# Returns
-Gradient vector with respect to data
-
-# Notes
-Currently unimplemented - returns placeholder string.
-"""
-function gradient_data(m::Model, data)
-    return "implement me"
-end
-
-@doc raw"""
-    gradient_descent(loss::Loss, param::ValuationPolydisc{S,T,N}, state::U, degree::Int) where {S,T,N,U}
+    gradient_descent(loss::Loss, param::ValuationPolydisc{S,T,N}, next_branch::Int, settings::Tuple{Bool,Int}) where {S,T,N}
 
 Perform one step of gradient descent optimization.
 
@@ -105,11 +83,12 @@ the gradient norm (steepest descent direction).
 # Arguments
 - `loss::Loss`: The loss function structure
 - `param::ValuationPolydisc{S,T,N}`: Current parameter values
-- `state::U`: Current optimizer state (unused in gradient descent)
-- `degree::Int`: Degree for generating child polydiscs
+- `next_branch::Int`: Index of the next branch to descend in strict mode
+- `settings::Tuple{Bool,Int}`: `(strict, degree)` where `strict` enables single-coordinate descent
 
 # Returns
-`Tuple{ValuationPolydisc{S,T,N}, U}`: New parameters and state (state unchanged)
+`Tuple{ValuationPolydisc{S,T,N}, Int, Bool}`: New parameters, next branch index,
+and convergence status
 """
 function gradient_descent(
     loss::Loss,
@@ -139,21 +118,21 @@ function gradient_descent(
 end
 
 @doc raw"""
-    gradient_descent_init(param::ValuationPolydisc{S,T,N}, loss::Loss, state::U, degree=1) where {S,T,N,U}
+    gradient_descent_init(param::ValuationPolydisc{S,T,N}, loss::Loss, next_branch::Int, settings::Tuple{Bool,Int}) where {S,T,N}
 
 Initialize an optimization setup for gradient descent.
 
 # Arguments
 - `param::ValuationPolydisc{S,T,N}`: Initial parameter values
 - `loss::Loss`: The loss function structure
-- `state::U`: Initial state (unused in gradient descent, but included for API consistency)
-- `degree::Int=1`: Degree parameter for child generation (default: 1)
+- `next_branch::Int`: Starting branch index for strict mode
+- `settings::Tuple{Bool,Int}`: `(strict, degree)` controlling descent behavior
 
 # Returns
 `OptimSetup`: Configured optimization setup for gradient descent
 
 # Notes
-The state parameter does nothing in gradient descent but is included for consistency.
+The `next_branch` state is used only when `strict` mode is enabled.
 """
 function gradient_descent_init(
     param::ValuationPolydisc{S,T,N},

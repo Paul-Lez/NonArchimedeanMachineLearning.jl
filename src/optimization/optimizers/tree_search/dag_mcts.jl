@@ -796,7 +796,7 @@ Performs `config.num_simulations` iterations of DAG-MCTS.
 Returns the best child according to the configured selection mode.
 
 # Returns
-Tuple of (best_polydisc, best_node)
+Tuple of `(best_polydisc, best_node, converged)`.
 """
 function dag_mcts_search(
     root::DAGMCTSNode{S,T,N},
@@ -854,7 +854,8 @@ mcts_descent, etc.), making it compatible with `OptimSetup`.
 - `config::DAGMCTSConfig`: Configuration parameters
 
 # Returns
-`Tuple{ValuationPolydisc{S,T,N}, DAGMCTSState{S,T,N}}`: New parameters and updated state
+`Tuple{ValuationPolydisc{S,T,N}, DAGMCTSState{S,T,N}, Bool}`: New parameters,
+updated state, and convergence status
 """
 function dag_mcts_descent(
     loss::Loss,

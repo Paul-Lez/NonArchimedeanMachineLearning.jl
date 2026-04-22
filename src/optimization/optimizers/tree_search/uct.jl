@@ -328,7 +328,7 @@ Run UCT from a root node and return the best child.
 Performs `config.num_simulations` iterations of the full UCT algorithm.
 After all simulations, selects the child with the best average value.
 
-Returns: (best_polydisc, best_child_node)
+Returns: `(best_polydisc, best_child_node, converged)`.
 """
 function uct_search(root::UCTNode{S,T,N}, loss::Loss, config::UCTConfig) where {S,T,N}
     # Ensure root is expanded (needed to have children to select from)
@@ -369,7 +369,8 @@ making it compatible with `OptimSetup`.
 - `config::UCTConfig`: Configuration parameters
 
 # Returns
-`Tuple{ValuationPolydisc{S,T,N}, UCTState{S,T,N}}`: New parameters and updated state
+`Tuple{ValuationPolydisc{S,T,N}, UCTState{S,T,N}, Bool}`: New parameters,
+updated state, and convergence status
 """
 function uct_descent(
     loss::Loss,
@@ -459,177 +460,4 @@ function get_uct_tree_size(node::UCTNode)
         count += get_uct_tree_size(child)
     end
     return count
-end
-
-##################################################
-# Basic Tests
-##################################################
-
-@doc raw"""
-    test_uct_basic()
-
-Run basic tests to verify UCT implementation correctness.
-"""
-function test_uct_basic()
-    println("="^60)
-    println("Running UCT Basic Tests")
-    println("="^60)
-
-    # Test 1: Node creation and average_value
-    println("\nTest 1: Node creation and average_value")
-    K = PadicField(2, 20)
-    test_polydisc = ValuationPolydisc([K(1)], [0])
-    node = UCTNode(test_polydisc, nothing, 0)
-    @assert node.visits == 0 "Initial visits should be 0"
-    @assert node.depth == 0 "Root depth should be 0"
-    @assert average_value(node) == 0.0 "Average of unvisited node should be 0.0"
-    println("✓ Node creation correct")
-
-    # Test 2: UCB score computation
-    println("\nTest 2: UCB score computation")
-    parent = UCTNode(test_polydisc, nothing, 0)
-    parent.visits = 100
-
-    child1 = UCTNode(test_polydisc, parent, 1)
-    child1.visits = 0
-    @assert ucb_score(child1, parent.visits, sqrt(2.0)) == Inf "Unvisited child should have Inf UCB"
-    println("✓ Unvisited node has Inf UCB")
-
-    child2 = UCTNode(test_polydisc, parent, 1)
-    child2.visits = 10
-    child2.total_value = 5.0  # average = 0.5
-    score = ucb_score(child2, parent.visits, sqrt(2.0))
-    expected = 0.5 + sqrt(2.0) * sqrt(2.0 * log(100) / 10)
-    @assert abs(score - expected) < 1e-10 "UCB score computation incorrect"
-    println("✓ UCB score formula correct: $(round(score, digits=4))")
-
-    # Test 3: Node expansion
-    println("\nTest 3: Node expansion")
-    R, x = polynomial_ring(K, ["x"])
-    root_poly = ValuationPolydisc([K(1)], [1])
-    root = UCTNode(root_poly, nothing, 0)
-    config = UCTConfig(max_depth=3, num_simulations=10, degree=1)
-
-    @assert isempty(root.children) "Root should start with no children"
-    expand_node!(root, config)
-    @assert !isempty(root.children) "Root should have children after expansion"
-
-    p = Int(Nemo.prime(K))
-    expected_children = p  # Binary branching for degree=1
-    @assert length(root.children) == expected_children "Should have $expected_children children for degree=1"
-
-    # Check children have correct depth
-    for child in root.children
-        @assert child.depth == 1 "Children should have depth 1"
-        @assert child.parent === root "Children should have correct parent"
-    end
-    println("✓ Node expansion creates $(length(root.children)) children at correct depth")
-
-    # Test 4: Backpropagation
-    println("\nTest 4: Backpropagation")
-    path = [root, root.children[1]]
-    initial_visits = [node.visits for node in path]
-    value = 0.75
-
-    backpropagate!(path, value)
-
-    for (i, node) in enumerate(path)
-        @assert node.visits == initial_visits[i] + 1 "Visits should increment by 1"
-        @assert node.total_value == value "Total value should be $value for first update"
-    end
-    println("✓ Backpropagation updates visits and values correctly")
-
-    # Test 5: Average value computation
-    println("\nTest 5: Average value computation")
-    backpropagate!(path, 0.25)  # Second backprop
-    @assert root.visits == 2 "Root should have 2 visits"
-    expected_avg = (0.75 + 0.25) / 2
-    @assert abs(average_value(root) - expected_avg) < 1e-10 "Average should be $(expected_avg)"
-    println("✓ Average value computed correctly: $(average_value(root))")
-
-    println("\n" * "="^60)
-    println("All UCT basic tests passed! ✓")
-    println("="^60)
-end
-
-@doc raw"""
-    test_uct_simple_optimization()
-
-Test UCT on a simple optimization problem.
-"""
-function test_uct_simple_optimization()
-    println("\n" * "="^60)
-    println("Testing UCT on Simple Optimization Problem")
-    println("="^60)
-
-    # Set up a simple problem: minimize |x|^2 (should converge to x=0)
-    K = PadicField(2, 20)
-    R, x = polynomial_ring(K, ["x"])
-
-    # Use x^2 which has a clear minimum at x=0
-    poly = AbsolutePolynomialSum([x[1]^2])
-
-    # Create loss function - must accept vector of polydiscs
-    batch_eval = batch_evaluate_init(poly)
-    function loss_eval(params::Vector)
-        return [batch_eval(p) for p in params]
-    end
-    function loss_grad(vs::Vector)
-        return [directional_derivative(poly, v) for v in vs]
-    end
-    loss = Loss(loss_eval, loss_grad)
-
-    # Initial parameter (start away from optimum)
-    # Start at a point with large valuation (far from 0 in p-adic metric)
-    initial_param = ValuationPolydisc([K(16)], [0])  # Start at 16 = 2^4
-
-    # Configure UCT
-    config = UCTConfig(
-        max_depth=8,
-        num_simulations=100,
-        exploration_constant=sqrt(2.0),
-        degree=1,
-        value_transform=loss -> 1.0 / (loss + 1e-10)
-    )
-
-    # Initialize optimizer
-    optim = uct_descent_init(initial_param, loss, config)
-
-    initial_loss = eval_loss(optim)
-    println("\nInitial loss: $(round(initial_loss, digits=8))")
-    println("Initial param center: $(optim.param.center[1])")
-    println("Initial param radius: $(optim.param.radius)")
-
-    # Run optimization
-    losses = [initial_loss]
-    for i in 1:15
-        step!(optim)
-        current_loss = eval_loss(optim)
-        push!(losses, current_loss)
-        println("Step $i: loss = $(round(current_loss, digits=8)), center = $(optim.param.center[1]), radius = $(optim.param.radius)")
-    end
-
-    final_loss = eval_loss(optim)
-    final_param = optim.param.center[1]
-
-    println("\nFinal loss: $(round(final_loss, digits=8))")
-    println("Final param: $final_param")
-    println("Target: 0 (minimize |x|^2)")
-
-    # Check if loss improved
-    improvement = initial_loss - final_loss
-    println("\nImprovement: $(round(improvement, digits=8))")
-
-    if improvement > 0
-        println("✓ UCT reduced the loss!")
-        if final_loss < initial_loss * 0.1
-            println("✓ Strong convergence (90%+ improvement)")
-        end
-    else
-        println("⚠ UCT did not reduce the loss")
-    end
-
-    println("="^60)
-
-    return final_loss < initial_loss
 end

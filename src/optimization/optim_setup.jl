@@ -40,7 +40,7 @@ should have data baked in as a closure.
 # Fields
 - `loss::Loss`: Loss function (closure over data) with `eval: (param) -> scalar` and `grad: (tangent) -> scalar`
 - `param::ValuationPolydisc{S,T,N}`: Current parameter values (mutable during optimization)
-- `optimiser::Function`: Optimizer function `(loss, param, state, context) -> (new_param, new_state)`
+- `optimiser::Function`: Optimizer function `(loss, param, state, context) -> (new_param, new_state, converged)`
 - `state::U`: Optimization state (e.g., previous steps, momentum, etc.)
 - `context::V`: Optimizer settings (e.g., learning rate, degree, etc.)
 
@@ -129,8 +129,8 @@ end
 
 Perform one optimization step.
 
-Calls the optimizer function to compute new parameters and state, then updates the
-optimization setup accordingly.
+Calls the optimizer function to compute new parameters, state, and convergence
+status, then updates the optimization setup accordingly.
 
 # Arguments
 - `optim_setup::OptimSetup`: The optimization setup
