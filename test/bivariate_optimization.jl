@@ -45,7 +45,7 @@ using NonArchimedeanMachineLearning
     end
 
     @testset "MCTS" begin
-        config = MCTSConfig(num_simulations=50, degree=1)
+        config = MCTSConfig(num_simulations = 50, degree = 1)
         optim = mcts_descent_init(param0, loss, config)
         initial_loss = eval_loss(optim)
 

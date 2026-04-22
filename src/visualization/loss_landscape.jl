@@ -67,10 +67,10 @@ edges determined by the containment relation.
 - `parents::Dict{Int,Vector{Int}}`: Maps node index to indices of immediate parents
 - `leaf_indices::Vector{Int}`: Indices of the original input discs
 """
-struct ConvexHullTree{S,T,N}
-    nodes::Vector{ValuationPolydisc{S,T,N}}
-    children::Dict{Int,Vector{Int}}
-    parents::Dict{Int,Vector{Int}}
+struct ConvexHullTree{S, T, N}
+    nodes::Vector{ValuationPolydisc{S, T, N}}
+    children::Dict{Int, Vector{Int}}
+    parents::Dict{Int, Vector{Int}}
     leaf_indices::Vector{Int}
 end
 
@@ -93,7 +93,8 @@ have the same radius and their centers differ by elements with valuation >= radi
 # Returns
 `Int`: Index of the first equal polydisc in the vector, or 0 if not found
 """
-function find_polydisc_index(discs::Vector{ValuationPolydisc{S,T,N}}, p::ValuationPolydisc{S,T,N}) where {S,T,N}
+function find_polydisc_index(discs::Vector{ValuationPolydisc{S, T, N}},
+        p::ValuationPolydisc{S, T, N}) where {S, T, N}
     for (i, disc) in enumerate(discs)
         if disc == p  # Uses Base.== which implements Berkovich equality
             return i
@@ -116,12 +117,13 @@ until no new polydiscs are generated.
 # Returns
 `Vector{ValuationPolydisc{S,T,N}}`: All polydiscs in the convex hull
 """
-function compute_all_joins(initial_discs::Vector{ValuationPolydisc{S,T,N}}) where {S,T,N}
+function compute_all_joins(initial_discs::Vector{ValuationPolydisc{
+        S, T, N}}) where {S, T, N}
     # Start with the initial discs
     all_discs = copy(initial_discs)
 
     # Keep track of which pairs we've already joined
-    processed_pairs = Set{Tuple{Int,Int}}()
+    processed_pairs = Set{Tuple{Int, Int}}()
 
     # Iteratively compute joins until no new discs are added
     changed = true
@@ -131,7 +133,7 @@ function compute_all_joins(initial_discs::Vector{ValuationPolydisc{S,T,N}}) wher
 
         # Try all pairs
         for i in 1:n
-            for j in (i+1):n
+            for j in (i + 1):n
                 # Skip if we've already processed this pair
                 if (i, j) in processed_pairs
                     continue
@@ -170,7 +172,7 @@ Returns true if all components of r1 >= r2 and at least one is strictly greater.
 # Returns
 `Bool`: true if r1 represents a strictly smaller disc than r2
 """
-function radius_strictly_smaller(r1::NTuple{N,T}, r2::NTuple{N,T}) where {N,T}
+function radius_strictly_smaller(r1::NTuple{N, T}, r2::NTuple{N, T}) where {N, T}
     # r1 is smaller if all components have valuation >= r2 (higher valuation = smaller)
     # and at least one is strictly greater
     r1_vec = collect(r1)
@@ -198,7 +200,8 @@ Returns true if:
 # Returns
 `Bool`: true if parent is an immediate parent of child
 """
-function is_immediate_parent(parent_idx::Int, child_idx::Int, nodes::Vector{ValuationPolydisc{S,T,N}}) where {S,T,N}
+function is_immediate_parent(parent_idx::Int, child_idx::Int,
+        nodes::Vector{ValuationPolydisc{S, T, N}}) where {S, T, N}
     parent = nodes[parent_idx]
     child = nodes[child_idx]
 
@@ -249,10 +252,11 @@ Build parent-child relationships for the convex hull tree.
 # Returns
 `Tuple{Dict{Int,Vector{Int}}, Dict{Int,Vector{Int}}}`: (children dict, parents dict)
 """
-function build_tree_structure(nodes::Vector{ValuationPolydisc{S,T,N}}, num_initial::Int) where {S,T,N}
+function build_tree_structure(nodes::Vector{ValuationPolydisc{S, T, N}}, num_initial::Int) where {
+        S, T, N}
     n = length(nodes)
-    children = Dict{Int,Vector{Int}}()
-    parents = Dict{Int,Vector{Int}}()
+    children = Dict{Int, Vector{Int}}()
+    parents = Dict{Int, Vector{Int}}()
 
     # Initialize empty vectors for all nodes
     for i in 1:n
@@ -300,7 +304,7 @@ d3 = ValuationPolydisc([K(8)], [3])
 tree = convex_hull([d1, d2, d3])
 ```
 """
-function convex_hull(discs::Vector{ValuationPolydisc{S,T,N}}) where {S,T,N}
+function convex_hull(discs::Vector{ValuationPolydisc{S, T, N}}) where {S, T, N}
     # Compute all joins
     all_nodes = compute_all_joins(discs)
 
@@ -383,7 +387,8 @@ d2 = ValuationPolydisc([K(0)], [2])  # Large disc, valuation 2
 d_half = geodesic_interpolation(d1, d2, 0.5)  # Midpoint
 ```
 """
-function geodesic_interpolation(d1::ValuationPolydisc{S,T,N}, d2::ValuationPolydisc{S,T,N}, x::Real) where {S,T,N}
+function geodesic_interpolation(d1::ValuationPolydisc{S, T, N},
+        d2::ValuationPolydisc{S, T, N}, x::Real) where {S, T, N}
     # Verify preconditions
     @assert dim(d1) == dim(d2) "Polydiscs must have the same dimension"
     @assert all(valuation.(collect(d1.center) .- collect(d2.center)) .>= collect(d2.radius)) "d1 and d2 must have the same center (up to Berkovich equality)"
@@ -439,14 +444,14 @@ landscape = sample_loss_landscape(tree, f, 5)
 ```
 """
 function sample_loss_landscape(
-    tree::ConvexHullTree{S,T,N},
-    f::Function,
-    num_samples::Int=10
-) where {S,T,N}
+        tree::ConvexHullTree{S, T, N},
+        f::Function,
+        num_samples::Int = 10
+) where {S, T, N}
     @assert num_samples >= 2 "num_samples must be at least 2"
 
     # Dictionary to store results
-    landscape = Dict{Tuple{Int,Int}, Vector{Tuple{Float64,Float64}}}()
+    landscape = Dict{Tuple{Int, Int}, Vector{Tuple{Float64, Float64}}}()
 
     # Iterate through all parent nodes
     for parent_idx in keys(tree.children)
@@ -457,8 +462,8 @@ function sample_loss_landscape(
             child_disc = tree.nodes[child_idx]
 
             # Sample along the geodesic from child (x=0) to parent (x=1)
-            samples = Tuple{Float64,Float64}[]
-            for i in 0:(num_samples-1)
+            samples = Tuple{Float64, Float64}[]
+            for i in 0:(num_samples - 1)
                 x = i / (num_samples - 1)
 
                 # geodesic_interpolation expects d1 ⊆ d2
@@ -499,7 +504,8 @@ landscape = sample_loss_landscape(tree, loss_func, 10)
 print_landscape_summary(tree, landscape)
 ```
 """
-function print_landscape_summary(tree::ConvexHullTree{S,T,N}, landscape::Dict) where {S,T,N}
+function print_landscape_summary(tree::ConvexHullTree{S, T, N}, landscape::Dict) where {
+        S, T, N}
     println("=== Loss Landscape Summary ===\n")
     println("Tree Statistics:")
     println("  Total nodes: ", length(tree.nodes))
@@ -521,7 +527,7 @@ function print_landscape_summary(tree::ConvexHullTree{S,T,N}, landscape::Dict) w
     println()
 
     println("Edges by loss range:")
-    for ((parent_idx, child_idx), samples) in sort(collect(landscape), by=first)
+    for ((parent_idx, child_idx), samples) in sort(collect(landscape), by = first)
         edge_losses = [loss for (x, loss) in samples]
         edge_min = minimum(edge_losses)
         edge_max = maximum(edge_losses)
@@ -567,11 +573,11 @@ Requires Plots.jl to be installed and loaded:
 using Plots
 ```
 """
-function plot_loss_landscape(tree::ConvexHullTree{S,T,N}, landscape::Dict;
-                            title::String="Loss Landscape",
-                            colormap::Symbol=:viridis,
-                            show_node_labels::Bool=true,
-                            line_width::Real=2) where {S,T,N}
+function plot_loss_landscape(tree::ConvexHullTree{S, T, N}, landscape::Dict;
+        title::String = "Loss Landscape",
+        colormap::Symbol = :viridis,
+        show_node_labels::Bool = true,
+        line_width::Real = 2) where {S, T, N}
 
     # Check if Plots is available
     if !isdefined(Main, :Plots)
@@ -589,11 +595,11 @@ function plot_loss_landscape(tree::ConvexHullTree{S,T,N}, landscape::Dict;
     max_loss = maximum(all_losses)
 
     # Create plot
-    plt = Plots.plot(title=title,
-                    xlabel="Geodesic Parameter",
-                    ylabel="Loss Value",
-                    legend=:outerright,
-                    size=(800, 600))
+    plt = Plots.plot(title = title,
+        xlabel = "Geodesic Parameter",
+        ylabel = "Loss Value",
+        legend = :outerright,
+        size = (800, 600))
 
     # Plot each edge with its samples
     for ((parent_idx, child_idx), samples) in landscape
@@ -605,11 +611,11 @@ function plot_loss_landscape(tree::ConvexHullTree{S,T,N}, landscape::Dict;
 
         label = "Edge $child_idx → $parent_idx"
         Plots.plot!(plt, xs, losses,
-                   label=label,
-                   linewidth=line_width,
-                   marker=:circle,
-                   markersize=3,
-                   alpha=0.7)
+            label = label,
+            linewidth = line_width,
+            marker = :circle,
+            markersize = 3,
+            alpha = 0.7)
     end
 
     return plt
@@ -637,11 +643,12 @@ landscape = sample_loss_landscape(tree, loss_func, 10)
 export_landscape_csv(tree, landscape, "landscape_data.csv")
 ```
 """
-function export_landscape_csv(tree::ConvexHullTree{S,T,N}, landscape::Dict, filename::String) where {S,T,N}
+function export_landscape_csv(tree::ConvexHullTree{S, T, N}, landscape::Dict, filename::String) where {
+        S, T, N}
     open(filename, "w") do io
         println(io, "parent_idx,child_idx,geodesic_param,loss_value")
 
-        for ((parent_idx, child_idx), samples) in sort(collect(landscape), by=first)
+        for ((parent_idx, child_idx), samples) in sort(collect(landscape), by = first)
             for (x, loss) in samples
                 println(io, "$parent_idx,$child_idx,$x,$loss")
             end
@@ -703,7 +710,7 @@ parents. This function extracts a proper tree by:
 - `parent`: Maps node index to its single parent (-1 for root)
 - `root_idx`: Index of the root node (or -1 for virtual root)
 """
-function extract_spanning_tree(tree::ConvexHullTree{S,T,N}) where {S,T,N}
+function extract_spanning_tree(tree::ConvexHullTree{S, T, N}) where {S, T, N}
     n = length(tree.nodes)
 
     # Initialize new parent/children structures
@@ -800,7 +807,7 @@ Recursively compute the width needed for a subtree rooted at the given node.
 # Returns
 `Float64`: Total width needed for the subtree
 """
-function compute_subtree_width(tree::ConvexHullTree, node_idx::Int, leaf_width::Float64=1.0)
+function compute_subtree_width(tree::ConvexHullTree, node_idx::Int, leaf_width::Float64 = 1.0)
     children_list = tree.children[node_idx]
 
     if isempty(children_list)
@@ -832,7 +839,7 @@ Uses a radius-based layout where:
 - spanning_parent: Parent in the spanning tree
 - root_idx: Index of the root
 """
-function compute_tree_layout(tree::ConvexHullTree{S,T,N}) where {S,T,N}
+function compute_tree_layout(tree::ConvexHullTree{S, T, N}) where {S, T, N}
     n = length(tree.nodes)
 
     # Extract spanning tree from the DAG
@@ -908,14 +915,14 @@ Convert a loss value to an RGB color using a colormap.
 # Returns
 RGB color from the colormap
 """
-function loss_to_color(loss::Float64, min_loss::Float64, max_loss::Float64, colormap::Symbol=:viridis)
+function loss_to_color(loss::Float64, min_loss::Float64, max_loss::Float64, colormap::Symbol = :viridis)
     Plots = Main.Plots
     cgrad = Plots.cgrad(colormap)
 
     # Log scale: gives large colour variation near small loss values.
     # Guard against non-positive values with a small floor.
-    floor_val    = 1e-12
-    log_loss     = log(max(loss,     floor_val))
+    floor_val = 1e-12
+    log_loss = log(max(loss, floor_val))
     log_min_loss = log(max(min_loss, floor_val))
     log_max_loss = log(max(max_loss, floor_val))
 
@@ -964,14 +971,14 @@ plt = plot_tree_with_loss(tree, landscape)
 savefig(plt, "tree_landscape.png")
 ```
 """
-function plot_tree_with_loss(tree::ConvexHullTree{S,T,N}, landscape::Dict;
-                             title::String="Loss Landscape on Tree",
-                             colormap::Symbol=:viridis,
-                             show_node_labels::Bool=true,
-                             leaf_labels::Vector{String}=String[],
-                             line_width::Real=4,
-                             node_size::Real=8,
-                             figsize::Tuple{Int,Int}=(800, 600)) where {S,T,N}
+function plot_tree_with_loss(tree::ConvexHullTree{S, T, N}, landscape::Dict;
+        title::String = "Loss Landscape on Tree",
+        colormap::Symbol = :viridis,
+        show_node_labels::Bool = true,
+        leaf_labels::Vector{String} = String[],
+        line_width::Real = 4,
+        node_size::Real = 8,
+        figsize::Tuple{Int, Int} = (800, 600)) where {S, T, N}
 
     # Check if Plots is available
     if !isdefined(Main, :Plots)
@@ -984,7 +991,7 @@ function plot_tree_with_loss(tree::ConvexHullTree{S,T,N}, landscape::Dict;
     positions, spanning_children, spanning_parent, root_idx = compute_tree_layout(tree)
 
     # Build a set of edges in the spanning tree for quick lookup
-    spanning_edges = Set{Tuple{Int,Int}}()
+    spanning_edges = Set{Tuple{Int, Int}}()
     for (parent_idx, children) in spanning_children
         for child_idx in children
             push!(spanning_edges, (parent_idx, child_idx))
@@ -1011,13 +1018,13 @@ function plot_tree_with_loss(tree::ConvexHullTree{S,T,N}, landscape::Dict;
     max_loss = maximum(all_losses)
 
     # Create plot with equal aspect ratio so y-levels (radius levels) are visually correct
-    plt = Plots.plot(title=title,
-                     size=figsize,
-                     legend=false,
-                     axis=false,
-                     grid=false,
-                     framestyle=:none,
-                     aspect_ratio=:equal)
+    plt = Plots.plot(title = title,
+        size = figsize,
+        legend = false,
+        axis = false,
+        grid = false,
+        framestyle = :none,
+        aspect_ratio = :equal)
 
     # Draw edges with color-mapped segments (only spanning tree edges)
     for (parent_idx, children) in spanning_children
@@ -1031,15 +1038,15 @@ function plot_tree_with_loss(tree::ConvexHullTree{S,T,N}, landscape::Dict;
 
                 # Interpolate positions along the edge for each sample
                 # x=0 is at child, x=1 is at parent
-                for i in 1:(length(samples)-1)
+                for i in 1:(length(samples) - 1)
                     x1, loss1 = samples[i]
-                    x2, loss2 = samples[i+1]
+                    x2, loss2 = samples[i + 1]
 
                     # Interpolate positions
                     pos1 = (child_pos[1] + x1 * (parent_pos[1] - child_pos[1]),
-                            child_pos[2] + x1 * (parent_pos[2] - child_pos[2]))
+                        child_pos[2] + x1 * (parent_pos[2] - child_pos[2]))
                     pos2 = (child_pos[1] + x2 * (parent_pos[1] - child_pos[1]),
-                            child_pos[2] + x2 * (parent_pos[2] - child_pos[2]))
+                        child_pos[2] + x2 * (parent_pos[2] - child_pos[2]))
 
                     # Average loss for this segment
                     avg_loss = (loss1 + loss2) / 2
@@ -1047,18 +1054,19 @@ function plot_tree_with_loss(tree::ConvexHullTree{S,T,N}, landscape::Dict;
 
                     # Draw segment
                     Plots.plot!(plt, [pos1[1], pos2[1]], [pos1[2], pos2[2]],
-                               linewidth=line_width,
-                               color=color,
-                               label=nothing)
+                        linewidth = line_width,
+                        color = color,
+                        label = nothing)
                 end
             else
                 # No loss data for this edge, draw in gray
                 parent_pos = positions[parent_idx]
                 child_pos = positions[child_idx]
-                Plots.plot!(plt, [parent_pos[1], child_pos[1]], [parent_pos[2], child_pos[2]],
-                           linewidth=line_width,
-                           color=:gray,
-                           label=nothing)
+                Plots.plot!(
+                    plt, [parent_pos[1], child_pos[1]], [parent_pos[2], child_pos[2]],
+                    linewidth = line_width,
+                    color = :gray,
+                    label = nothing)
             end
         end
     end
@@ -1069,11 +1077,11 @@ function plot_tree_with_loss(tree::ConvexHullTree{S,T,N}, landscape::Dict;
 
     # Make nodes nearly invisible - just small dots without heavy strokes
     Plots.scatter!(plt, xs, ys,
-                   markersize=1,
-                   color=:black,
-                   markerstrokewidth=0,
-                   alpha=0.3,
-                   label=nothing)
+        markersize = 1,
+        color = :black,
+        markerstrokewidth = 0,
+        alpha = 0.3,
+        label = nothing)
 
     # Add node labels if requested
     if show_node_labels
@@ -1095,15 +1103,15 @@ function plot_tree_with_loss(tree::ConvexHullTree{S,T,N}, landscape::Dict;
 
     # Add colorbar by creating a dummy heatmap
     # Create a small gradient for the colorbar
-    z_range = range(min_loss, max_loss, length=100)
+    z_range = range(min_loss, max_loss, length = 100)
     Plots.scatter!(plt, [NaN], [NaN],
-                   zcolor=[min_loss],
-                   clims=(min_loss, max_loss),
-                   colorbar=true,
-                   colorbar_title="Loss",
-                   color=colormap,
-                   markershape=:none,
-                   label=nothing)
+        zcolor = [min_loss],
+        clims = (min_loss, max_loss),
+        colorbar = true,
+        colorbar_title = "Loss",
+        color = colormap,
+        markershape = :none,
+        label = nothing)
 
     return plt
 end
@@ -1133,12 +1141,12 @@ Useful for visualizing just the tree structure before sampling loss.
 # Returns
 Plot object from Plots.jl
 """
-function plot_tree_simple(tree::ConvexHullTree{S,T,N};
-                          title::String="Convex Hull Tree",
-                          show_node_labels::Bool=true,
-                          line_width::Real=2,
-                          node_size::Real=10,
-                          figsize::Tuple{Int,Int}=(800, 600)) where {S,T,N}
+function plot_tree_simple(tree::ConvexHullTree{S, T, N};
+        title::String = "Convex Hull Tree",
+        show_node_labels::Bool = true,
+        line_width::Real = 2,
+        node_size::Real = 10,
+        figsize::Tuple{Int, Int} = (800, 600)) where {S, T, N}
 
     # Check if Plots is available
     if !isdefined(Main, :Plots)
@@ -1151,13 +1159,13 @@ function plot_tree_simple(tree::ConvexHullTree{S,T,N};
     positions, spanning_children, spanning_parent, root_idx = compute_tree_layout(tree)
 
     # Create plot with equal aspect ratio so y-levels (radius levels) are visually correct
-    plt = Plots.plot(title=title,
-                     size=figsize,
-                     legend=false,
-                     axis=false,
-                     grid=false,
-                     framestyle=:none,
-                     aspect_ratio=:equal)
+    plt = Plots.plot(title = title,
+        size = figsize,
+        legend = false,
+        axis = false,
+        grid = false,
+        framestyle = :none,
+        aspect_ratio = :equal)
 
     # Draw edges (only from spanning tree)
     for (parent_idx, children) in spanning_children
@@ -1166,9 +1174,9 @@ function plot_tree_simple(tree::ConvexHullTree{S,T,N};
             child_pos = positions[child_idx]
 
             Plots.plot!(plt, [parent_pos[1], child_pos[1]], [parent_pos[2], child_pos[2]],
-                       linewidth=line_width,
-                       color=:gray,
-                       label=nothing)
+                linewidth = line_width,
+                color = :gray,
+                label = nothing)
         end
     end
 
@@ -1178,11 +1186,11 @@ function plot_tree_simple(tree::ConvexHullTree{S,T,N};
 
     # Make nodes nearly invisible - just small dots without heavy strokes
     Plots.scatter!(plt, xs, ys,
-                   markersize=1,
-                   color=:black,
-                   markerstrokewidth=0,
-                   alpha=0.3,
-                   label=nothing)
+        markersize = 1,
+        color = :black,
+        markerstrokewidth = 0,
+        alpha = 0.3,
+        label = nothing)
 
     # Add node labels if requested
     if show_node_labels

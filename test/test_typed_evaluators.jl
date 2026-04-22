@@ -14,7 +14,8 @@ using NonArchimedeanMachineLearning
         radius1 = [0, 0]
         p1 = ValuationPolydisc(center1, radius1)
 
-        @test typeof(p1) == ValuationPolydisc{ValuedFieldPoint{2,20,PadicFieldElem},Int,2}
+        @test typeof(p1) ==
+              ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int, 2}
         println("✓ Basic polydisc creation works")
     end
 
@@ -32,12 +33,14 @@ using NonArchimedeanMachineLearning
         p = ValuationPolydisc(center, radius)
 
         # NEW INTERFACE: typed evaluator
-        eval_typed = batch_evaluate_init(poly, ValuationPolydisc{ValuedFieldPoint{2,20,PadicFieldElem},Int64,2})
+        eval_typed = batch_evaluate_init(
+            poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2})
         result = eval_typed(p)
 
         # The result should be |3*1 + 2*2 + 1| = |8| = 1/8 in 2-adic (since 8 = 2^3)
         @test result > 0
-        @test typeof(eval_typed) == LinearPolynomialEvaluator{ValuedFieldPoint{2,20,PadicFieldElem},Int64,2}
+        @test typeof(eval_typed) ==
+              LinearPolynomialEvaluator{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}
 
         println("✓ LinearPolynomial evaluator works! Result: $result")
     end
@@ -56,11 +59,13 @@ using NonArchimedeanMachineLearning
         p = ValuationPolydisc(center, radius)
 
         # NEW INTERFACE: typed evaluator (adapter handles type conversion)
-        eval_typed = batch_evaluate_init(c, ValuationPolydisc{ValuedFieldPoint{2,20,PadicFieldElem},Int64,2})
+        eval_typed = batch_evaluate_init(
+            c, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2})
         result = eval_typed(p)
 
         @test result == 5.0
-        @test typeof(eval_typed) == ConstantEvaluator{ValuedFieldPoint{2,20,PadicFieldElem},Int64,2}
+        @test typeof(eval_typed) ==
+              ConstantEvaluator{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}
 
         println("✓ Constant evaluator works!")
     end
@@ -79,7 +84,8 @@ using NonArchimedeanMachineLearning
         p = ValuationPolydisc(center, radius)
 
         # NEW INTERFACE: typed evaluator
-        eval_typed = batch_evaluate_init(poly, ValuationPolydisc{ValuedFieldPoint{2,20,PadicFieldElem},Int64,2})
+        eval_typed = batch_evaluate_init(
+            poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2})
         result = eval_typed(p)
 
         # Result should be |1^2 + 2^2| = |5|
@@ -105,7 +111,8 @@ using NonArchimedeanMachineLearning
         p = ValuationPolydisc(center, radius)
 
         # NEW INTERFACE: typed evaluator
-        eval_typed = batch_evaluate_init(sum_poly, ValuationPolydisc{ValuedFieldPoint{2,20,PadicFieldElem},Int64,2})
+        eval_typed = batch_evaluate_init(
+            sum_poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2})
         result = eval_typed(p)
 
         @test result > 0

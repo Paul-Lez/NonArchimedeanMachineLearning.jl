@@ -26,7 +26,7 @@ using Oscar
     linear_polys = [
         LinearPolynomial([K(1), K(1), K(0)], K(-2)),   # x1 + x2 - 2
         LinearPolynomial([K(0), K(1), K(1)], K(-3)),   # x2 + x3 - 3
-        LinearPolynomial([K(1), K(0), K(-1)], K(0)),   # x1 - x3
+        LinearPolynomial([K(1), K(0), K(-1)], K(0))   # x1 - x3
     ]
 
     poly = LinearAbsolutePolynomialSum(linear_polys)
@@ -138,7 +138,7 @@ using Oscar
         println("MCTS with 100 simulations, degree=2")
         println("-"^80)
 
-        config = MCTSConfig(num_simulations=100, degree=2, strict=true)
+        config = MCTSConfig(num_simulations = 100, degree = 2, strict = true)
         optim = mcts_descent_init(initial_param, loss, config)
 
         init_loss = eval_loss(optim)
@@ -157,7 +157,8 @@ using Oscar
         @printf("Final loss:       %.6e\n", final_loss)
         @printf("Improvement:      %.2f%%\n", (init_loss - final_loss) / init_loss * 100)
         @printf("Tree size:        %d\n", tree_sz)
-        @printf("Final radius:     (%d, %d, %d)\n", final_radius[1], final_radius[2], final_radius[3])
+        @printf("Final radius:     (%d, %d, %d)\n", final_radius[1], final_radius[2],
+            final_radius[3])
         @printf("Children/node:    %d (= C(3,2) * %d^2)\n\n", 3*p^2, p)
 
         @test final_loss < init_loss

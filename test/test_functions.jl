@@ -128,7 +128,7 @@ using NonArchimedeanMachineLearning
         test_points = [
             ValuationPolydisc([K(0), K(0)], [0, 0]),
             ValuationPolydisc([K(1), K(1)], [0, 0]),
-            ValuationPolydisc([K(2), K(3)], [1, 1]),
+            ValuationPolydisc([K(2), K(3)], [1, 1])
         ]
 
         for p in test_points
@@ -151,14 +151,14 @@ using NonArchimedeanMachineLearning
             x,           # Monomial
             2 * x,         # Coefficient * monomial
             x + 1,       # Polynomial with constant
-            x * y + 1,     # Multivariate
+            x * y + 1     # Multivariate
         ]
 
         test_points = [
             ValuationPolydisc([K(0), K(0)], [0, 0]),
             ValuationPolydisc([K(1), K(1)], [0, 0]),
             ValuationPolydisc([K(1), K(1)], [1, 1]),
-            ValuationPolydisc([K(2), K(1)], [0, 0]),
+            ValuationPolydisc([K(2), K(1)], [0, 0])
         ]
 
         for f in polynomials
@@ -410,7 +410,7 @@ using NonArchimedeanMachineLearning
             ([K(0), K(0)], [0, 0]),
             ([K(1), K(1)], [0, 0]),
             ([K(2), K(3)], [1, 2]),
-            ([K(1), K(1)], [0, 1]),
+            ([K(1), K(1)], [0, 1])
         ]
 
         for (center, radius) in test_points
@@ -433,7 +433,7 @@ using NonArchimedeanMachineLearning
         test_polynomials = [
             LinearPolynomial([K(1)], K(1)),                    # x + 1
             LinearPolynomial([K(1), K(1)], K(1)),              # x + y + 1
-            LinearPolynomial([K(1), K(1), K(1)], K(1)),        # x + y + z + 1
+            LinearPolynomial([K(1), K(1), K(1)], K(1))        # x + y + z + 1
         ]
 
         for poly in test_polynomials
@@ -443,7 +443,7 @@ using NonArchimedeanMachineLearning
             dim = length(poly.coefficients)
             test_points = [
                 ValuationPolydisc([K(0) for i in 1:dim], [0 for _ in 1:dim]),
-                ValuationPolydisc([K(1) for i in 1:dim], [0 for _ in 1:dim]),
+                ValuationPolydisc([K(1) for i in 1:dim], [0 for _ in 1:dim])
             ]
 
             for p in test_points
@@ -496,7 +496,7 @@ using NonArchimedeanMachineLearning
             [0, 1],
             [1, 1],
             [2, 1],
-            [1, 2],
+            [1, 2]
         ]
 
         for radius in radius_combinations
@@ -520,7 +520,7 @@ using NonArchimedeanMachineLearning
             [K(1), K(1)],
             [K(2), K(0)],
             [K(0), K(2)],
-            [K(1), K(2)],
+            [K(1), K(2)]
         ]
 
         for center in center_combinations
@@ -592,7 +592,7 @@ using NonArchimedeanMachineLearning
         test_points = [
             ValuationPolydisc([K(0), K(0)], [0, 0]),
             ValuationPolydisc([K(1), K(1)], [0, 0]),
-            ValuationPolydisc([K(0), K(1)], [1, 0]),
+            ValuationPolydisc([K(0), K(1)], [1, 0])
         ]
 
         for p in test_points
@@ -620,7 +620,7 @@ using NonArchimedeanMachineLearning
         # Test at multiple points - verify it returns valid results
         test_points = [
             ValuationPolydisc([K(0), K(0)], [0, 0]),
-            ValuationPolydisc([K(1), K(1)], [0, 0]),
+            ValuationPolydisc([K(1), K(1)], [0, 0])
         ]
 
         for p in test_points
@@ -642,13 +642,13 @@ using NonArchimedeanMachineLearning
             x,
             2 * x + y,
             x * y + 1,
-            3 * x + 2 * y + 5,
+            3 * x + 2 * y + 5
         ]
 
         test_points = [
             ValuationPolydisc([K(0), K(0)], [0, 0]),
             ValuationPolydisc([K(1), K(1)], [0, 0]),
-            ValuationPolydisc([K(2), K(3)], [1, 1]),
+            ValuationPolydisc([K(2), K(3)], [1, 1])
         ]
 
         for f in polynomials
@@ -682,7 +682,7 @@ using NonArchimedeanMachineLearning
 
         test_points = [
             ValuationPolydisc([K(0), K(0)], [0, 0]),
-            ValuationPolydisc([K(1), K(1)], [0, 0]),
+            ValuationPolydisc([K(1), K(1)], [0, 0])
         ]
 
         for p in test_points
@@ -709,7 +709,7 @@ using NonArchimedeanMachineLearning
         # At multiple points with radius (0, 0)
         test_points = [
             ValuationPolydisc([K(0), K(0)], [0, 0]),
-            ValuationPolydisc([K(1), K(1)], [0, 0]),
+            ValuationPolydisc([K(1), K(1)], [0, 0])
         ]
 
         for p in test_points
@@ -734,7 +734,7 @@ using NonArchimedeanMachineLearning
             [1, 0],
             [0, 1],
             [1, 1],
-            [2, 0],
+            [2, 0]
         ]
 
         for r in radius_combos
@@ -754,7 +754,7 @@ using NonArchimedeanMachineLearning
         polys = [
             LinearPolynomial([K(1), K(2)], K(1)),
             LinearPolynomial([K(3), K(1)], K(0)),
-            LinearPolynomial([K(1), K(1)], K(2)),
+            LinearPolynomial([K(1), K(1)], K(2))
         ]
         lin_sum = LinearAbsolutePolynomialSum(polys)
 
@@ -768,7 +768,6 @@ using NonArchimedeanMachineLearning
             @test val_batch ≈ val_regular atol = 1e-10
         end
     end
-
 end
 
 println("All tests passed!")

@@ -172,9 +172,7 @@ using Oscar  # For PadicField
         println("\nTest 6: Hash collision detection")
 
         # Create many polydiscs with different radii
-        test_polydiscs = [
-            ValuationPolydisc([K(0)], [i]) for i in -3:5
-        ]
+        test_polydiscs = [ValuationPolydisc([K(0)], [i]) for i in -3:5]
 
         hashes = [hash(p) for p in test_polydiscs]
 
@@ -213,7 +211,7 @@ using Oscar  # For PadicField
         all_valid = true
         for (h, group) in hash_groups
             for i in 1:length(group)
-                for j in i+1:length(group)
+                for j in (i + 1):length(group)
                     if !(group[i] == group[j])
                         println("  ERROR: Hash collision between non-equal polydiscs!")
                         println("    p1: center=$(NonArchimedeanMachineLearning.center(group[i])[1]), radius=$(NonArchimedeanMachineLearning.radius(group[i])[1])")
@@ -236,7 +234,7 @@ using Oscar  # For PadicField
 
         # Also verify no equal polydiscs have different hashes
         for i in 1:length(test_cases)
-            for j in i+1:length(test_cases)
+            for j in (i + 1):length(test_cases)
                 if test_cases[i] == test_cases[j]
                     @test hash(test_cases[i]) == hash(test_cases[j])
                 end
@@ -346,7 +344,8 @@ using Oscar  # For PadicField
         # Verify these are all Berkovich-equal
         @test p1 != p2  # Different radii
         @test ValuationPolydisc([K(0)], [1]) == ValuationPolydisc([K(4)], [1])
-        @test canonical_center(ValuationPolydisc([K(0)], [1])) == canonical_center(ValuationPolydisc([K(4)], [1]))
+        @test canonical_center(ValuationPolydisc([K(0)], [1])) ==
+              canonical_center(ValuationPolydisc([K(4)], [1]))
     end
 
     @testset "Branch coverage: c.v < r" begin
@@ -413,7 +412,7 @@ using Oscar  # For PadicField
 
             # All should be pairwise equal
             for i in 1:length(polydiscs)
-                for j in i+1:length(polydiscs)
+                for j in (i + 1):length(polydiscs)
                     @test polydiscs[i] == polydiscs[j]
                     @test hash(polydiscs[i]) == hash(polydiscs[j])
                 end

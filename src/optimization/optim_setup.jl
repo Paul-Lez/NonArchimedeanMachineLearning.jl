@@ -12,7 +12,7 @@ closures that capture any necessary data (e.g., training data).
 - `eval::Function`: Function to evaluate the loss, signature: `(param) -> scalar`
 - `grad::Function`: Function to compute gradient, signature: `(tangent_vector) -> scalar`
 """
-struct Loss{F1,F2}
+struct Loss{F1, F2}
     eval::F1
     grad::F2
 end
@@ -22,7 +22,6 @@ function Base.:+(f::Loss, g::Loss)
     grad = x -> f.grad(x) + g.grad(x)
     return Loss(eval, grad)
 end
-
 
 # TODO: possible refactor:
 # We can bundle the value of param in the state, 
@@ -51,13 +50,13 @@ should have data baked in as a closure.
 - `U`: State type
 - `V`: Context type
 """
-mutable struct OptimSetup{S,T,N,U,V,L<:Loss,O}
+mutable struct OptimSetup{S, T, N, U, V, L <: Loss, O}
     # The loss function (should be a closure over any data)
     # loss.eval should have type (param) -> scalar
     # loss.grad should have type (tangent_vector) -> scalar
     loss::L
     # The current parameter value
-    param::ValuationPolydisc{S,T,N}
+    param::ValuationPolydisc{S, T, N}
     # An optimiser is a function that takes in the loss and param
     # (plus eventually other parameters, e.g. learning rate)
     # and outputs a new choice of parameters
@@ -102,8 +101,8 @@ Update the parameter values in the optimization setup.
 Mutates the optimization setup in place.
 """
 function update_param!(
-    optim::OptimSetup{S,T,N,U,V,L,O},
-    param::ValuationPolydisc{S,T,N}
+        optim::OptimSetup{S, T, N, U, V, L, O},
+        param::ValuationPolydisc{S, T, N}
 ) where {S, T, N, U, V, L, O}
     optim.param = param
 end
@@ -120,7 +119,8 @@ Update the optimizer state in the optimization setup.
 # Notes
 Mutates the optimization setup in place.
 """
-function update_state!(optim::OptimSetup{S,T,N,U,V,L,O}, state::U) where {S, T, N, U, V, L, O}
+function update_state!(optim::OptimSetup{S, T, N, U, V, L, O}, state::U) where {
+        S, T, N, U, V, L, O}
     optim.state = state
 end
 
@@ -139,7 +139,8 @@ status, then updates the optimization setup accordingly.
 Mutates the optimization setup by updating both parameters and state.
 """
 function step!(optim_setup::OptimSetup)
-    new_param, new_state, converged = optim_setup.optimiser(
+    new_param, new_state,
+    converged = optim_setup.optimiser(
         optim_setup.loss,
         optim_setup.param,
         optim_setup.state,
@@ -194,12 +195,12 @@ else
 end
 ```
 """
-function optimize!(optim::OptimSetup, max_steps::Int; verbose::Bool=false)
+function optimize!(optim::OptimSetup, max_steps::Int; verbose::Bool = false)
     for i in 1:max_steps
         converged = step!(optim)
         if verbose
             @printf("Step %d: loss = %.6e%s\n", i, eval_loss(optim),
-                    converged ? " [converged]" : "")
+                converged ? " [converged]" : "")
         end
         if converged
             return i

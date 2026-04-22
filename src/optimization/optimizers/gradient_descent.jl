@@ -19,28 +19,28 @@ Gradient vector with respect to parameters
 Currently assumes parameters are the last variables. More general shapes may be needed.
 """
 function gradient_param(
-    m::AbstractModel{S},
-    val::ValuationPolydisc{S,T,N1},
-    v::ValuationTangent{S,T,N2}
+        m::AbstractModel{S},
+        val::ValuationPolydisc{S, T, N1},
+        v::ValuationTangent{S, T, N2}
 ) where {S, T, N1, N2}
     # TODO: implement concatenation of tangent vectors
     new_base = concatenate(val, v.point)
     new_direction = concatenate(val, v.direction)
     new_v = ValuationTangent(new_base, new_direction, [zeros(T, dim(val)); v.magnitude])
-    grad_indices = (dim(val)+1):(dim(val)+dim(v))
+    grad_indices = (dim(val) + 1):(dim(val) + dim(v))
     return partial_gradient(m.fun, new_v, grad_indices)
 end
 
 # VFP lifting: unwrap ValuedFieldPoint types and delegate
 function gradient_param(
-    m::AbstractModel{S},
-    val::ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N1},
-    v::ValuationTangent{ValuedFieldPoint{P,Prec,S},T,N2}
+        m::AbstractModel{S},
+        val::ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N1},
+        v::ValuationTangent{ValuedFieldPoint{P, Prec, S}, T, N2}
 ) where {S, P, Prec, T, N1, N2}
-    unwrapped_val = ValuationPolydisc{S,T,N1}(unwrap(val.center), val.radius)
-    unwrapped_point = ValuationPolydisc{S,T,N2}(unwrap(v.point.center), v.point.radius)
-    unwrapped_direction = ValuationPolydisc{S,T,N2}(unwrap(v.direction.center), v.direction.radius)
-    unwrapped_v = ValuationTangent{S,T,N2}(unwrapped_point, unwrapped_direction, v.magnitude)
+    unwrapped_val = ValuationPolydisc{S, T, N1}(unwrap(val.center), val.radius)
+    unwrapped_point = ValuationPolydisc{S, T, N2}(unwrap(v.point.center), v.point.radius)
+    unwrapped_direction = ValuationPolydisc{S, T, N2}(unwrap(v.direction.center), v.direction.radius)
+    unwrapped_v = ValuationTangent{S, T, N2}(unwrapped_point, unwrapped_direction, v.magnitude)
     return gradient_param(m, unwrapped_val, unwrapped_v)
 end
 
@@ -59,16 +59,16 @@ Compute the gradient of a model with respect to its parameters using a typed eva
 Gradient vector with respect to parameters
 """
 function gradient_param(
-    m::AbstractModel,
-    fun_eval::PolydiscFunctionEvaluator,
-    val::ValuationPolydisc,
-    v::ValuationTangent
+        m::AbstractModel,
+        fun_eval::PolydiscFunctionEvaluator,
+        val::ValuationPolydisc,
+        v::ValuationTangent
 )
     new_base = concatenate(val, v.point)
     new_direction = concatenate(val, v.direction)
     T = eltype(v.magnitude)
     new_v = ValuationTangent(new_base, new_direction, [zeros(T, dim(val)); v.magnitude])
-    grad_indices = (dim(val)+1):(dim(val)+dim(v))
+    grad_indices = (dim(val) + 1):(dim(val) + dim(v))
     return partial_gradient(fun_eval, new_v, grad_indices)
 end
 
@@ -91,10 +91,10 @@ the gradient norm (steepest descent direction).
 and convergence status
 """
 function gradient_descent(
-    loss::Loss,
-    param::ValuationPolydisc{S,T,N},
-    next_branch::Int,
-    settings::Tuple{Bool,Int}
+        loss::Loss,
+        param::ValuationPolydisc{S, T, N},
+        next_branch::Int,
+        settings::Tuple{Bool, Int}
 ) where {S, T, N}
     # Compute the children of the point param
     (strict, degree) = settings
@@ -109,7 +109,8 @@ function gradient_descent(
     # Evaluate gradient at each child (not at param): children have positive radius in one
     # coordinate, which makes the p-adic directional derivative non-trivial. Evaluating at
     # param (radius 0 everywhere) would give gradient 0 for all children.
-    tangents = [ValuationTangent(param, lower_point, zeros(T, dim(lower_point))) for lower_point in below_nodes]
+    tangents = [ValuationTangent(param, lower_point, zeros(T, dim(lower_point)))
+                for lower_point in below_nodes]
     # In gradient descent, we look at the children of the current parameter point and take the child
     # that maximises the norm of the (downwards pointing) gradient
     grad_values = loss.grad(tangents)
@@ -135,10 +136,10 @@ Initialize an optimization setup for gradient descent.
 The `next_branch` state is used only when `strict` mode is enabled.
 """
 function gradient_descent_init(
-    param::ValuationPolydisc{S,T,N},
-    loss::Loss,
-    next_branch::Int,
-    settings::Tuple{Bool,Int}
+        param::ValuationPolydisc{S, T, N},
+        loss::Loss,
+        next_branch::Int,
+        settings::Tuple{Bool, Int}
 ) where {S, T, N}
     return OptimSetup(
         loss,

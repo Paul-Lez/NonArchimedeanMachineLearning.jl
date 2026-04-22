@@ -29,7 +29,7 @@ struct AbstractModel{S}
     # true = data variable, false = parameter
     # E.g. for f(x, θ, y, φ) with param_info = [true, false, true, false]:
     # x and y are data, θ and φ are parameters
-    param_info
+    param_info::Any
 end
 
 @doc raw"""
@@ -61,15 +61,15 @@ model = Model(f, params)
 Models are mutable so that optimization algorithms can update `param` in place.
 Use `update_weights!` to modify parameter values.
 """
-mutable struct Model{FS,PS,T,N}
+mutable struct Model{FS, PS, T, N}
     fun::AbstractModel{FS}
     # Current parameter values
-    param::ValuationPolydisc{PS,T,N}
+    param::ValuationPolydisc{PS, T, N}
 end
 
 # Convenience constructor for when types match
-function Model(fun::AbstractModel{S}, param::ValuationPolydisc{S,T,N}) where {S,T,N}
-    return Model{S,S,T,N}(fun, param)
+function Model(fun::AbstractModel{S}, param::ValuationPolydisc{S, T, N}) where {S, T, N}
+    return Model{S, S, T, N}(fun, param)
 end
 
 @doc raw"""
@@ -147,7 +147,8 @@ variable, ``z`` is the 3rd data variable, and ``\phi`` is the 2nd parameter.
 function getkeys(m::AbstractModel)
     vars = var_indices(m)
     param = param_indices(m)
-    return [m.param_info[i] ? findfirst(item -> item == i, vars) : findfirst(item -> item == i, param) for i in Base.eachindex(m.param_info)]
+    return [m.param_info[i] ? findfirst(item -> item == i, vars) :
+            findfirst(item -> item == i, param) for i in Base.eachindex(m.param_info)]
 end
 
 @doc raw"""
@@ -176,24 +177,35 @@ For model ``f(x, \theta, y, \phi)`` with `param_info = [true, false, true, false
 The returned polydisc has the same dimension as the original polynomial ring and can be
 directly passed to polynomial evaluation functions.
 """
-function set_abstract_model_variable(m::AbstractModel{S}, val::ValuationPolydisc{S,T,N1}, param::ValuationPolydisc{S,T,N2}) where {S, T, N1, N2}
+function set_abstract_model_variable(m::AbstractModel{S}, val::ValuationPolydisc{S, T, N1},
+        param::ValuationPolydisc{S, T, N2}) where {S, T, N1, N2}
     keys = getkeys(m)
-    abstract_model_variable_radius = Vector{T}([m.param_info[i] ? val.radius[keys[i]] : param.radius[keys[i]] for i in Base.eachindex(m.param_info)])
-    abstract_model_variable_center = Vector{S}([m.param_info[i] ? val.center[keys[i]] : param.center[keys[i]] for i in Base.eachindex(m.param_info)])
+    abstract_model_variable_radius = Vector{T}([m.param_info[i] ? val.radius[keys[i]] :
+                                                param.radius[keys[i]]
+                                                for i in Base.eachindex(m.param_info)])
+    abstract_model_variable_center = Vector{S}([m.param_info[i] ? val.center[keys[i]] :
+                                                param.center[keys[i]]
+                                                for i in Base.eachindex(m.param_info)])
     return ValuationPolydisc(abstract_model_variable_center, abstract_model_variable_radius)
 end
 
-function set_abstract_model_variable(m::AbstractModel{S}, val::ValuationPolydisc{S,T,N1}, param::ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N2}) where {S,P,Prec,T,N1,N2}
+function set_abstract_model_variable(m::AbstractModel{S},
+        val::ValuationPolydisc{S, T, N1},
+        param::ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N2}) where {
+        S, P, Prec, T, N1, N2}
     unwrapped_param_center = tuple([vp.elem for vp in param.center]...)
-    unwrapped_param = ValuationPolydisc{S,T,N2}(unwrapped_param_center, param.radius)
+    unwrapped_param = ValuationPolydisc{S, T, N2}(unwrapped_param_center, param.radius)
     return set_abstract_model_variable(m, val, unwrapped_param)
 end
 
-function set_abstract_model_variable(m::AbstractModel{S}, val::ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N1}, param::ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N2}) where {S,P,Prec,T,N1,N2}
+function set_abstract_model_variable(m::AbstractModel{S},
+        val::ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N1},
+        param::ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N2}) where {
+        S, P, Prec, T, N1, N2}
     unwrapped_val_center = tuple([vp.elem for vp in val.center]...)
-    unwrapped_val = ValuationPolydisc{S,T,N1}(unwrapped_val_center, val.radius)
+    unwrapped_val = ValuationPolydisc{S, T, N1}(unwrapped_val_center, val.radius)
     unwrapped_param_center = tuple([vp.elem for vp in param.center]...)
-    unwrapped_param = ValuationPolydisc{S,T,N2}(unwrapped_param_center, param.radius)
+    unwrapped_param = ValuationPolydisc{S, T, N2}(unwrapped_param_center, param.radius)
     return set_abstract_model_variable(m, unwrapped_val, unwrapped_param)
 end
 
@@ -215,7 +227,8 @@ A polydisc point with all variables interleaved in model order
 # See Also
 - `set_abstract_model_variable`: The underlying function with explicit parameters
 """
-function set_model_variable(m::Model{FS,PS,T,N}, val::ValuationPolydisc{S,T,M}) where {FS, PS, S, T, N, M}
+function set_model_variable(m::Model{FS, PS, T, N}, val::ValuationPolydisc{
+        S, T, M}) where {FS, PS, S, T, N, M}
     return set_abstract_model_variable(m.fun, val, m.param)
 end
 
@@ -248,76 +261,76 @@ For a model with data variables x, y and parameters θ, φ:
 - After specialization with `val = [x_0, y_0]`: ``f_specialized(\theta, \phi)``
 """
 function specialise(
-    m::AbstractModel{S},
-    val::Vector{S}
-)::PolydiscFunction{S} where S
+        m::AbstractModel{S},
+        val::Vector{S}
+)::PolydiscFunction{S} where {S}
     # Dispatch to the standalone specialise function for the function type
     return specialise(m.fun, m.param_info, val)
 end
 
 function specialise(
-    m::Add{S},
-    param_info,
-    val::Vector{S}
-)::Add{S} where S
+        m::Add{S},
+        param_info,
+        val::Vector{S}
+)::Add{S} where {S}
     left = specialise(AbstractModel(m.left, param_info), val)
     right = specialise(AbstractModel(m.right, param_info), val)
     return Add(left, right)
 end
 
 function specialise(
-    m::Sub{S},
-    param_info,
-    val::Vector{S}
-)::Sub{S} where S
+        m::Sub{S},
+        param_info,
+        val::Vector{S}
+)::Sub{S} where {S}
     left = specialise(AbstractModel(m.left, param_info), val)
     right = specialise(AbstractModel(m.right, param_info), val)
     return Sub(left, right)
 end
 
 function specialise(
-    m::Mul{S},
-    param_info,
-    val::Vector{S}
-)::Mul{S} where S
+        m::Mul{S},
+        param_info,
+        val::Vector{S}
+)::Mul{S} where {S}
     left = specialise(AbstractModel(m.left, param_info), val)
     right = specialise(AbstractModel(m.right, param_info), val)
     return Mul(left, right)
 end
 
 function specialise(
-    m::Div{S},
-    param_info,
-    val::Vector{S}
-)::Div{S} where S
+        m::Div{S},
+        param_info,
+        val::Vector{S}
+)::Div{S} where {S}
     top = specialise(AbstractModel(m.top, param_info), val)
     bottom = specialise(AbstractModel(m.bottom, param_info), val)
     return Div(top, bottom)
 end
 
 function specialise(
-    m::SMul{S},
-    param_info,
-    val::Vector{S}
-)::SMul{S} where S
+        m::SMul{S},
+        param_info,
+        val::Vector{S}
+)::SMul{S} where {S}
     right = specialise(AbstractModel(m.right, param_info), val)
     return SMul(m.left, right)
 end
 
 function specialise(
-    m::Comp{S},
-    param_info,
-    val::Vector{S}
-)::Comp{S} where S
+        m::Comp{S},
+        param_info,
+        val::Vector{S}
+)::Comp{S} where {S}
     right = specialise(AbstractModel(m.right, param_info), val)
     return Comp(m.left, right)
 end
 
 function specialise(
-    c::Constant{S},
-    param_info,
-    val::Vector{S}
-)::Constant{S} where S
+        c::Constant{S},
+        param_info,
+        val::Vector{S}
+)::Constant{S} where {S}
     # Constant functions don't depend on any variables
     return c
 end
@@ -343,10 +356,10 @@ Uses ring homomorphisms to correctly substitute values while maintaining the pol
 structure in the new parameter-only ring.
 """
 function specialise(
-    f::AbsolutePolynomialSum{S},
-    param_info,
-    val::Vector{S}
-)::AbsolutePolynomialSum{S} where S
+        f::AbsolutePolynomialSum{S},
+        param_info,
+        val::Vector{S}
+)::AbsolutePolynomialSum{S} where {S}
     # Get the original polynomial ring and variables
     R = f.polys[1].parent
     x = gens(R)
@@ -397,10 +410,10 @@ Applies specialization to each linear polynomial in the sum.
 `LinearAbsolutePolynomialSum{S}`: A linear polynomial sum depending only on parameters
 """
 function specialise(
-    f::LinearAbsolutePolynomialSum{S},
-    param_info,
-    val::Vector{S}
-)::LinearAbsolutePolynomialSum{S} where S
+        f::LinearAbsolutePolynomialSum{S},
+        param_info,
+        val::Vector{S}
+)::LinearAbsolutePolynomialSum{S} where {S}
     new_polys = [specialise(poly, param_info, val) for poly in f.polys]
     return LinearAbsolutePolynomialSum(new_polys)
 end
@@ -428,10 +441,10 @@ For ``3x + 2\theta + 5y + 1`` with `x, y` as data and `\theta` as parameter:
 - Returns: `LinearPolynomial([2], 14)`
 """
 function specialise(
-    poly::LinearPolynomial{S},
-    param_info,
-    val::Vector{S}
-)::LinearPolynomial{S} where S
+        poly::LinearPolynomial{S},
+        param_info,
+        val::Vector{S}
+)::LinearPolynomial{S} where {S}
     # For a linear polynomial: a_1 * T_1 + ... + a_n * T_n + b
     # Specialization: keep only coefficients for parameters, and add contributions from data variables to constant term
 
@@ -476,7 +489,7 @@ polynomials into a single function. This is useful for constructing batch loss f
 Concatenates polynomial vectors from each specialization. Supports
 `AbsolutePolynomialSum` and `LinearAbsolutePolynomialSum` types.
 """
-function specialise(m::AbstractModel{S}, data::Vector{Vector{S}})::PolydiscFunction{S} where S
+function specialise(m::AbstractModel{S}, data::Vector{Vector{S}})::PolydiscFunction{S} where {S}
     # Specialize the model at each data point
     specialized_funcs = [specialise(m, val) for val in data]
 
@@ -560,12 +573,13 @@ that can be applied to evaluate the model
 This function creates an evaluation closure that is optimized for batch operations.
 It interleaves data and parameter values according to the model's variable layout.
 """
-function batch_evaluate_init(m::AbstractModel{S}) where S
+function batch_evaluate_init(m::AbstractModel{S}) where {S}
     # Get the batch evaluation function for the underlying polydisc function
     batch_fun_eval = batch_evaluate_init(m.fun)
 
     # Return a closure that takes data and param values
-    function model_eval(val::ValuationPolydisc{S,T,N1}, param::ValuationPolydisc{S,T,N2}) where {T,N1,N2}
+    function model_eval(val::ValuationPolydisc{S, T, N1}, param::ValuationPolydisc{
+            S, T, N2}) where {T, N1, N2}
         # Interleave the data and parameter values according to the model layout
         full_var = set_abstract_model_variable(m, val, param)
         # Evaluate the underlying function at the interleaved point
@@ -594,7 +608,7 @@ at the given data using the stored parameters
 This is a convenience wrapper around `batch_evaluate_init(::AbstractModel)` that captures
 the model's current parameters in the closure.
 """
-function batch_evaluate_init(m::Model{FS,PS,T,N}) where {FS, PS, T, N}
+function batch_evaluate_init(m::Model{FS, PS, T, N}) where {FS, PS, T, N}
     # Get the batch evaluation function for the abstract model
     abstract_batch_eval = batch_evaluate_init(m.fun)
 
@@ -602,7 +616,7 @@ function batch_evaluate_init(m::Model{FS,PS,T,N}) where {FS, PS, T, N}
     param = m.param
 
     # Return a closure that takes only data values
-    function model_eval_with_params(val::ValuationPolydisc{S,T,M}) where {S,T,M}
+    function model_eval_with_params(val::ValuationPolydisc{S, T, M}) where {S, T, M}
         return abstract_batch_eval(val, param)
     end
 
@@ -633,7 +647,7 @@ computation with full compile-time type information.
 - `model::AbstractModel{FS}`: The abstract model
 - `fun_eval::E`: Typed evaluator for the underlying function
 """
-struct ModelEvaluator{FS,PS,T,N1,N2,E<:PolydiscFunctionEvaluator}
+struct ModelEvaluator{FS, PS, T, N1, N2, E <: PolydiscFunctionEvaluator}
     model::AbstractModel{FS}
     fun_eval::E
 end
@@ -660,9 +674,10 @@ eval = batch_evaluate_init(model, ValuationPolydisc{S,T,FullDim})
 result = eval(data_polydisc, param_polydisc)
 ```
 """
-function batch_evaluate_init(m::AbstractModel{S}, ::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
-    fun_eval = batch_evaluate_init(m.fun, ValuationPolydisc{S,T,N})
-    return ModelEvaluator{S,S,T,0,0,typeof(fun_eval)}(m, fun_eval)
+function batch_evaluate_init(m::AbstractModel{S}, ::Type{ValuationPolydisc{
+        S, T, N}}) where {S, T, N}
+    fun_eval = batch_evaluate_init(m.fun, ValuationPolydisc{S, T, N})
+    return ModelEvaluator{S, S, T, 0, 0, typeof(fun_eval)}(m, fun_eval)
 end
 
 @doc raw"""
@@ -675,14 +690,17 @@ This avoids runtime type conversion on every evaluation call. The function-level
 `batch_evaluate_init` methods handle the coefficient lifting (e.g. converting
 `LinearPolynomial{S}` coefficients to `ValuedFieldPoint{P,Prec,S}`).
 """
-function batch_evaluate_init(m::AbstractModel{S}, ::Type{ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}}) where {S,P,Prec,T,N}
-    VFP = ValuedFieldPoint{P,Prec,S}
-    fun_eval = batch_evaluate_init(m.fun, ValuationPolydisc{VFP,T,N})
-    return ModelEvaluator{S,VFP,T,0,0,typeof(fun_eval)}(m, fun_eval)
+function batch_evaluate_init(m::AbstractModel{S},
+        ::Type{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}}) where {
+        S, P, Prec, T, N}
+    VFP = ValuedFieldPoint{P, Prec, S}
+    fun_eval = batch_evaluate_init(m.fun, ValuationPolydisc{VFP, T, N})
+    return ModelEvaluator{S, VFP, T, 0, 0, typeof(fun_eval)}(m, fun_eval)
 end
 
 # Callable for (data, param) -> Float64
-function (eval::ModelEvaluator)(val::ValuationPolydisc{S1,T,N1}, param::ValuationPolydisc{S2,T,N2}) where {S1,S2,T,N1,N2}
+function (eval::ModelEvaluator)(val::ValuationPolydisc{S1, T, N1},
+        param::ValuationPolydisc{S2, T, N2}) where {S1, S2, T, N1, N2}
     full_var = set_abstract_model_variable(eval.model, val, param)
     return eval.fun_eval(full_var)
 end

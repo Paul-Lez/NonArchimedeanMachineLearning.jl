@@ -39,10 +39,10 @@ We track all parents in a vector rather than having no parent information.
 This is more expensive but useful for analysis and debugging. The alternative
 would be to track no parent info and rely purely on the explicit path during traversal.
 """
-mutable struct DAGMCTSNode{S,T,N}
-    polydisc::ValuationPolydisc{S,T,N}
-    parents::Vector{DAGMCTSNode{S,T,N}}
-    children::Vector{DAGMCTSNode{S,T,N}}
+mutable struct DAGMCTSNode{S, T, N}
+    polydisc::ValuationPolydisc{S, T, N}
+    parents::Vector{DAGMCTSNode{S, T, N}}
+    children::Vector{DAGMCTSNode{S, T, N}}
     visits::Int
     total_value::Float64
     is_expanded::Bool
@@ -57,11 +57,11 @@ end
 
 Create a new DAG-MCTS node with the given polydisc and no parents.
 """
-function DAGMCTSNode(polydisc::ValuationPolydisc{S,T,N}) where {S,T,N}
-    return DAGMCTSNode{S,T,N}(
+function DAGMCTSNode(polydisc::ValuationPolydisc{S, T, N}) where {S, T, N}
+    return DAGMCTSNode{S, T, N}(
         polydisc,
-        DAGMCTSNode{S,T,N}[],
-        DAGMCTSNode{S,T,N}[],
+        DAGMCTSNode{S, T, N}[],
+        DAGMCTSNode{S, T, N}[],
         0,
         0.0,
         false,
@@ -133,13 +133,13 @@ Create a DAG-MCTS configuration with sensible defaults.
 - `track_parents::Bool=false`: Whether to track parent pointers (needed for debug verification; off by default for performance)
 """
 function DAGMCTSConfig(;
-    num_simulations::Int=100,
-    exploration_constant::Float64=1.41,
-    degree::Int=1,
-    value_transform::Function=DEFAULT_VALUE_TRANSFORM,
-    persist_table::Bool=true,
-    selection_mode::SelectionMode=VisitCount,
-    track_parents::Bool=false
+        num_simulations::Int = 100,
+        exploration_constant::Float64 = 1.41,
+        degree::Int = 1,
+        value_transform::Function = DEFAULT_VALUE_TRANSFORM,
+        persist_table::Bool = true,
+        selection_mode::SelectionMode = VisitCount,
+        track_parents::Bool = false
 )
     return DAGMCTSConfig(
         num_simulations,
@@ -174,17 +174,17 @@ State maintained across DAG-MCTS optimization steps.
 - `min_loss::Float64`: Minimum raw loss seen so far
 - `min_loss_root_child::Union{DAGMCTSNode{S,T,N}, Nothing}`: Which direct child of root leads to min_loss_node
 """
-mutable struct DAGMCTSState{S,T,N}
-    root::DAGMCTSNode{S,T,N}
-    transposition_table::Dict{HashedPolydisc{S,T,N}, DAGMCTSNode{S,T,N}}
+mutable struct DAGMCTSState{S, T, N}
+    root::DAGMCTSNode{S, T, N}
+    transposition_table::Dict{HashedPolydisc{S, T, N}, DAGMCTSNode{S, T, N}}
     step_count::Int
-    best_node::Union{DAGMCTSNode{S,T,N}, Nothing}
+    best_node::Union{DAGMCTSNode{S, T, N}, Nothing}
     best_value::Float64
-    best_root_child::Union{DAGMCTSNode{S,T,N}, Nothing}
+    best_root_child::Union{DAGMCTSNode{S, T, N}, Nothing}
     best_root_action::Int
-    min_loss_node::Union{DAGMCTSNode{S,T,N}, Nothing}
+    min_loss_node::Union{DAGMCTSNode{S, T, N}, Nothing}
     min_loss::Float64
-    min_loss_root_child::Union{DAGMCTSNode{S,T,N}, Nothing}
+    min_loss_root_child::Union{DAGMCTSNode{S, T, N}, Nothing}
 end
 
 ##################################################
@@ -211,10 +211,10 @@ This is the core "Lookup & Link" operation for DAG-MCTS:
 `DAGMCTSNode{S,T,N}`: The node for this polydisc (existing or newly created)
 """
 function get_or_create_node!(
-    table::Dict{HashedPolydisc{S,T,N}, DAGMCTSNode{S,T,N}},
-    polydisc::ValuationPolydisc{S,T,N},
-    parent::Union{DAGMCTSNode{S,T,N}, Nothing}=nothing
-) where {S,T,N}
+        table::Dict{HashedPolydisc{S, T, N}, DAGMCTSNode{S, T, N}},
+        polydisc::ValuationPolydisc{S, T, N},
+        parent::Union{DAGMCTSNode{S, T, N}, Nothing} = nothing
+) where {S, T, N}
     key = HashedPolydisc(polydisc)
     node = get!(table, key) do
         DAGMCTSNode(polydisc)
@@ -312,10 +312,10 @@ linking to the existing node if so (the "Lookup & Link" step).
 Nothing (modifies node.children in place)
 """
 function expand_node!(
-    node::DAGMCTSNode{S,T,N},
-    table::Dict{HashedPolydisc{S,T,N}, DAGMCTSNode{S,T,N}},
-    config::DAGMCTSConfig
-) where {S,T,N}
+        node::DAGMCTSNode{S, T, N},
+        table::Dict{HashedPolydisc{S, T, N}, DAGMCTSNode{S, T, N}},
+        config::DAGMCTSConfig
+) where {S, T, N}
     if node.is_expanded
         return
     end
@@ -389,7 +389,8 @@ Evaluate a node using the loss function and transform to value.
 # Returns
 `Float64`: The transformed value (higher is better)
 """
-function evaluate_node(node::DAGMCTSNode{S,T,N}, loss::Loss, config::DAGMCTSConfig) where {S,T,N}
+function evaluate_node(node::DAGMCTSNode{S, T, N}, loss::Loss, config::DAGMCTSConfig) where {
+        S, T, N}
     loss_value = loss.eval([node.polydisc])[1]
     return config.value_transform(loss_value)
 end
@@ -413,7 +414,7 @@ parent pointers (which would be ambiguous in a DAG).
 This updates the global N(s) and Q(s) statistics in each shared node instance.
 """
 function backpropagate!(path::Vector{<:DAGMCTSNode}, value::Float64, state::DAGMCTSState,
-                        eval_node::DAGMCTSNode=path[end], loss_value::Float64=NaN)
+        eval_node::DAGMCTSNode = path[end], loss_value::Float64 = NaN)
     # The root is path[1]; the root child is path[2] if path has length >= 2
     root_child = length(path) >= 2 ? path[2] : nothing
     for (i, node) in enumerate(path)
@@ -537,12 +538,12 @@ The four phases of MCTS adapted for DAG:
 `Float64`: The value obtained from this simulation
 """
 function dag_mcts_simulation!(
-    root::DAGMCTSNode{S,T,N},
-    table::Dict{HashedPolydisc{S,T,N}, DAGMCTSNode{S,T,N}},
-    loss::Loss,
-    config::DAGMCTSConfig,
-    state::DAGMCTSState{S,T,N}
-) where {S,T,N}
+        root::DAGMCTSNode{S, T, N},
+        table::Dict{HashedPolydisc{S, T, N}, DAGMCTSNode{S, T, N}},
+        loss::Loss,
+        config::DAGMCTSConfig,
+        state::DAGMCTSState{S, T, N}
+) where {S, T, N}
     # Phase 1: Selection - traverse using UCT, maintaining path stack
     path = select_path(root, config.exploration_constant)
     leaf = path[end]
@@ -610,7 +611,8 @@ Recursively find the node with the best average value in the entire DAG.
 
 Returns the node with highest average_value, considering only visited nodes.
 """
-function find_best_node_in_dag(root::DAGMCTSNode{S,T,N}, table::Dict{HashedPolydisc{S,T,N}, DAGMCTSNode{S,T,N}}) where {S,T,N}
+function find_best_node_in_dag(root::DAGMCTSNode{S, T, N},
+        table::Dict{HashedPolydisc{S, T, N}, DAGMCTSNode{S, T, N}}) where {S, T, N}
     best_node = nothing
     best_value = -Inf
 
@@ -640,10 +642,10 @@ we pick any parent that is an ancestor of root (BFS upward).
 The direct child of `root` that can reach `node`, or `nothing` if not found.
 """
 function trace_to_root_child(
-    target::DAGMCTSNode{S,T,N},
-    root::DAGMCTSNode{S,T,N},
-    table::Dict{HashedPolydisc{S,T,N}, DAGMCTSNode{S,T,N}}
-) where {S,T,N}
+        target::DAGMCTSNode{S, T, N},
+        root::DAGMCTSNode{S, T, N},
+        table::Dict{HashedPolydisc{S, T, N}, DAGMCTSNode{S, T, N}}
+) where {S, T, N}
     # If target is root, return nothing
     if target === root
         return nothing
@@ -663,7 +665,7 @@ function trace_to_root_child(
     # Use BFS over parents to handle the DAG structure
     # visited tracks nodes by identity to avoid cycles
     visited = Set{UInt}()
-    queue = DAGMCTSNode{S,T,N}[target]
+    queue = DAGMCTSNode{S, T, N}[target]
     push!(visited, objectid(target))
 
     while !isempty(queue)
@@ -701,11 +703,11 @@ Select the best child of root according to the configured selection mode.
 The selected child node.
 """
 function select_best_child_dag(
-    root::DAGMCTSNode{S,T,N},
-    table::Dict{HashedPolydisc{S,T,N}, DAGMCTSNode{S,T,N}},
-    config::DAGMCTSConfig,
-    state::DAGMCTSState{S,T,N}
-) where {S,T,N}
+        root::DAGMCTSNode{S, T, N},
+        table::Dict{HashedPolydisc{S, T, N}, DAGMCTSNode{S, T, N}},
+        config::DAGMCTSConfig,
+        state::DAGMCTSState{S, T, N}
+) where {S, T, N}
     if isempty(root.children)
         error("Cannot select from node with no children")
     end
@@ -799,12 +801,12 @@ Returns the best child according to the configured selection mode.
 Tuple of `(best_polydisc, best_node, converged)`.
 """
 function dag_mcts_search(
-    root::DAGMCTSNode{S,T,N},
-    table::Dict{HashedPolydisc{S,T,N}, DAGMCTSNode{S,T,N}},
-    loss::Loss,
-    config::DAGMCTSConfig,
-    state::DAGMCTSState{S,T,N}
-) where {S,T,N}
+        root::DAGMCTSNode{S, T, N},
+        table::Dict{HashedPolydisc{S, T, N}, DAGMCTSNode{S, T, N}},
+        loss::Loss,
+        config::DAGMCTSConfig,
+        state::DAGMCTSState{S, T, N}
+) where {S, T, N}
     # Ensure root is expanded
     expand_node!(root, table, config)
 
@@ -858,13 +860,14 @@ mcts_descent, etc.), making it compatible with `OptimSetup`.
 updated state, and convergence status
 """
 function dag_mcts_descent(
-    loss::Loss,
-    param::ValuationPolydisc{S,T,N},
-    state::DAGMCTSState{S,T,N},
-    config::DAGMCTSConfig
-) where {S,T,N}
+        loss::Loss,
+        param::ValuationPolydisc{S, T, N},
+        state::DAGMCTSState{S, T, N},
+        config::DAGMCTSConfig
+) where {S, T, N}
     # Run DAG-MCTS search
-    best_polydisc, best_node, converged = dag_mcts_search(
+    best_polydisc, best_node,
+    converged = dag_mcts_search(
         state.root,
         state.transposition_table,
         loss,
@@ -917,11 +920,12 @@ This is the core of the "DAG-first" architecture: the DAG structure is maintaine
 by `node.children` pointers, and the transposition table is merely an ephemeral
 index rebuilt each step.
 """
-function rebuild_table_from_subtree!(state::DAGMCTSState{S,T,N}, config::DAGMCTSConfig) where {S,T,N}
-    new_table = Dict{HashedPolydisc{S,T,N}, DAGMCTSNode{S,T,N}}()
+function rebuild_table_from_subtree!(state::DAGMCTSState{S, T, N}, config::DAGMCTSConfig) where {
+        S, T, N}
+    new_table = Dict{HashedPolydisc{S, T, N}, DAGMCTSNode{S, T, N}}()
 
     # BFS from root to collect all reachable nodes
-    queue = DAGMCTSNode{S,T,N}[state.root]
+    queue = DAGMCTSNode{S, T, N}[state.root]
     new_table[HashedPolydisc(state.root.polydisc)] = state.root
 
     while !isempty(queue)
@@ -978,17 +982,18 @@ end
 ```
 """
 function dag_mcts_descent_init(
-    param::ValuationPolydisc{S,T,N},
-    loss::Loss,
-    config::DAGMCTSConfig=DAGMCTSConfig()
-) where {S,T,N}
+        param::ValuationPolydisc{S, T, N},
+        loss::Loss,
+        config::DAGMCTSConfig = DAGMCTSConfig()
+) where {S, T, N}
     # Initialize transposition table with root
-    table = Dict{HashedPolydisc{S,T,N}, DAGMCTSNode{S,T,N}}()
+    table = Dict{HashedPolydisc{S, T, N}, DAGMCTSNode{S, T, N}}()
     root = DAGMCTSNode(param)
     table[HashedPolydisc(param)] = root
 
     # Initialize state
-    state = DAGMCTSState{S,T,N}(root, table, 0, nothing, -Inf, nothing, 0, nothing, Inf, nothing)
+    state = DAGMCTSState{S, T, N}(
+        root, table, 0, nothing, -Inf, nothing, 0, nothing, Inf, nothing)
 
     return OptimSetup(
         loss,
@@ -1054,7 +1059,7 @@ end
 
 Print statistics about the DAG-MCTS structure for debugging.
 """
-function print_dag_stats(state::DAGMCTSState, max_depth::Int=3)
+function print_dag_stats(state::DAGMCTSState, max_depth::Int = 3)
     stats = get_dag_stats(state)
     println("DAG-MCTS Statistics:")
     println("  Unique nodes in table: $(stats.unique_nodes)")

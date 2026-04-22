@@ -39,19 +39,19 @@ Fields:
 - `value::Union{Float64, Nothing}`: Evaluated function value (after value_transform)
 - `is_expanded::Bool`: Whether node has been expanded
 """
-mutable struct DOONode{S,T,N}
-    polydisc::ValuationPolydisc{S,T,N}
+mutable struct DOONode{S, T, N}
+    polydisc::ValuationPolydisc{S, T, N}
     depth::Int
     position::Int
-    parent::Union{DOONode{S,T,N}, Nothing}
-    children::Vector{DOONode{S,T,N}}
+    parent::Union{DOONode{S, T, N}, Nothing}
+    children::Vector{DOONode{S, T, N}}
     value::Union{Float64, Nothing}
     is_expanded::Bool
 end
 
-function DOONode(polydisc::ValuationPolydisc{S,T,N}, depth::Int, position::Int,
-                 parent::Union{DOONode{S,T,N}, Nothing}) where {S,T,N}
-    DOONode{S,T,N}(polydisc, depth, position, parent, DOONode{S,T,N}[], nothing, false)
+function DOONode(polydisc::ValuationPolydisc{S, T, N}, depth::Int, position::Int,
+        parent::Union{DOONode{S, T, N}, Nothing}) where {S, T, N}
+    DOONode{S, T, N}(polydisc, depth, position, parent, DOONode{S, T, N}[], nothing, false)
 end
 
 """
@@ -84,10 +84,10 @@ struct DOOConfig
     value_transform::Function
 
     function DOOConfig(;
-        delta::Function,
-        degree::Int=1,
-        strict::Bool=false,
-        value_transform::Function = loss -> -loss
+            delta::Function,
+            degree::Int = 1,
+            strict::Bool = false,
+            value_transform::Function = loss -> -loss
     )
         new(delta, degree, strict, value_transform)
     end
@@ -108,15 +108,15 @@ Fields:
 Note: leaves vector currently requires O(N) scan to find maximum b-value.
 TODO: Replace with PriorityQueue from DataStructures.jl for O(log N) performance.
 """
-mutable struct DOOState{S,T,N}
-    root::DOONode{S,T,N}
+mutable struct DOOState{S, T, N}
+    root::DOONode{S, T, N}
     total_samples::Int
     next_branch::Int
     step_count::Int
-    leaves::Vector{DOONode{S,T,N}}
+    leaves::Vector{DOONode{S, T, N}}
 
-    function DOOState{S,T,N}(root::DOONode{S,T,N}) where {S,T,N}
-        new{S,T,N}(root, 0, 1, 0, [root])
+    function DOOState{S, T, N}(root::DOONode{S, T, N}) where {S, T, N}
+        new{S, T, N}(root, 0, 1, 0, [root])
     end
 end
 
@@ -156,7 +156,7 @@ Returns: DOONode with maximum b-value, or nothing if no leaves available
 Performance: O(N) where N is number of leaves.
 TODO: Use PriorityQueue for O(log N) selection.
 """
-function select_best_leaf(state::DOOState{S,T,N}, config::DOOConfig) where {S,T,N}
+function select_best_leaf(state::DOOState{S, T, N}, config::DOOConfig) where {S, T, N}
     if isempty(state.leaves)
         return nothing
     end
@@ -190,10 +190,10 @@ Algorithm:
 
 Returns: Vector of newly created child nodes (empty if node cannot be expanded)
 """
-function expand_node!(node::DOONode{S,T,N}, loss::Loss, config::DOOConfig,
-                      state::DOOState{S,T,N}) where {S,T,N}
+function expand_node!(node::DOONode{S, T, N}, loss::Loss, config::DOOConfig,
+        state::DOOState{S, T, N}) where {S, T, N}
     if node.is_expanded
-        return DOONode{S,T,N}[]
+        return DOONode{S, T, N}[]
     end
 
     # Generate children polydiscs
@@ -206,7 +206,7 @@ function expand_node!(node::DOONode{S,T,N}, loss::Loss, config::DOOConfig,
     end
 
     # Create and evaluate child nodes
-    children_nodes = DOONode{S,T,N}[]
+    children_nodes = DOONode{S, T, N}[]
     for (i, child_disc) in enumerate(child_polydiscs)
         # Create child node
         child = DOONode(child_disc, node.depth + 1, i, node)
@@ -246,8 +246,8 @@ Algorithm:
 
 Returns: `(new_param::ValuationPolydisc, updated_state::DOOState, converged::Bool)`.
 """
-function doo_descent(loss::Loss, param::ValuationPolydisc{S,T,N},
-                     state::DOOState{S,T,N}, config::DOOConfig) where {S,T,N}
+function doo_descent(loss::Loss, param::ValuationPolydisc{S, T, N},
+        state::DOOState{S, T, N}, config::DOOConfig) where {S, T, N}
     # Select leaf with maximum b-value
     best_leaf = select_best_leaf(state, config)
 
@@ -299,8 +299,8 @@ Arguments:
 
 Returns: OptimSetup instance ready for optimization via step!()
 """
-function doo_descent_init(param::ValuationPolydisc{S,T,N}, loss::Loss,
-                          next_branch::Int, config::DOOConfig) where {S,T,N}
+function doo_descent_init(param::ValuationPolydisc{S, T, N}, loss::Loss,
+        next_branch::Int, config::DOOConfig) where {S, T, N}
     # Create root node
     root = DOONode(param, 0, 0, nothing)
 
@@ -310,7 +310,7 @@ function doo_descent_init(param::ValuationPolydisc{S,T,N}, loss::Loss,
     root.value = config.value_transform(root_loss)
 
     # Create initial state with root as only leaf
-    state = DOOState{S,T,N}(root)
+    state = DOOState{S, T, N}(root)
     state.next_branch = next_branch
     state.total_samples = 1
 
@@ -328,8 +328,8 @@ end
 
 Get total number of nodes in the DOO tree (including root and all descendants).
 """
-function get_tree_size(state::DOOState{S,T,N}) where {S,T,N}
-    function count_nodes(node::DOONode{S,T,N})
+function get_tree_size(state::DOOState{S, T, N}) where {S, T, N}
+    function count_nodes(node::DOONode{S, T, N})
         count = 1
         for child in node.children
             count += count_nodes(child)
@@ -355,10 +355,10 @@ Get all leaf nodes (expanded or not) in the tree by traversing from root.
 
 This differs from state.leaves which only tracks unexpanded leaves.
 """
-function get_all_leaves(state::DOOState{S,T,N}) where {S,T,N}
-    leaves = DOONode{S,T,N}[]
+function get_all_leaves(state::DOOState{S, T, N}) where {S, T, N}
+    leaves = DOONode{S, T, N}[]
 
-    function collect_leaves(node::DOONode{S,T,N})
+    function collect_leaves(node::DOONode{S, T, N})
         if isempty(node.children)
             push!(leaves, node)
         else
@@ -380,11 +380,11 @@ Get the node with the best (highest) value evaluated so far.
 Since value = value_transform(loss), higher value means lower loss.
 This returns the node corresponding to the best solution found.
 """
-function get_best_node(state::DOOState{S,T,N}) where {S,T,N}
+function get_best_node(state::DOOState{S, T, N}) where {S, T, N}
     best_node = nothing
     best_value = -Inf
 
-    function search_best(node::DOONode{S,T,N})
+    function search_best(node::DOONode{S, T, N})
         if node.value !== nothing && node.value > best_value
             best_node = node
             best_value = node.value

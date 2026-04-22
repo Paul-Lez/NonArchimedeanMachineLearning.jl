@@ -27,7 +27,6 @@ struct ValuationTangent{S, T, N} #where T<:Oscar.scalar_types
     magnitude::Vector{T}
 end
 
-
 @doc raw"""
     dim(v::ValuationTangent)
 
@@ -56,7 +55,7 @@ Create the zero tangent vector at a polydisc pointing in a specified direction.
 `ValuationTangent{S, T, N}`: Zero tangent vector at `P` in direction of segment `[P, Q]`
 """
 function zero(P::ValuationPolydisc{S, T, N}, Q::ValuationPolydisc{S, T, N}) where {S, T, N}
-    return ValuationTangent{S,T,N}(P, Q, [Oscar.zero(T) for i in 1:N])
+    return ValuationTangent{S, T, N}(P, Q, [Oscar.zero(T) for i in 1:N])
 end
 
 @doc raw"""
@@ -87,8 +86,11 @@ Create the i-th standard basis tangent vector.
 # Returns
 `ValuationTangent{S, T, N}`: Standard basis vector with magnitude 1 in coordinate `i` and 0 elsewhere
 """
-function basis_vector(P::ValuationPolydisc{S, T, N}, Q::ValuationPolydisc{S, T, N}, i) where {S, T, N}
-    return ValuationTangent{S,T,N}(P, Q, [j == i ? Oscar.one(T) : Oscar.zero(T) for j in 1:N])
+function basis_vector(
+        P::ValuationPolydisc{S, T, N}, Q::ValuationPolydisc{
+            S, T, N}, i) where {S, T, N}
+    return ValuationTangent{S, T, N}(P, Q, [j == i ? Oscar.one(T) : Oscar.zero(T)
+                                            for j in 1:N])
 end
 
 @doc raw"""

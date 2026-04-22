@@ -112,29 +112,28 @@ struct Lambda{S} <: PolydiscFunction{S}
     func::Function
     derivative::Union{Function, Nothing}
 end
-Lambda{S}(func) where S = Lambda{S}(func, nothing)
+Lambda{S}(func) where {S} = Lambda{S}(func, nothing)
 
-Base.:+(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Add(a, b)
-Base.:-(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Sub(a, b)
-Base.:*(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Mul(a, b)
-Base.:/(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where S = Div(a, b)
-Base.:*(a::Number, b::PolydiscFunction{S}) where S = SMul(a, b)
+Base.:+(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where {S} = Add(a, b)
+Base.:-(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where {S} = Sub(a, b)
+Base.:*(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where {S} = Mul(a, b)
+Base.:/(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where {S} = Div(a, b)
+Base.:*(a::Number, b::PolydiscFunction{S}) where {S} = SMul(a, b)
 
 # Scalar operations
-Base.:-(a::PolydiscFunction{S}, b::Number) where S = Sub(a, Constant{S}(b))
-Base.:-(a::Number, b::PolydiscFunction{S}) where S = Sub(Constant{S}(a), b)
-Base.:+(a::PolydiscFunction{S}, b::Number) where S = Add(a, Constant{S}(b))
-Base.:+(a::Number, b::PolydiscFunction{S}) where S = Add(Constant{S}(a), b)
-Base.:*(a::PolydiscFunction{S}, b::Number) where S = SMul(b, a)
-Base.:/(a::PolydiscFunction{S}, b::Number) where S = SMul(1 / b, a)
-Base.:-(a::PolydiscFunction{S}) where S = SMul(-1, a)
+Base.:-(a::PolydiscFunction{S}, b::Number) where {S} = Sub(a, Constant{S}(b))
+Base.:-(a::Number, b::PolydiscFunction{S}) where {S} = Sub(Constant{S}(a), b)
+Base.:+(a::PolydiscFunction{S}, b::Number) where {S} = Add(a, Constant{S}(b))
+Base.:+(a::Number, b::PolydiscFunction{S}) where {S} = Add(Constant{S}(a), b)
+Base.:*(a::PolydiscFunction{S}, b::Number) where {S} = SMul(b, a)
+Base.:/(a::PolydiscFunction{S}, b::Number) where {S} = SMul(1 / b, a)
+Base.:-(a::PolydiscFunction{S}) where {S} = SMul(-1, a)
 
-Base.zero(::Type{PolydiscFunction{S}}) where S = Constant{S}(0)
-Base.zero(::PolydiscFunction{S}) where S = Constant{S}(0)
-
+Base.zero(::Type{PolydiscFunction{S}}) where {S} = Constant{S}(0)
+Base.zero(::PolydiscFunction{S}) where {S} = Constant{S}(0)
 
 # TODO: implement this in a smarter way!
-function Base.:^(a::PolydiscFunction{S}, b::Int) where S
+function Base.:^(a::PolydiscFunction{S}, b::Int) where {S}
     if b == 0
         return 1
     elseif b > 0
@@ -144,7 +143,7 @@ function Base.:^(a::PolydiscFunction{S}, b::Int) where S
     end
 end
 
-comp(f::DifferentiableFunction, g::PolydiscFunction{S}) where S = Comp(f, g)
+comp(f::DifferentiableFunction, g::PolydiscFunction{S}) where {S} = Comp(f, g)
 # function smul(a::Number, b::PolydiscFunction{S})
 
 @doc raw"""
@@ -180,7 +179,7 @@ Get the polynomial ring of a polydisc function.
 # Returns
 The parent polynomial ring
 """
-function parent(F::PolydiscFunction{S}) where S
+function parent(F::PolydiscFunction{S}) where {S}
     return parent(F)
 end
 
@@ -196,7 +195,7 @@ Get the polynomial ring of an absolute polynomial sum.
 # Returns
 `Ring`: The parent ring of the first polynomial
 """
-function parent(F::AbsolutePolynomialSum{S}) where S
+function parent(F::AbsolutePolynomialSum{S}) where {S}
     return F.polys[1].parent
 end
 
@@ -212,7 +211,7 @@ Evaluate a polydisc function at a polydisc.
 # Returns
 The function value at the point
 """
-function evaluate(f::PolydiscFunction{S}, p::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(f::PolydiscFunction{S}, p::ValuationPolydisc{S, T, N}) where {S, T, N}
     return evaluate(f, p)
 end
 
@@ -232,7 +231,6 @@ Evaluate the directional derivative of a polydisc function at a tangent vector.
 # after the specific implementations for AbsolutePolynomialSum and other subtypes.
 """
 # Removed duplicate stub definition - see line ~562 for actual implementation
-
 
 # TODO(Paul-Lez): there are various optimisations to be done here:
 # Profiling suggests that:
@@ -254,44 +252,46 @@ and finding the maximum absolute value term weighted by the radius.
 # Returns
 `Float64`: The absolute value of the polynomial at the polydisc
 """
-function evaluate(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{
+        S, T, N}) where {S, T, N}
     t = gens(f.parent)
     vec = [t[i] + p.center[i] for i in eachindex(p.center)]
     g = AbstractAlgebra.evaluate(f, vec)
-    monomials = [abs(Nemo.coeff(g, v)) * (Float64(prime(p))^(-sum(p.radius .* v))) for v in Nemo.exponent_vectors(g)]
+    monomials = [abs(Nemo.coeff(g, v)) * (Float64(prime(p))^(-sum(p.radius .* v)))
+                 for v in Nemo.exponent_vectors(g)]
     max, _ = findmax(monomials)
     return max
 end
 
-function evaluate(fun::Add{S}, var::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(fun::Add{S}, var::ValuationPolydisc{S, T, N}) where {S, T, N}
     return evaluate(fun.left, var) + evaluate(fun.right, var)
 end
 
-function evaluate(fun::Mul{S}, var::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(fun::Mul{S}, var::ValuationPolydisc{S, T, N}) where {S, T, N}
     return evaluate(fun.left, var) * evaluate(fun.right, var)
 end
 
-function evaluate(fun::Sub{S}, var::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(fun::Sub{S}, var::ValuationPolydisc{S, T, N}) where {S, T, N}
     return evaluate(fun.left, var) - evaluate(fun.right, var)
 end
 
-function evaluate(fun::Div{S}, var::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(fun::Div{S}, var::ValuationPolydisc{S, T, N}) where {S, T, N}
     return evaluate(fun.top, var) / evaluate(fun.bottom, var)
 end
 
-function evaluate(fun::SMul{S}, var::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(fun::SMul{S}, var::ValuationPolydisc{S, T, N}) where {S, T, N}
     return fun.left * evaluate(fun.right, var)
 end
 
-function evaluate(fun::Comp{S}, var::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(fun::Comp{S}, var::ValuationPolydisc{S, T, N}) where {S, T, N}
     return fun.left(evaluate(fun.right, var))
 end
 
-function evaluate(c::Constant{S}, var::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(c::Constant{S}, var::ValuationPolydisc{S, T, N}) where {S, T, N}
     return c.value
 end
 
-function evaluate(l::Lambda{S}, var::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(l::Lambda{S}, var::ValuationPolydisc{S, T, N}) where {S, T, N}
     return l.func(var)
 end
 
@@ -309,15 +309,18 @@ Computes the sum of absolute values of each polynomial in the sum evaluated at t
 # Returns
 `Float64`: The sum of polynomial evaluations
 """
-function evaluate(fun::AbsolutePolynomialSum{S}, var::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(fun::AbsolutePolynomialSum{S}, var::ValuationPolydisc{
+        S, T, N}) where {S, T, N}
     return sum([evaluate(f, var) for f in fun.polys])
 end
 
-function evaluate(f::LinearRationalFunction{S}, var::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(f::LinearRationalFunction{S}, var::ValuationPolydisc{
+        S, T, N}) where {S, T, N}
     return evaluate(f.num, var) / evaluate(f.den, var)
 end
 
-function evaluate(f::LinearRationalFunctionSum{S}, var::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(f::LinearRationalFunctionSum{S}, var::ValuationPolydisc{
+        S, T, N}) where {S, T, N}
     return sum([evaluate(fun, var) for fun in f.rats])
 end
 
@@ -333,24 +336,26 @@ Compute the directional derivative of a polynomial sum along a tangent direction
 # Returns
 `Float64`: The directional derivative in direction `v`
 """
-function directional_derivative(fun::AbsolutePolynomialSum{S}, v::ValuationTangent{S,T}) where {S, T}
+function directional_derivative(fun::AbsolutePolynomialSum{S}, v::ValuationTangent{
+        S, T}) where {S, T}
     return sum([directional_derivative(f, v) for f in fun.polys])
 end
 
-function directional_derivative(fun::Add{S}, v::ValuationTangent{S,T}) where {S, T}
+function directional_derivative(fun::Add{S}, v::ValuationTangent{S, T}) where {S, T}
     return directional_derivative(fun.left, v) + directional_derivative(fun.right, v)
 end
 
-function directional_derivative(fun::Sub{S}, v::ValuationTangent{S,T}) where {S, T}
+function directional_derivative(fun::Sub{S}, v::ValuationTangent{S, T}) where {S, T}
     return directional_derivative(fun.left, v) - directional_derivative(fun.right, v)
 end
 
-function directional_derivative(fun::Mul{S}, v::ValuationTangent{S,T}) where {S, T}
+function directional_derivative(fun::Mul{S}, v::ValuationTangent{S, T}) where {S, T}
     # Product rule: (f*g)' = f'*g + f*g'
-    return directional_derivative(fun.left, v) * evaluate(fun.right, v.point) + evaluate(fun.left, v.point) * directional_derivative(fun.right, v)
+    return directional_derivative(fun.left, v) * evaluate(fun.right, v.point) +
+           evaluate(fun.left, v.point) * directional_derivative(fun.right, v)
 end
 
-function directional_derivative(fun::Div{S}, v::ValuationTangent{S,T}) where {S, T}
+function directional_derivative(fun::Div{S}, v::ValuationTangent{S, T}) where {S, T}
     # Quotient rule: (f/g)' = (f'*g - f*g') / g²
     f = fun.top
     g = fun.bottom
@@ -361,24 +366,25 @@ function directional_derivative(fun::Div{S}, v::ValuationTangent{S,T}) where {S,
     return (f_deriv * g_val - f_val * g_deriv) / (g_val^2)
 end
 
-function directional_derivative(fun::SMul{S}, v::ValuationTangent{S,T}) where {S, T}
+function directional_derivative(fun::SMul{S}, v::ValuationTangent{S, T}) where {S, T}
     return fun.left * directional_derivative(fun.right, v)
 end
 
-function directional_derivative(c::Constant{S}, v::ValuationTangent{S,T}) where {S, T}
+function directional_derivative(c::Constant{S}, v::ValuationTangent{S, T}) where {S, T}
     # Constant functions have zero derivative
     return 0.0
 end
 
-function directional_derivative(fun::Comp{S}, v::ValuationTangent{S,T}) where {S, T}
+function directional_derivative(fun::Comp{S}, v::ValuationTangent{S, T}) where {S, T}
     # Chain rule: (f ∘ g)' = f'(g(x)) * g'(x)
     inner_val = evaluate(fun.right, v.point)
     inner_deriv = directional_derivative(fun.right, v)
     return fun.left.df(inner_val) * inner_deriv
 end
 
-function directional_derivative(l::Lambda{S}, v::ValuationTangent{S,T}) where {S, T}
-    l.derivative === nothing && error("Lambda function has no derivative. Provide a derivative function at construction time.")
+function directional_derivative(l::Lambda{S}, v::ValuationTangent{S, T}) where {S, T}
+    l.derivative === nothing &&
+        error("Lambda function has no derivative. Provide a derivative function at construction time.")
     return l.derivative(v)
 end
 
@@ -398,11 +404,13 @@ where ``r`` is the radius and ``c`` the center of the polydisc.
 # Returns
 `Float64`: The sum of evaluations across all linear polynomials
 """
-function evaluate(f::LinearAbsolutePolynomialSum{S}, p::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(f::LinearAbsolutePolynomialSum{S}, p::ValuationPolydisc{
+        S, T, N}) where {S, T, N}
     return sum([evaluate(poly, p) for poly in f.polys])
 end
 
-function directional_derivative(fun::LinearAbsolutePolynomialSum{S}, v::ValuationTangent{S,T,N}) where {S, T, N}
+function directional_derivative(
+        fun::LinearAbsolutePolynomialSum{S}, v::ValuationTangent{S, T, N}) where {S, T, N}
     return sum(directional_derivative(poly, v) for poly in fun.polys)
 end
 
@@ -421,12 +429,14 @@ For a linear polynomial ``a_1 T_1 + \cdots + a_n T_n + b``, computes
 # Returns
 `Float64`: The maximum absolute value term
 """
-function evaluate(poly::LinearPolynomial{S}, p::ValuationPolydisc{S,T,N}) where {S, T, N}
+function evaluate(poly::LinearPolynomial{S}, p::ValuationPolydisc{S, T, N}) where {S, T, N}
     # Evaluate the constant term plus the dot product of coefficients with center
-    constant_term = poly.constant + sum([poly.coefficients[i] * p.center[i] for i in eachindex(poly.coefficients)])
+    constant_term = poly.constant + sum([poly.coefficients[i] * p.center[i]
+                         for i in eachindex(poly.coefficients)])
     # TODO(Paul-Lez): it's probably more efficient to do this in terms of valuation?
     # Compute absolute values of all terms
-    abs_values = [abs(poly.coefficients[i]) * (Float64(prime(p))^(-p.radius[i])) for i in eachindex(poly.coefficients)]
+    abs_values = [abs(poly.coefficients[i]) * (Float64(prime(p))^(-p.radius[i]))
+                  for i in eachindex(poly.coefficients)]
     push!(abs_values, abs(constant_term))
     # Return the maximum
     return maximum(abs_values)
@@ -462,7 +472,7 @@ eval = batch_evaluate_init(f, ValuationPolydisc{S,T,N})
 result = eval(polydisc)  # Fully typed, no closures
 ```
 """
-abstract type PolydiscFunctionEvaluator{S,T,N} end
+abstract type PolydiscFunctionEvaluator{S, T, N} end
 
 # --- LinearPolynomial Evaluator ---
 @doc raw"""
@@ -472,13 +482,14 @@ Typed evaluator for LinearPolynomial functions.
 
 Precomputes coefficient valuations for efficient evaluation.
 """
-struct LinearPolynomialEvaluator{S,T,N} <: PolydiscFunctionEvaluator{S,T,N}
-    coefficients::NTuple{N,S}
-    coeff_valuations::NTuple{N,Int}  # Precomputed valuations
+struct LinearPolynomialEvaluator{S, T, N} <: PolydiscFunctionEvaluator{S, T, N}
+    coefficients::NTuple{N, S}
+    coeff_valuations::NTuple{N, Int}  # Precomputed valuations
     constant::S
 end
 
-function (eval::LinearPolynomialEvaluator{S,T,N})(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+function (eval::LinearPolynomialEvaluator{S, T, N})(p::ValuationPolydisc{
+        S, T, N}) where {S, T, N}
     # Compute constant term
     constant_term = eval.constant + sum(eval.coefficients[i] * p.center[i] for i in 1:N)
 
@@ -499,97 +510,107 @@ end
 
 Typed evaluator for Constant functions.
 """
-struct ConstantEvaluator{S,T,N} <: PolydiscFunctionEvaluator{S,T,N}
+struct ConstantEvaluator{S, T, N} <: PolydiscFunctionEvaluator{S, T, N}
     value::Float64
 end
 
-function (eval::ConstantEvaluator{S,T,N})(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+function (eval::ConstantEvaluator{S, T, N})(p::ValuationPolydisc{S, T, N}) where {S, T, N}
     return eval.value
 end
 
 # --- Binary Operation Evaluators ---
-struct AddEvaluator{S,T,N,L<:PolydiscFunctionEvaluator{S,T,N},R<:PolydiscFunctionEvaluator{S,T,N}} <: PolydiscFunctionEvaluator{S,T,N}
+struct AddEvaluator{S, T, N, L <: PolydiscFunctionEvaluator{S, T, N},
+    R <: PolydiscFunctionEvaluator{S, T, N}} <: PolydiscFunctionEvaluator{S, T, N}
     left::L
     right::R
 end
 
-function (eval::AddEvaluator)(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+function (eval::AddEvaluator)(p::ValuationPolydisc{S, T, N}) where {S, T, N}
     return eval.left(p) + eval.right(p)
 end
 
-struct SubEvaluator{S,T,N,L<:PolydiscFunctionEvaluator{S,T,N},R<:PolydiscFunctionEvaluator{S,T,N}} <: PolydiscFunctionEvaluator{S,T,N}
+struct SubEvaluator{S, T, N, L <: PolydiscFunctionEvaluator{S, T, N},
+    R <: PolydiscFunctionEvaluator{S, T, N}} <: PolydiscFunctionEvaluator{S, T, N}
     left::L
     right::R
 end
 
-function (eval::SubEvaluator)(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+function (eval::SubEvaluator)(p::ValuationPolydisc{S, T, N}) where {S, T, N}
     return eval.left(p) - eval.right(p)
 end
 
-struct MulEvaluator{S,T,N,L<:PolydiscFunctionEvaluator{S,T,N},R<:PolydiscFunctionEvaluator{S,T,N}} <: PolydiscFunctionEvaluator{S,T,N}
+struct MulEvaluator{S, T, N, L <: PolydiscFunctionEvaluator{S, T, N},
+    R <: PolydiscFunctionEvaluator{S, T, N}} <: PolydiscFunctionEvaluator{S, T, N}
     left::L
     right::R
 end
 
-function (eval::MulEvaluator)(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+function (eval::MulEvaluator)(p::ValuationPolydisc{S, T, N}) where {S, T, N}
     return eval.left(p) * eval.right(p)
 end
 
-struct DivEvaluator{S,T,N,L<:PolydiscFunctionEvaluator{S,T,N},R<:PolydiscFunctionEvaluator{S,T,N}} <: PolydiscFunctionEvaluator{S,T,N}
+struct DivEvaluator{S, T, N, L <: PolydiscFunctionEvaluator{S, T, N},
+    R <: PolydiscFunctionEvaluator{S, T, N}} <: PolydiscFunctionEvaluator{S, T, N}
     top::L
     bottom::R
 end
 
-function (eval::DivEvaluator)(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+function (eval::DivEvaluator)(p::ValuationPolydisc{S, T, N}) where {S, T, N}
     return eval.top(p) / eval.bottom(p)
 end
 
 # --- Scalar Multiplication Evaluator ---
-struct SMulEvaluator{S,T,N,R<:PolydiscFunctionEvaluator{S,T,N}} <: PolydiscFunctionEvaluator{S,T,N}
+struct SMulEvaluator{S, T, N, R <: PolydiscFunctionEvaluator{S, T, N}} <:
+       PolydiscFunctionEvaluator{S, T, N}
     scalar::Float64
     right::R
 end
 
-function (eval::SMulEvaluator)(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+function (eval::SMulEvaluator)(p::ValuationPolydisc{S, T, N}) where {S, T, N}
     return eval.scalar * eval.right(p)
 end
 
 # --- Composition with Differentiable Real Function Evaluator ---
-struct CompEvaluator{S,T,N,F<:DifferentiableFunction,R<:PolydiscFunctionEvaluator{S,T,N}} <: PolydiscFunctionEvaluator{S,T,N}
+struct CompEvaluator{
+    S, T, N, F <: DifferentiableFunction, R <: PolydiscFunctionEvaluator{S, T, N}} <:
+       PolydiscFunctionEvaluator{S, T, N}
     outer::F
     inner::R
 end
 
-function (eval::CompEvaluator)(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+function (eval::CompEvaluator)(p::ValuationPolydisc{S, T, N}) where {S, T, N}
     return eval.outer(eval.inner(p))
 end
 
 # --- Sum of Homogeneous Evaluators ---
-struct SumEvaluator{S,T,N,E<:PolydiscFunctionEvaluator{S,T,N}} <: PolydiscFunctionEvaluator{S,T,N}
+struct SumEvaluator{S, T, N, E <: PolydiscFunctionEvaluator{S, T, N}} <:
+       PolydiscFunctionEvaluator{S, T, N}
     evaluators::Vector{E}
 end
 
-function (eval::SumEvaluator)(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+function (eval::SumEvaluator)(p::ValuationPolydisc{S, T, N}) where {S, T, N}
     return sum(e(p) for e in eval.evaluators)
 end
 
 # --- Lambda Evaluator (wraps arbitrary functions with optional derivative) ---
-struct LambdaEvaluator{S,T,N} <: PolydiscFunctionEvaluator{S,T,N}
+struct LambdaEvaluator{S, T, N} <: PolydiscFunctionEvaluator{S, T, N}
     func::Function
     derivative::Union{Function, Nothing}
 end
-LambdaEvaluator{S,T,N}(func) where {S,T,N} = LambdaEvaluator{S,T,N}(func, nothing)
+LambdaEvaluator{S, T, N}(func) where {S, T, N} = LambdaEvaluator{S, T, N}(func, nothing)
 
-function (eval::LambdaEvaluator{S,T,N})(p::ValuationPolydisc{S,T,N}) where {S,T,N}
+function (eval::LambdaEvaluator{S, T, N})(p::ValuationPolydisc{S, T, N}) where {S, T, N}
     return eval.func(p)
 end
 
 # --- MPoly Evaluator (wraps raw polynomial evaluation) ---
-struct MPolyEvaluator{S,T,N,P<:AbstractAlgebra.Generic.MPoly} <: PolydiscFunctionEvaluator{S,T,N}
+struct MPolyEvaluator{S, T, N, P <: AbstractAlgebra.Generic.MPoly} <:
+       PolydiscFunctionEvaluator{S, T, N}
     poly::P
 end
 
-function (eval::MPolyEvaluator{S,T,N,P})(p::ValuationPolydisc{S,T,N}) where {S,T,N,P}
+function (eval::MPolyEvaluator{S, T, N, P})(p::ValuationPolydisc{
+        S, T, N}) where {S, T, N, P}
     return evaluate(eval.poly, p)
 end
 
@@ -625,80 +646,90 @@ result = eval(some_polydisc)  # Fully specialized
 - **Inlining**: Julia can inline evaluator calls
 - **Specialization**: Full method specialization on all type parameters
 """
-function batch_evaluate_init(f::PolydiscFunction{S}, ::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
+function batch_evaluate_init(f::PolydiscFunction{S}, ::Type{ValuationPolydisc{
+        S, T, N}}) where {S, T, N}
     error("batch_evaluate_init not implemented for $(typeof(f)) with type ValuationPolydisc{$S,$T,$N}")
 end
 
 # Convenience: infer type from example polydisc
-function batch_evaluate_init(f::PolydiscFunction{S}, p::ValuationPolydisc{S,T,N}) where {S,T,N}
-    return batch_evaluate_init(f, ValuationPolydisc{S,T,N})
+function batch_evaluate_init(f::PolydiscFunction{S}, p::ValuationPolydisc{
+        S, T, N}) where {S, T, N}
+    return batch_evaluate_init(f, ValuationPolydisc{S, T, N})
 end
 
 # --- Typed evaluator implementations for each function type ---
 
-function batch_evaluate_init(poly::LinearPolynomial{S}, ::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
+function batch_evaluate_init(poly::LinearPolynomial{S}, ::Type{ValuationPolydisc{
+        S, T, N}}) where {S, T, N}
     @assert length(poly.coefficients) == N "LinearPolynomial has $(length(poly.coefficients)) coefficients but polydisc has dimension $N"
     coefficients = ntuple(i -> poly.coefficients[i], N)
     coeff_valuations = ntuple(i -> Int(valuation(poly.coefficients[i])), N)
-    return LinearPolynomialEvaluator{S,T,N}(coefficients, coeff_valuations, poly.constant)
+    return LinearPolynomialEvaluator{S, T, N}(coefficients, coeff_valuations, poly.constant)
 end
 
-function batch_evaluate_init(c::Constant{S}, ::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
-    return ConstantEvaluator{S,T,N}(Float64(c.value))
+function batch_evaluate_init(c::Constant{S}, ::Type{ValuationPolydisc{
+        S, T, N}}) where {S, T, N}
+    return ConstantEvaluator{S, T, N}(Float64(c.value))
 end
 
-function batch_evaluate_init(f::Add{S}, P::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
+function batch_evaluate_init(f::Add{S}, P::Type{ValuationPolydisc{S, T, N}}) where {S, T, N}
     left = batch_evaluate_init(f.left, P)
     right = batch_evaluate_init(f.right, P)
-    return AddEvaluator{S,T,N,typeof(left),typeof(right)}(left, right)
+    return AddEvaluator{S, T, N, typeof(left), typeof(right)}(left, right)
 end
 
-function batch_evaluate_init(f::Sub{S}, P::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
+function batch_evaluate_init(f::Sub{S}, P::Type{ValuationPolydisc{S, T, N}}) where {S, T, N}
     left = batch_evaluate_init(f.left, P)
     right = batch_evaluate_init(f.right, P)
-    return SubEvaluator{S,T,N,typeof(left),typeof(right)}(left, right)
+    return SubEvaluator{S, T, N, typeof(left), typeof(right)}(left, right)
 end
 
-function batch_evaluate_init(f::Mul{S}, P::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
+function batch_evaluate_init(f::Mul{S}, P::Type{ValuationPolydisc{S, T, N}}) where {S, T, N}
     left = batch_evaluate_init(f.left, P)
     right = batch_evaluate_init(f.right, P)
-    return MulEvaluator{S,T,N,typeof(left),typeof(right)}(left, right)
+    return MulEvaluator{S, T, N, typeof(left), typeof(right)}(left, right)
 end
 
-function batch_evaluate_init(f::Div{S}, P::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
+function batch_evaluate_init(f::Div{S}, P::Type{ValuationPolydisc{S, T, N}}) where {S, T, N}
     top = batch_evaluate_init(f.top, P)
     bottom = batch_evaluate_init(f.bottom, P)
-    return DivEvaluator{S,T,N,typeof(top),typeof(bottom)}(top, bottom)
+    return DivEvaluator{S, T, N, typeof(top), typeof(bottom)}(top, bottom)
 end
 
-function batch_evaluate_init(f::SMul{S}, P::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
+function batch_evaluate_init(f::SMul{S}, P::Type{ValuationPolydisc{
+        S, T, N}}) where {S, T, N}
     right = batch_evaluate_init(f.right, P)
-    return SMulEvaluator{S,T,N,typeof(right)}(Float64(f.left), right)
+    return SMulEvaluator{S, T, N, typeof(right)}(Float64(f.left), right)
 end
 
-function batch_evaluate_init(f::Comp{S}, P::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
+function batch_evaluate_init(f::Comp{S}, P::Type{ValuationPolydisc{
+        S, T, N}}) where {S, T, N}
     inner = batch_evaluate_init(f.right, P)
-    return CompEvaluator{S,T,N,typeof(f.left),typeof(inner)}(f.left, inner)
+    return CompEvaluator{S, T, N, typeof(f.left), typeof(inner)}(f.left, inner)
 end
 
-function batch_evaluate_init(l::Lambda{S}, ::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
-    return LambdaEvaluator{S,T,N}(l.func, l.derivative)
+function batch_evaluate_init(l::Lambda{S}, ::Type{ValuationPolydisc{
+        S, T, N}}) where {S, T, N}
+    return LambdaEvaluator{S, T, N}(l.func, l.derivative)
 end
 
-function batch_evaluate_init(f::LinearAbsolutePolynomialSum{S}, P::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
+function batch_evaluate_init(f::LinearAbsolutePolynomialSum{S},
+        P::Type{ValuationPolydisc{S, T, N}}) where {S, T, N}
     evaluators = [batch_evaluate_init(poly, P) for poly in f.polys]
     E = eltype(evaluators)
-    return SumEvaluator{S,T,N,E}(evaluators)
+    return SumEvaluator{S, T, N, E}(evaluators)
 end
 
-function batch_evaluate_init(poly::AbstractAlgebra.Generic.MPoly{S}, ::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
-    return MPolyEvaluator{S,T,N,typeof(poly)}(poly)
+function batch_evaluate_init(poly::AbstractAlgebra.Generic.MPoly{S},
+        ::Type{ValuationPolydisc{S, T, N}}) where {S, T, N}
+    return MPolyEvaluator{S, T, N, typeof(poly)}(poly)
 end
 
-function batch_evaluate_init(f::AbsolutePolynomialSum{S}, P::Type{ValuationPolydisc{S,T,N}}) where {S,T,N}
+function batch_evaluate_init(f::AbsolutePolynomialSum{S}, P::Type{ValuationPolydisc{
+        S, T, N}}) where {S, T, N}
     evaluators = [batch_evaluate_init(poly, P) for poly in f.polys]
     E = eltype(evaluators)
-    return SumEvaluator{S,T,N,E}(evaluators)
+    return SumEvaluator{S, T, N, E}(evaluators)
 end
 
 #=============================================================================
@@ -714,16 +745,17 @@ Legacy interface returning untyped closures. Retained for backwards compatibilit
 
 This interface returns untyped closures which prevent compile-time specialization on T and N.
 """
-function batch_evaluate_init(f::PolydiscFunction{S})::Function where S
+function batch_evaluate_init(f::PolydiscFunction{S})::Function where {S}
     return batch_evaluate_init(f)
 end
 
-function batch_evaluate_init(poly::LinearPolynomial{S})::Function where S
+function batch_evaluate_init(poly::LinearPolynomial{S})::Function where {S}
     abs_poly_coeffs = map(valuation, poly.coefficients)
     num_coeffs = length(poly.coefficients)
-    function eval(p::ValuationPolydisc{S,T,N}) where {T,N}
+    function eval(p::ValuationPolydisc{S, T, N}) where {T, N}
         # Only use the first num_coeffs coordinates (in case the polydisc is higher dimensional)
-        constant_term = poly.constant + sum(poly.coefficients[i] * p.center[i] for i in 1:num_coeffs)
+        constant_term = poly.constant +
+                        sum(poly.coefficients[i] * p.center[i] for i in 1:num_coeffs)
         # Compute valuations of all terms
         abs_values = [abs_poly_coeffs[i] + p.radius[i] for i in 1:num_coeffs]
         push!(abs_values, valuation(constant_term))
@@ -733,77 +765,77 @@ function batch_evaluate_init(poly::LinearPolynomial{S})::Function where S
     return eval
 end
 
-function batch_evaluate_init(f::Add{S})::Function where S
+function batch_evaluate_init(f::Add{S})::Function where {S}
     left_eval = batch_evaluate_init(f.left)
     right_eval = batch_evaluate_init(f.right)
     return p -> left_eval(p) + right_eval(p)
 end
 
-function batch_evaluate_init(f::Mul{S})::Function where S
+function batch_evaluate_init(f::Mul{S})::Function where {S}
     left_eval = batch_evaluate_init(f.left)
     right_eval = batch_evaluate_init(f.right)
     return p -> left_eval(p) * right_eval(p)
 end
 
-function batch_evaluate_init(f::Sub{S})::Function where S
+function batch_evaluate_init(f::Sub{S})::Function where {S}
     left_eval = batch_evaluate_init(f.left)
     right_eval = batch_evaluate_init(f.right)
     return p -> left_eval(p) - right_eval(p)
 end
 
-function batch_evaluate_init(f::Div{S})::Function where S
+function batch_evaluate_init(f::Div{S})::Function where {S}
     top_eval = batch_evaluate_init(f.top)
     bottom_eval = batch_evaluate_init(f.bottom)
     return p -> top_eval(p) / bottom_eval(p)
 end
 
-function batch_evaluate_init(f::SMul{S})::Function where S
+function batch_evaluate_init(f::SMul{S})::Function where {S}
     right_eval = batch_evaluate_init(f.right)
     return p -> f.left * right_eval(p)
 end
 
-function batch_evaluate_init(f::Comp{S})::Function where S
+function batch_evaluate_init(f::Comp{S})::Function where {S}
     right_eval = batch_evaluate_init(f.right)
-    function eval(p::ValuationPolydisc{S,T,N}) where {T,N}
+    function eval(p::ValuationPolydisc{S, T, N}) where {T, N}
         return f.left(right_eval(p))
     end
     return eval
 end
 
-function batch_evaluate_init(f::Constant{S})::Function where S
-    function eval(p::ValuationPolydisc{S,T,N}) where {T,N}
+function batch_evaluate_init(f::Constant{S})::Function where {S}
+    function eval(p::ValuationPolydisc{S, T, N}) where {T, N}
         return f.value
     end
     return eval
 end
 
-function batch_evaluate_init(l::Lambda{S})::Function where S
+function batch_evaluate_init(l::Lambda{S})::Function where {S}
     return l.func
 end
 
-function batch_evaluate_init(f::LinearAbsolutePolynomialSum{S})::Function where S
+function batch_evaluate_init(f::LinearAbsolutePolynomialSum{S})::Function where {S}
     # Get the array of functions
     evaluation_functions::Array{Function} = map(batch_evaluate_init, f.polys)
     # Return the lambda function that sends `p`` to the sum of the evaluations of each element of `evaluation_functions` at `p`
-    function eval(p::ValuationPolydisc{S,T,N}) where {T,N}
+    function eval(p::ValuationPolydisc{S, T, N}) where {T, N}
         return sum(
             map(f -> f(p), evaluation_functions))
     end
     return eval
 end
 
-function batch_evaluate_init(f::AbstractAlgebra.Generic.MPoly{S})::Function where S
-    function eval(p::ValuationPolydisc{S,T,N}) where {T,N}
+function batch_evaluate_init(f::AbstractAlgebra.Generic.MPoly{S})::Function where {S}
+    function eval(p::ValuationPolydisc{S, T, N}) where {T, N}
         return evaluate(f, p)
     end
     return eval
 end
 
-function batch_evaluate_init(f::AbsolutePolynomialSum{S})::Function where S
+function batch_evaluate_init(f::AbsolutePolynomialSum{S})::Function where {S}
     # Get the array of functions
     evaluation_functions = map(batch_evaluate_init, f.polys)
     # Return the lambda function that sends `p`` to the sum of the evaluations of each element of `evaluation_functions` at `p`
-    function eval(p::ValuationPolydisc{S,T,N}) where {T,N}
+    function eval(p::ValuationPolydisc{S, T, N}) where {T, N}
         return sum(map(f -> f(p), evaluation_functions))
     end
     return eval
@@ -829,7 +861,8 @@ integer quantity ``v(a_n) + \langle r, n \rangle`` over non-zero terms.
 # Returns
 `Vector`: The exponent vector with minimum valuation weight, breaking ties by minimizing `dot(n, v.magnitude)`
 """
-function directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S,T}) where {S, T}
+function directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{
+        S, T}) where {S, T}
     t = gens(f.parent)
     # For now, we're assuming the direction is always downwards so we can 
     # use the center for the "target". This works for descent, but not in general.
@@ -839,9 +872,10 @@ function directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationT
     # Compute v(a_n) + ⟨radius, n⟩ for each term. Sparse polynomial representation
     # guarantees all stored coefficients are nonzero, so no filtering is needed.
     # Minimizing this integer quantity is equivalent to maximizing |a_n| * p^{-⟨r,n⟩}.
-    val_weights = [valuation(Nemo.coeff(g, i)) + sum(v.point.radius .* exp_vecs[i]) for i in eachindex(exp_vecs)]
+    val_weights = [valuation(Nemo.coeff(g, i)) + sum(v.point.radius .* exp_vecs[i])
+                   for i in eachindex(exp_vecs)]
     min_weight = minimum(val_weights)
-    ties =  [exp_vecs[j] for j in findall(==(min_weight), val_weights)]
+    ties = [exp_vecs[j] for j in findall(==(min_weight), val_weights)]
     radial_magnitude = collect(v.direction.radius .- v.point.radius)
     return reduce((n, m) -> dot(n, radial_magnitude) < dot(m, radial_magnitude) ? n : m, ties)
 end
@@ -861,7 +895,8 @@ Uses the formula: if locally ``|f| = a_n r^n`` for exponent ``n``, then
 # Returns
 `Float64`: The directional derivative
 """
-function directional_derivative(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S,T}) where {S, T}
+function directional_derivative(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{
+        S, T}) where {S, T}
     # Recover the variables of the polynomial ring we're working over
     x = gens(f.parent)
     # Compute the expansion of f around the direction a of the tangent vector v, i.e.
@@ -895,11 +930,13 @@ found by minimizing the valuation weight `v(aₙ) + ⟨r, n⟩`, breaking ties v
 # Returns
 `Float64`: The directional derivative
 """
-function directional_derivative(poly::LinearPolynomial{S}, v::ValuationTangent{S,T,N}) where {S, T, N}
+function directional_derivative(poly::LinearPolynomial{S}, v::ValuationTangent{
+        S, T, N}) where {S, T, N}
     r = v.point.radius
     # Expand poly(T + direction): constant term c₀ = b + Σᵢ aᵢdᵢ, linear terms unchanged.
     # Recenter around lower polydisc. TODO: make this work for arbitrary directions with possibly increasing radii (see similar comment for directional derivatives of general polynomials)
-    c₀ = poly.constant + sum(poly.coefficients[i] * v.direction.center[i] for i in eachindex(poly.coefficients))
+    c₀ = poly.constant + sum(poly.coefficients[i] * v.direction.center[i]
+    for i in eachindex(poly.coefficients))
     # Initialise with the constant term (exponent 0: val_weight = v(c₀), mag_weight = 0).
     best_val = iszero(c₀) ? typemax(Int) : valuation(c₀)
     best_mag = Base.zero(T)
@@ -909,12 +946,12 @@ function directional_derivative(poly::LinearPolynomial{S}, v::ValuationTangent{S
     for i in eachindex(poly.coefficients)
         aᵢ = poly.coefficients[i]
         iszero(aᵢ) && continue
-        w   = valuation(aᵢ) + r[i]
+        w = valuation(aᵢ) + r[i]
         mag = v.direction.radius[i] - v.point.radius[i]
         if w < best_val || (w == best_val && mag < best_mag)
             bestIdx = i
-            best_val  = w
-            best_mag  = mag
+            best_val = w
+            best_mag = mag
             linear_wins = true
         end
     end
@@ -935,7 +972,8 @@ Compute the directional derivative of a polydisc function (sum of polynomials).
 # Returns
 `Float64`: Sum of directional derivatives across all polynomials
 """
-function directional_derivative(fun::PolydiscFunction{S}, v::ValuationTangent{S,T}) where {S, T}
+function directional_derivative(fun::PolydiscFunction{S}, v::ValuationTangent{
+        S, T}) where {S, T}
     return sum([directional_derivative(f, v) for f in fun.polys])
 end
 
@@ -951,8 +989,9 @@ Compute the gradient of a polynomial by evaluating directional derivatives along
 # Returns
 `Vector`: Gradient components, one for each coordinate direction
 """
-function grad(f, v::ValuationTangent{S,T}) where {S, T}
-    return [directional_derivative(f, basis_vector(v, i)) for i in Base.eachindex(v.magnitude)]
+function grad(f, v::ValuationTangent{S, T}) where {S, T}
+    return [directional_derivative(f, basis_vector(v, i))
+            for i in Base.eachindex(v.magnitude)]
 end
 
 @doc raw"""
@@ -968,7 +1007,7 @@ Compute partial derivatives along specified coordinate directions.
 # Returns
 `Vector`: Directional derivatives for the specified coordinates
 """
-function partial_gradient(f, v::ValuationTangent{S,T}, gradient_indices) where {S, T}
+function partial_gradient(f, v::ValuationTangent{S, T}, gradient_indices) where {S, T}
     return [directional_derivative(f, basis_vector(v, i)) for i in gradient_indices]
 end
 
@@ -986,21 +1025,26 @@ end
 Lifting adapter: evaluate a function with coefficients of type `S` on a polydisc with `ValuedFieldPoint{P,Prec,S}` coordinates.
 Unwraps the polydisc and delegates to the standard evaluate method.
 """
-function evaluate(fun::PolydiscFunction{S}, var::ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}) where {S,P,Prec,T,N}
-    unwrapped_polydisc = ValuationPolydisc{S,T,N}(var.center |> unwrap, var.radius)
+function evaluate(fun::PolydiscFunction{S},
+        var::ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}) where {S, P, Prec, T, N}
+    unwrapped_polydisc = ValuationPolydisc{S, T, N}(var.center |> unwrap, var.radius)
     return evaluate(fun, unwrapped_polydisc)
 end
 
-function batch_evaluate_init(poly::LinearPolynomial{S}, ::Type{ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}}) where {S,P,Prec,T,N}
-    VFP = ValuedFieldPoint{P,Prec,S}
+function batch_evaluate_init(poly::LinearPolynomial{S},
+        ::Type{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}}) where {
+        S, P, Prec, T, N}
+    VFP = ValuedFieldPoint{P, Prec, S}
     new_coeffs = [VFP(c) for c in poly.coefficients]
     new_const = VFP(poly.constant)
     new_poly = LinearPolynomial(new_coeffs, new_const)
-    return batch_evaluate_init(new_poly, ValuationPolydisc{VFP,T,N})
+    return batch_evaluate_init(new_poly, ValuationPolydisc{VFP, T, N})
 end
 
-function batch_evaluate_init(f::LinearAbsolutePolynomialSum{S}, ::Type{ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}}) where {S,P,Prec,T,N}
-    VFP = ValuedFieldPoint{P,Prec,S}
+function batch_evaluate_init(f::LinearAbsolutePolynomialSum{S},
+        ::Type{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}}) where {
+        S, P, Prec, T, N}
+    VFP = ValuedFieldPoint{P, Prec, S}
     new_polys = Vector{LinearPolynomial{VFP}}()
     for poly in f.polys
         new_coeffs = [VFP(c) for c in poly.coefficients]
@@ -1008,92 +1052,113 @@ function batch_evaluate_init(f::LinearAbsolutePolynomialSum{S}, ::Type{Valuation
         push!(new_polys, LinearPolynomial(new_coeffs, new_const))
     end
     new_f = LinearAbsolutePolynomialSum(new_polys)
-    return batch_evaluate_init(new_f, ValuationPolydisc{VFP,T,N})
+    return batch_evaluate_init(new_f, ValuationPolydisc{VFP, T, N})
 end
 
-function batch_evaluate_init(f::Constant{S}, ::Type{ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}}) where {S,P,Prec,T,N}
-    return ConstantEvaluator{ValuedFieldPoint{P,Prec,S},T,N}(Float64(f.value))
+function batch_evaluate_init(f::Constant{S},
+        ::Type{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}}) where {
+        S, P, Prec, T, N}
+    return ConstantEvaluator{ValuedFieldPoint{P, Prec, S}, T, N}(Float64(f.value))
 end
 
-function batch_evaluate_init(poly::AbstractAlgebra.Generic.MPoly{S}, ::Type{ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}}) where {S,P,Prec,T,N}
-    VFP = ValuedFieldPoint{P,Prec,S}
+function batch_evaluate_init(poly::AbstractAlgebra.Generic.MPoly{S},
+        ::Type{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}}) where {
+        S, P, Prec, T, N}
+    VFP = ValuedFieldPoint{P, Prec, S}
     function wrapped_eval(p::ValuationPolydisc)
-        unwrapped_polydisc = ValuationPolydisc{S,T,N}(p.center |> unwrap, p.radius)
+        unwrapped_polydisc = ValuationPolydisc{S, T, N}(p.center |> unwrap, p.radius)
         return evaluate(poly, unwrapped_polydisc)
     end
     function wrapped_deriv(v::ValuationTangent)
-        unwrapped_point = ValuationPolydisc{S,T,N}(v.point.center |> unwrap, v.point.radius)
-        unwrapped_direction = ValuationPolydisc{S,T,N}(v.direction.center |> unwrap, v.direction.radius)
-        unwrapped_tangent = ValuationTangent{S,T,N}(unwrapped_point, unwrapped_direction, v.magnitude)
+        unwrapped_point = ValuationPolydisc{S, T, N}(v.point.center |> unwrap, v.point.radius)
+        unwrapped_direction = ValuationPolydisc{S, T, N}(v.direction.center |> unwrap, v.direction.radius)
+        unwrapped_tangent = ValuationTangent{S, T, N}(unwrapped_point, unwrapped_direction, v.magnitude)
         return directional_derivative(poly, unwrapped_tangent)
     end
-    return LambdaEvaluator{VFP,T,N}(wrapped_eval, wrapped_deriv)
+    return LambdaEvaluator{VFP, T, N}(wrapped_eval, wrapped_deriv)
 end
 
-function batch_evaluate_init(f::AbsolutePolynomialSum{S}, ::Type{ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}}) where {S,P,Prec,T,N}
-    VFP = ValuedFieldPoint{P,Prec,S}
-    evaluators = [batch_evaluate_init(poly, ValuationPolydisc{VFP,T,N}) for poly in f.polys]
+function batch_evaluate_init(f::AbsolutePolynomialSum{S},
+        ::Type{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}}) where {
+        S, P, Prec, T, N}
+    VFP = ValuedFieldPoint{P, Prec, S}
+    evaluators = [batch_evaluate_init(poly, ValuationPolydisc{VFP, T, N})
+                  for poly in f.polys]
     E = eltype(evaluators)
-    return SumEvaluator{VFP,T,N,E}(evaluators)
+    return SumEvaluator{VFP, T, N, E}(evaluators)
 end
 
-function batch_evaluate_init(f::Add{S}, ::Type{ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}}) where {S,P,Prec,T,N}
-    VFP = ValuedFieldPoint{P,Prec,S}
-    PT = ValuationPolydisc{VFP,T,N}
+function batch_evaluate_init(f::Add{S},
+        ::Type{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}}) where {
+        S, P, Prec, T, N}
+    VFP = ValuedFieldPoint{P, Prec, S}
+    PT = ValuationPolydisc{VFP, T, N}
     left = batch_evaluate_init(f.left, PT)
     right = batch_evaluate_init(f.right, PT)
-    return AddEvaluator{VFP,T,N,typeof(left),typeof(right)}(left, right)
+    return AddEvaluator{VFP, T, N, typeof(left), typeof(right)}(left, right)
 end
 
-function batch_evaluate_init(f::Sub{S}, ::Type{ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}}) where {S,P,Prec,T,N}
-    VFP = ValuedFieldPoint{P,Prec,S}
-    PT = ValuationPolydisc{VFP,T,N}
+function batch_evaluate_init(f::Sub{S},
+        ::Type{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}}) where {
+        S, P, Prec, T, N}
+    VFP = ValuedFieldPoint{P, Prec, S}
+    PT = ValuationPolydisc{VFP, T, N}
     left = batch_evaluate_init(f.left, PT)
     right = batch_evaluate_init(f.right, PT)
-    return SubEvaluator{VFP,T,N,typeof(left),typeof(right)}(left, right)
+    return SubEvaluator{VFP, T, N, typeof(left), typeof(right)}(left, right)
 end
 
-function batch_evaluate_init(f::Mul{S}, ::Type{ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}}) where {S,P,Prec,T,N}
-    VFP = ValuedFieldPoint{P,Prec,S}
-    PT = ValuationPolydisc{VFP,T,N}
+function batch_evaluate_init(f::Mul{S},
+        ::Type{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}}) where {
+        S, P, Prec, T, N}
+    VFP = ValuedFieldPoint{P, Prec, S}
+    PT = ValuationPolydisc{VFP, T, N}
     left = batch_evaluate_init(f.left, PT)
     right = batch_evaluate_init(f.right, PT)
-    return MulEvaluator{VFP,T,N,typeof(left),typeof(right)}(left, right)
+    return MulEvaluator{VFP, T, N, typeof(left), typeof(right)}(left, right)
 end
 
-function batch_evaluate_init(f::Div{S}, ::Type{ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}}) where {S,P,Prec,T,N}
-    VFP = ValuedFieldPoint{P,Prec,S}
-    PT = ValuationPolydisc{VFP,T,N}
+function batch_evaluate_init(f::Div{S},
+        ::Type{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}}) where {
+        S, P, Prec, T, N}
+    VFP = ValuedFieldPoint{P, Prec, S}
+    PT = ValuationPolydisc{VFP, T, N}
     top = batch_evaluate_init(f.top, PT)
     bottom = batch_evaluate_init(f.bottom, PT)
-    return DivEvaluator{VFP,T,N,typeof(top),typeof(bottom)}(top, bottom)
+    return DivEvaluator{VFP, T, N, typeof(top), typeof(bottom)}(top, bottom)
 end
 
-function batch_evaluate_init(f::SMul{S}, ::Type{ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}}) where {S,P,Prec,T,N}
-    VFP = ValuedFieldPoint{P,Prec,S}
-    PT = ValuationPolydisc{VFP,T,N}
+function batch_evaluate_init(f::SMul{S},
+        ::Type{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}}) where {
+        S, P, Prec, T, N}
+    VFP = ValuedFieldPoint{P, Prec, S}
+    PT = ValuationPolydisc{VFP, T, N}
     right = batch_evaluate_init(f.right, PT)
-    return SMulEvaluator{VFP,T,N,typeof(right)}(Float64(f.left), right)
+    return SMulEvaluator{VFP, T, N, typeof(right)}(Float64(f.left), right)
 end
 
-function batch_evaluate_init(f::Comp{S}, ::Type{ValuationPolydisc{ValuedFieldPoint{P,Prec,S},T,N}}) where {S,P,Prec,T,N}
-    VFP = ValuedFieldPoint{P,Prec,S}
-    PT = ValuationPolydisc{VFP,T,N}
+function batch_evaluate_init(f::Comp{S},
+        ::Type{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}}) where {
+        S, P, Prec, T, N}
+    VFP = ValuedFieldPoint{P, Prec, S}
+    PT = ValuationPolydisc{VFP, T, N}
     inner = batch_evaluate_init(f.right, PT)
-    return CompEvaluator{VFP,T,N,typeof(f.left),typeof(inner)}(f.left, inner)
+    return CompEvaluator{VFP, T, N, typeof(f.left), typeof(inner)}(f.left, inner)
 end
 
-function directional_derivative(fun::PolydiscFunction{S}, v::ValuationTangent{ValuedFieldPoint{P,Prec,S},T,N}) where {S,P,Prec,T,N}
-    unwrapped_point = ValuationPolydisc{S,T,N}(v.point.center |> unwrap, v.point.radius)
-    unwrapped_direction = ValuationPolydisc{S,T,N}(v.direction.center |> unwrap, v.direction.radius)
-    unwrapped_tangent = ValuationTangent{S,T,N}(unwrapped_point, unwrapped_direction, v.magnitude)
+function directional_derivative(fun::PolydiscFunction{S},
+        v::ValuationTangent{ValuedFieldPoint{P, Prec, S}, T, N}) where {S, P, Prec, T, N}
+    unwrapped_point = ValuationPolydisc{S, T, N}(v.point.center |> unwrap, v.point.radius)
+    unwrapped_direction = ValuationPolydisc{S, T, N}(v.direction.center |> unwrap, v.direction.radius)
+    unwrapped_tangent = ValuationTangent{S, T, N}(unwrapped_point, unwrapped_direction, v.magnitude)
     return directional_derivative(fun, unwrapped_tangent)
 end
 
-function directional_derivative(poly::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{ValuedFieldPoint{P,Prec,S},T,N}) where {S,P,Prec,T,N}
-    unwrapped_point = ValuationPolydisc{S,T,N}(v.point.center |> unwrap, v.point.radius)
-    unwrapped_direction = ValuationPolydisc{S,T,N}(v.direction.center |> unwrap, v.direction.radius)
-    unwrapped_tangent = ValuationTangent{S,T,N}(unwrapped_point, unwrapped_direction, v.magnitude)
+function directional_derivative(poly::AbstractAlgebra.Generic.MPoly{S},
+        v::ValuationTangent{ValuedFieldPoint{P, Prec, S}, T, N}) where {S, P, Prec, T, N}
+    unwrapped_point = ValuationPolydisc{S, T, N}(v.point.center |> unwrap, v.point.radius)
+    unwrapped_direction = ValuationPolydisc{S, T, N}(v.direction.center |> unwrap, v.direction.radius)
+    unwrapped_tangent = ValuationTangent{S, T, N}(unwrapped_point, unwrapped_direction, v.magnitude)
     return directional_derivative(poly, unwrapped_tangent)
 end
 
@@ -1101,25 +1166,30 @@ end
  Directional Derivatives for Typed Evaluators
 =============================================================================#
 
-function directional_derivative(eval::ConstantEvaluator{S,T,N}, v::ValuationTangent{S,T,N}) where {S,T,N}
+function directional_derivative(eval::ConstantEvaluator{S, T, N}, v::ValuationTangent{
+        S, T, N}) where {S, T, N}
     return 0.0
 end
 
-function directional_derivative(eval::AddEvaluator{S,T,N}, v::ValuationTangent{S,T,N}) where {S,T,N}
+function directional_derivative(eval::AddEvaluator{S, T, N}, v::ValuationTangent{
+        S, T, N}) where {S, T, N}
     return directional_derivative(eval.left, v) + directional_derivative(eval.right, v)
 end
 
-function directional_derivative(eval::SubEvaluator{S,T,N}, v::ValuationTangent{S,T,N}) where {S,T,N}
+function directional_derivative(eval::SubEvaluator{S, T, N}, v::ValuationTangent{
+        S, T, N}) where {S, T, N}
     return directional_derivative(eval.left, v) - directional_derivative(eval.right, v)
 end
 
-function directional_derivative(eval::MulEvaluator{S,T,N}, v::ValuationTangent{S,T,N}) where {S,T,N}
+function directional_derivative(eval::MulEvaluator{S, T, N}, v::ValuationTangent{
+        S, T, N}) where {S, T, N}
     # Product rule: (f*g)' = f'*g(p) + f(p)*g'
     return directional_derivative(eval.left, v) * eval.right(v.point) +
            eval.left(v.point) * directional_derivative(eval.right, v)
 end
 
-function directional_derivative(eval::DivEvaluator{S,T,N}, v::ValuationTangent{S,T,N}) where {S,T,N}
+function directional_derivative(eval::DivEvaluator{S, T, N}, v::ValuationTangent{
+        S, T, N}) where {S, T, N}
     # Quotient rule: (f/g)' = (f'g - fg') / g²
     f_val = eval.top(v.point)
     g_val = eval.bottom(v.point)
@@ -1128,31 +1198,38 @@ function directional_derivative(eval::DivEvaluator{S,T,N}, v::ValuationTangent{S
     return (f_deriv * g_val - f_val * g_deriv) / (g_val^2)
 end
 
-function directional_derivative(eval::SMulEvaluator{S,T,N}, v::ValuationTangent{S,T,N}) where {S,T,N}
+function directional_derivative(eval::SMulEvaluator{S, T, N}, v::ValuationTangent{
+        S, T, N}) where {S, T, N}
     return eval.scalar * directional_derivative(eval.right, v)
 end
 
-function directional_derivative(eval::SumEvaluator{S,T,N}, v::ValuationTangent{S,T,N}) where {S,T,N}
+function directional_derivative(eval::SumEvaluator{S, T, N}, v::ValuationTangent{
+        S, T, N}) where {S, T, N}
     return sum(directional_derivative(e, v) for e in eval.evaluators)
 end
 
-function directional_derivative(eval::MPolyEvaluator{S,T,N}, v::ValuationTangent{S,T,N}) where {S,T,N}
+function directional_derivative(eval::MPolyEvaluator{S, T, N}, v::ValuationTangent{
+        S, T, N}) where {S, T, N}
     return directional_derivative(eval.poly, v)
 end
 
-function directional_derivative(eval::CompEvaluator{S,T,N}, v::ValuationTangent{S,T,N}) where {S,T,N}
+function directional_derivative(eval::CompEvaluator{S, T, N}, v::ValuationTangent{
+        S, T, N}) where {S, T, N}
     # Chain rule: (f ∘ g)' = f'(g(x)) * g'(x)
     inner_val = eval.inner(v.point)
     inner_deriv = directional_derivative(eval.inner, v)
     return eval.outer.df(inner_val) * inner_deriv
 end
 
-function directional_derivative(eval::LambdaEvaluator{S,T,N}, v::ValuationTangent{S,T,N}) where {S,T,N}
-    eval.derivative === nothing && error("LambdaEvaluator has no derivative. Provide a derivative function at construction time.")
+function directional_derivative(eval::LambdaEvaluator{S, T, N}, v::ValuationTangent{
+        S, T, N}) where {S, T, N}
+    eval.derivative === nothing &&
+        error("LambdaEvaluator has no derivative. Provide a derivative function at construction time.")
     return eval.derivative(v)
 end
 
-function directional_derivative(eval::LinearPolynomialEvaluator{S,T,N}, v::ValuationTangent{S,T,N}) where {S,T,N}
+function directional_derivative(eval::LinearPolynomialEvaluator{S, T, N},
+        v::ValuationTangent{S, T, N}) where {S, T, N}
     r = v.point.radius
     c₀ = eval.constant + sum(eval.coefficients[i] * v.direction.center[i] for i in 1:N)
     best_val = iszero(c₀) ? typemax(Int) : valuation(c₀)
@@ -1160,11 +1237,11 @@ function directional_derivative(eval::LinearPolynomialEvaluator{S,T,N}, v::Valua
     linear_wins = false
     for i in 1:N
         iszero(eval.coefficients[i]) && continue
-        w   = eval.coeff_valuations[i] + r[i]
+        w = eval.coeff_valuations[i] + r[i]
         mag = v.direction.radius[i] - v.point.radius[i]
         if w < best_val || (w == best_val && mag < best_mag)
-            best_val    = w
-            best_mag    = mag
+            best_val = w
+            best_mag = mag
             linear_wins = true
         end
     end

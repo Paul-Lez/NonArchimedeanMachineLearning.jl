@@ -8,7 +8,6 @@ using Oscar
 include("../src/NonArchimedeanMachineLearning.jl")
 using .NonArchimedeanMachineLearning
 
-
 println("=" ^ 80)
 println("Test 1: Linear Regression (Learning A and b)")
 println("=" ^ 80)
@@ -26,7 +25,7 @@ data_points = [
     ([K(1)], [K(true_A * 1 + true_b)]),  # x=1, y=5
     ([K(2)], [K(true_A * 2 + true_b)]),  # x=2, y=7
     ([K(3)], [K(true_A * 3 + true_b)]),  # x=3, y=9
-    ([K(4)], [K(true_A * 4 + true_b)]),  # x=4, y=11
+    ([K(4)], [K(true_A * 4 + true_b)])  # x=4, y=11
 ]
 
 println("\nSynthetic data (1D linear regression):")

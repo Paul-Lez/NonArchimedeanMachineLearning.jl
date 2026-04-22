@@ -63,4 +63,3 @@ using NonArchimedeanMachineLearning
         @test final_loss <= initial_loss
     end
 end
-

@@ -60,7 +60,7 @@ end
 
 @testset "directional_exponent" begin
     K2 = PadicField(2, 20)
-    make_pd(cs, rs) = ValuationPolydisc{PadicFieldElem,Int,length(cs)}(tuple(cs...), tuple(rs...))
+    make_pd(cs, rs) = ValuationPolydisc{PadicFieldElem, Int, length(cs)}(tuple(cs...), tuple(rs...))
     R2, (x2, y2) = polynomial_ring(K2, ["x", "y"])
 
     @testset "valuation weight determines winner" begin
@@ -93,7 +93,7 @@ end
 
 @testset "directional_derivative for LinearPolynomial" begin
     K2 = PadicField(2, 20)
-    make_pd(cs, rs) = ValuationPolydisc{PadicFieldElem,Int,length(cs)}(tuple(cs...), tuple(rs...))
+    make_pd(cs, rs) = ValuationPolydisc{PadicFieldElem, Int, length(cs)}(tuple(cs...), tuple(rs...))
 
     @testset "linear wins (zero constant)" begin
         # f = T₁, radius 0: c₀=0, linear val_weight=0+0=0 → d_v = -2^0 = -1.0
@@ -134,7 +134,7 @@ end
 
 @testset "directional_derivative for LinearAbsolutePolynomialSum" begin
     K2 = PadicField(2, 20)
-    make_pd(cs, rs) = ValuationPolydisc{PadicFieldElem,Int,length(cs)}(tuple(cs...), tuple(rs...))
+    make_pd(cs, rs) = ValuationPolydisc{PadicFieldElem, Int, length(cs)}(tuple(cs...), tuple(rs...))
 
     @testset "one linear winner, one constant winner" begin
         # poly1 = T₁ (zero constant), radius 0: linear wins → -1.0
@@ -162,6 +162,3 @@ end
         @test directional_derivative(f, v) ≈ -1.0
     end
 end
-
-
-

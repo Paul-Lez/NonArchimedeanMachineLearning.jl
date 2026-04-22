@@ -21,7 +21,8 @@ For m-dimensional outputs and n-dimensional inputs, the parameters are ordered a
 # Notes
 The loss function is constructed symbolically using LinearPolynomial and PolydiscFunction operations.
 """
-function make_ordinary_least_squares_loss(data::Vector{Tuple{Vector{S}, Vector{T}}})::Loss where {S, T}
+function make_ordinary_least_squares_loss(data::Vector{Tuple{
+        Vector{S}, Vector{T}}})::Loss where {S, T}
     # Get dimensions from first data point
     n = length(data[1][1])  # input dimension
     m = length(data[1][2])  # output dimension
@@ -71,11 +72,11 @@ function make_ordinary_least_squares_loss(data::Vector{Tuple{Vector{S}, Vector{T
     loss_function = sum(loss_terms)
     batch_eval = batch_evaluate_init(loss_function)
 
-    function loss_eval(params::Vector{ValuationPolydisc{S,U,N}}) where {U,N}
+    function loss_eval(params::Vector{ValuationPolydisc{S, U, N}}) where {U, N}
         return map(batch_eval, params)
     end
 
-    function loss_grad(vs::Vector{ValuationTangent{S,U,N}}) where {U,N}
+    function loss_grad(vs::Vector{ValuationTangent{S, U, N}}) where {U, N}
         return [directional_derivative(loss_function, v) for v in vs]
     end
 
@@ -102,7 +103,7 @@ where x is the parameter to optimize.
 The parameter x is n-dimensional, where n is the number of columns of A.
 The loss measures the squared Euclidean norm of the residual (Ax + b - y).
 """
-function solve_linear_system(A::Matrix{S}, b::Vector{S}, y::Vector{S})::Loss where S
+function solve_linear_system(A::Matrix{S}, b::Vector{S}, y::Vector{S})::Loss where {S}
     m, n = size(A)  # m equations, n unknowns
 
     # Build residual polynomials: (Ax + b - y)ᵢ for each equation i
@@ -120,11 +121,11 @@ function solve_linear_system(A::Matrix{S}, b::Vector{S}, y::Vector{S})::Loss whe
     loss_function = sum([r^2 for r in residual_polys])
     batch_eval = batch_evaluate_init(loss_function)
 
-    function loss_eval(params::Vector{ValuationPolydisc{S,T,N}}) where {T,N}
+    function loss_eval(params::Vector{ValuationPolydisc{S, T, N}}) where {T, N}
         return map(batch_eval, params)
     end
 
-    function loss_grad(vs::Vector{ValuationTangent{S,T,N}}) where {T,N}
+    function loss_grad(vs::Vector{ValuationTangent{S, T, N}}) where {T, N}
         return [directional_derivative(loss_function, v) for v in vs]
     end
 

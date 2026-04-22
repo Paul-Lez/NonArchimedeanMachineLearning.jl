@@ -22,10 +22,10 @@ A node in the Modified UCT search tree.
 - `total_value::Float64`: Sum of all values backpropagated through this node
 - `depth::Int`: Depth of this node in the tree (0 for root, used for d in formulas)
 """
-mutable struct ModifiedUCTNode{S,T,N}
-    polydisc::ValuationPolydisc{S,T,N}
-    parent::Union{ModifiedUCTNode{S,T,N}, Nothing}
-    children::Vector{ModifiedUCTNode{S,T,N}}
+mutable struct ModifiedUCTNode{S, T, N}
+    polydisc::ValuationPolydisc{S, T, N}
+    parent::Union{ModifiedUCTNode{S, T, N}, Nothing}
+    children::Vector{ModifiedUCTNode{S, T, N}}
     visits::Int
     total_value::Float64
     depth::Int
@@ -36,11 +36,12 @@ end
 
 Create a new Modified UCT node with the given polydisc, optional parent, and depth.
 """
-function ModifiedUCTNode(polydisc::ValuationPolydisc{S,T,N}, parent=nothing, depth=0) where {S,T,N}
-    return ModifiedUCTNode{S,T,N}(
+function ModifiedUCTNode(polydisc::ValuationPolydisc{S, T, N}, parent = nothing, depth = 0) where {
+        S, T, N}
+    return ModifiedUCTNode{S, T, N}(
         polydisc,
         parent,
-        ModifiedUCTNode{S,T,N}[],
+        ModifiedUCTNode{S, T, N}[],
         0,
         0.0,
         depth
@@ -137,12 +138,12 @@ The constructor pre-computes:
 - `k_prime_coeffs`: Vector of k'_d for d ∈ [0, D]
 """
 function ModifiedUCTConfig(;
-    max_depth::Int=10,
-    num_simulations::Int=100,
-    beta::Float64=0.05,
-    degree::Int=1,
-    strict::Bool=false,
-    value_transform::Function=loss -> 1.0 / (loss + 1e-10)
+        max_depth::Int = 10,
+        num_simulations::Int = 100,
+        beta::Float64 = 0.05,
+        degree::Int = 1,
+        strict::Bool = false,
+        value_transform::Function = loss -> 1.0 / (loss + 1e-10)
 )
     # Compute total nodes (approximation for binary tree)
     total_nodes = 2^(max_depth + 1) - 1
@@ -177,8 +178,8 @@ State maintained across Modified UCT optimization steps.
 - `root::ModifiedUCTNode{S,T,N}`: The current root node of the search tree
 - `step_count::Int`: Number of optimization steps taken
 """
-mutable struct ModifiedUCTState{S,T,N}
-    root::ModifiedUCTNode{S,T,N}
+mutable struct ModifiedUCTState{S, T, N}
+    root::ModifiedUCTNode{S, T, N}
     step_count::Int
 end
 
@@ -280,7 +281,8 @@ end
 Expand a node by generating all its child polydiscs.
 Children are created at depth = parent.depth + 1.
 """
-function expand_node!(node::ModifiedUCTNode{S,T,N}, config::ModifiedUCTConfig) where {S,T,N}
+function expand_node!(node::ModifiedUCTNode{S, T, N}, config::ModifiedUCTConfig) where {
+        S, T, N}
     if !isempty(node.children)
         return  # Already expanded
     end
@@ -345,7 +347,8 @@ Evaluate the loss at a node and transform to value.
 
 Returns the transformed value (higher is better).
 """
-function evaluate_node(node::ModifiedUCTNode{S,T,N}, loss::Loss, config::ModifiedUCTConfig) where {S,T,N}
+function evaluate_node(node::ModifiedUCTNode{S, T, N}, loss::Loss, config::ModifiedUCTConfig) where {
+        S, T, N}
     # Get reward x_n from environment (spec Phase 2)
     loss_value = loss.eval([node.polydisc])[1]
 
@@ -411,7 +414,8 @@ After all simulations, selects the child with the best average value.
 
 Returns: `(best_polydisc, best_child_node, converged)`.
 """
-function modified_uct_search(root::ModifiedUCTNode{S,T,N}, loss::Loss, config::ModifiedUCTConfig) where {S,T,N}
+function modified_uct_search(root::ModifiedUCTNode{S, T, N}, loss::Loss,
+        config::ModifiedUCTConfig) where {S, T, N}
     # Ensure root is expanded (needed to have children to select from)
     expand_node!(root, config)
 
@@ -447,11 +451,11 @@ It creates a fresh tree rooted at the current parameter and runs Modified UCT se
 Returns: `(next_param, updated_state, converged)`.
 """
 function modified_uct_descent(
-    loss::Loss,
-    param::ValuationPolydisc{S,T,N},
-    state::ModifiedUCTState{S,T,N},
-    config::ModifiedUCTConfig
-) where {S,T,N}
+        loss::Loss,
+        param::ValuationPolydisc{S, T, N},
+        state::ModifiedUCTState{S, T, N},
+        config::ModifiedUCTConfig
+) where {S, T, N}
     # Create fresh root at current parameter (note: could reuse tree in future)
     root = ModifiedUCTNode(param, nothing, 0)
 
@@ -484,12 +488,12 @@ end
 ```
 """
 function modified_uct_descent_init(
-    param::ValuationPolydisc{S,T,N},
-    loss::Loss,
-    config::ModifiedUCTConfig=ModifiedUCTConfig()
-) where {S,T,N}
+        param::ValuationPolydisc{S, T, N},
+        loss::Loss,
+        config::ModifiedUCTConfig = ModifiedUCTConfig()
+) where {S, T, N}
     root = ModifiedUCTNode(param, nothing, 0)
-    state = ModifiedUCTState{S,T,N}(root, 0)
+    state = ModifiedUCTState{S, T, N}(root, 0)
 
     return OptimSetup(
         loss,

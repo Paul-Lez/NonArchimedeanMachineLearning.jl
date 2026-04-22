@@ -21,10 +21,10 @@ Can operate in strict mode (one coordinate at a time) or full mode (all coordina
 and convergence status
 """
 function greedy_descent(
-    loss::Loss,
-    param::ValuationPolydisc{S,T,N},
-    next_branch::Int,
-    settings::Tuple{Bool,Int}
+        loss::Loss,
+        param::ValuationPolydisc{S, T, N},
+        next_branch::Int,
+        settings::Tuple{Bool, Int}
 ) where {S, T, N}
     (strict, degree) = settings
     if strict
@@ -58,10 +58,10 @@ Initialize an optimization setup for greedy descent.
 `OptimSetup`: Configured optimization setup for greedy descent
 """
 function greedy_descent_init(
-    param::ValuationPolydisc{S,T,N},
-    loss::Loss,
-    next_branch::Int,
-    settings::Tuple{Bool,Int}
+        param::ValuationPolydisc{S, T, N},
+        loss::Loss,
+        next_branch::Int,
+        settings::Tuple{Bool, Int}
 ) where {S, T, N}
     return OptimSetup(
         loss,

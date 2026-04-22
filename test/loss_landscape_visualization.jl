@@ -92,8 +92,8 @@ try
     if isdefined(Main, :Plots)
         println("Plots.jl is loaded, creating visualization...")
         plt = plot_loss_landscape(tree, landscape,
-                                 title="Loss Landscape for f(x,a,b) = (x-a)² + (x-b)²",
-                                 line_width=2.5)
+            title = "Loss Landscape for f(x,a,b) = (x-a)² + (x-b)²",
+            line_width = 2.5)
 
         # Save the plot
         Main.Plots.savefig(plt, "loss_landscape_plot.png")
@@ -119,7 +119,7 @@ if isdefined(Main, :Plots)
 end
 
 println("\n=== Detailed Loss Values ===\n")
-for ((parent_idx, child_idx), samples) in sort(collect(landscape), by=first)
+for ((parent_idx, child_idx), samples) in sort(collect(landscape), by = first)
     parent_disc = tree.nodes[parent_idx]
     child_disc = tree.nodes[child_idx]
 

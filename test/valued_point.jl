@@ -14,7 +14,7 @@ using NonArchimedeanMachineLearning
     @testset "Construction and Accessors" begin
         # Test: Construct from PadicFieldElem
         x = ValuedFieldPoint(K(5))
-        @test x isa ValuedFieldPoint{2,20,PadicFieldElem}
+        @test x isa ValuedFieldPoint{2, 20, PadicFieldElem}
 
         # Test: prime is a compile-time constant
         @test NonArchimedeanMachineLearning.prime(x) == 2
@@ -170,7 +170,7 @@ using NonArchimedeanMachineLearning
 
         @test NonArchimedeanMachineLearning.prime(x) == 3
         @test precision(x) == 15
-        @test x isa ValuedFieldPoint{3,15,PadicFieldElem}
+        @test x isa ValuedFieldPoint{3, 15, PadicFieldElem}
 
         # Verify 3^2 = 9 has valuation 2
         y = ValuedFieldPoint(L(9))

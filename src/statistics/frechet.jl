@@ -59,7 +59,7 @@ function frechet_mean(X::Array{ValuationPolydisc{S, T, N}, 1}, prec) where {S, T
     end
     loss = Loss(loss_eval, x -> ones(length(x)))
     K = Base.parent(X[1].center[1])
-    R, (x, ) = polynomial_ring(K, ["x"])
+    R, (x,) = polynomial_ring(K, ["x"])
     starting_point = X[1]
     for i in 2:length(X)
         starting_point = join(starting_point, X[i])

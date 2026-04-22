@@ -34,10 +34,10 @@ end
         visited_child.total_value = 5.0
         score = NAML.ucb_score(visited_child, parent.visits, sqrt(2.0))
         expected = 0.5 + sqrt(2.0) * sqrt(2.0 * log(100) / 10)
-        @test isapprox(score, expected; atol=1e-10)
+        @test isapprox(score, expected; atol = 1e-10)
 
         root = UCTNode(ValuationPolydisc([K(1)], [1]), nothing, 0)
-        config = UCTConfig(max_depth=3, num_simulations=10, degree=1)
+        config = UCTConfig(max_depth = 3, num_simulations = 10, degree = 1)
         @test isempty(root.children)
 
         NAML.expand_node!(root, config)
@@ -56,18 +56,18 @@ end
 
         NAML.backpropagate!(path, 0.25)
         @test root.visits == 2
-        @test isapprox(NAML.average_value(root), 0.5; atol=1e-10)
+        @test isapprox(NAML.average_value(root), 0.5; atol = 1e-10)
     end
 
     @testset "Simple optimization" begin
         loss = square_loss(K)
         initial_param = ValuationPolydisc([K(16)], [0])
         config = UCTConfig(
-            max_depth=8,
-            num_simulations=100,
-            exploration_constant=sqrt(2.0),
-            degree=1,
-            value_transform=loss_value -> 1.0 / (loss_value + 1e-10)
+            max_depth = 8,
+            num_simulations = 100,
+            exploration_constant = sqrt(2.0),
+            degree = 1,
+            value_transform = loss_value -> 1.0 / (loss_value + 1e-10)
         )
 
         optim = uct_descent_init(initial_param, loss, config)
@@ -95,15 +95,15 @@ end
         @test NAML.average_value(node) == 0.0
 
         D = 5
-        config = ModifiedUCTConfig(max_depth=D, num_simulations=10)
+        config = ModifiedUCTConfig(max_depth = D, num_simulations = 10)
 
         sqrt2 = sqrt(2.0)
         expected_k_0 = ((1 + sqrt2) / sqrt2) * ((1 + sqrt2)^D - 1)
-        @test isapprox(config.k_coeffs[1], expected_k_0; atol=1e-10)
-        @test isapprox(config.k_coeffs[D + 1], 0.0; atol=1e-10)
+        @test isapprox(config.k_coeffs[1], expected_k_0; atol = 1e-10)
+        @test isapprox(config.k_coeffs[D + 1], 0.0; atol = 1e-10)
 
         expected_k_prime_0 = (3.0^D - 1) / 2
-        @test isapprox(config.k_prime_coeffs[1], expected_k_prime_0; atol=1e-10)
+        @test isapprox(config.k_prime_coeffs[1], expected_k_prime_0; atol = 1e-10)
 
         @test isinf(NAML.modified_ucb_score(node, config))
 
@@ -133,10 +133,10 @@ end
         loss = square_loss(K)
         param = ValuationPolydisc([K(16)], [5])
         config = ModifiedUCTConfig(
-            max_depth=10,
-            num_simulations=50,
-            beta=0.05,
-            degree=1
+            max_depth = 10,
+            num_simulations = 50,
+            beta = 0.05,
+            degree = 1
         )
 
         optim = modified_uct_descent_init(param, loss, config)
@@ -159,7 +159,7 @@ end
         @test node.b_value == Inf
         @test NAML.is_leaf(node)
 
-        config = FlatUCBConfig(max_depth=5, num_simulations=10, beta=0.05)
+        config = FlatUCBConfig(max_depth = 5, num_simulations = 10, beta = 0.05)
         @test NAML.compute_leaf_b_value(node, config) == Inf
 
         node.visits = 10
@@ -203,11 +203,11 @@ end
         loss = square_loss(K)
         param = ValuationPolydisc([K(16)], [0])
         config = FlatUCBConfig(
-            max_depth=10,
-            num_simulations=50,
-            beta=0.05,
-            degree=1,
-            strict=false
+            max_depth = 10,
+            num_simulations = 50,
+            beta = 0.05,
+            degree = 1,
+            strict = false
         )
 
         optim = flat_ucb_descent_init(param, loss, config)

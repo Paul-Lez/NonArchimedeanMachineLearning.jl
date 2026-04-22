@@ -27,7 +27,9 @@ using NonArchimedeanMachineLearning
 
         optim = greedy_descent_init(param0, loss, 1, (false, 1))
         initial_loss = eval_loss(optim)
-        for _ in 1:n_steps; step!(optim); end
+        for _ in 1:n_steps
+            step!(optim)
+        end
         final_loss = eval_loss(optim)
 
         @test final_loss <= initial_loss
@@ -40,10 +42,12 @@ using NonArchimedeanMachineLearning
         model = AbstractModel(fun, param_info)
         loss = MPE_loss_init(model, data, 2)
 
-        config = MCTSConfig(num_simulations=50, degree=1)
+        config = MCTSConfig(num_simulations = 50, degree = 1)
         optim = mcts_descent_init(param0, loss, config)
         initial_loss = eval_loss(optim)
-        for _ in 1:n_steps; step!(optim); end
+        for _ in 1:n_steps
+            step!(optim)
+        end
         final_loss = eval_loss(optim)
 
         @test final_loss <= initial_loss
@@ -58,7 +62,9 @@ using NonArchimedeanMachineLearning
 
         optim = greedy_descent_init(param0, loss, 1, (false, 1))
         initial_loss = eval_loss(optim)
-        for _ in 1:n_steps; step!(optim); end
+        for _ in 1:n_steps
+            step!(optim)
+        end
         final_loss = eval_loss(optim)
 
         @test final_loss <= initial_loss
@@ -71,10 +77,12 @@ using NonArchimedeanMachineLearning
         model = AbstractModel(fun, param_info)
         loss = MPE_loss_init(model, data, 2)
 
-        config = MCTSConfig(num_simulations=50, degree=1)
+        config = MCTSConfig(num_simulations = 50, degree = 1)
         optim = mcts_descent_init(param0, loss, config)
         initial_loss = eval_loss(optim)
-        for _ in 1:n_steps; step!(optim); end
+        for _ in 1:n_steps
+            step!(optim)
+        end
         final_loss = eval_loss(optim)
 
         @test final_loss <= initial_loss
