@@ -3,7 +3,7 @@
 
 using Test
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
 
 @testset "Bivariate Cubic Optimization (3-adic)" begin
     # 3-adic field with precision 20

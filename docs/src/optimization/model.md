@@ -1,6 +1,6 @@
 # Model
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["optimization/model.jl"]
 ```

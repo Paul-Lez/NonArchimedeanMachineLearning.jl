@@ -1,8 +1,8 @@
-# NAML.jl
+# NonArchimedeanMachineLearning.jl
 
 *Non-Archimedean Machine Learning in Julia.*
 
-Welcome to the documentation for NAML.jl. This library provides data structures and algorithms for machine learning over p-adic numbers and polydisc spaces.
+Welcome to the documentation for NonArchimedeanMachineLearning.jl. This library provides data structures and algorithms for machine learning over p-adic numbers and polydisc spaces.
 
 ## Overview
 

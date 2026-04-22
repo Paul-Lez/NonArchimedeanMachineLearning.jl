@@ -2,7 +2,7 @@
 
 using Test
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
 
 @testset "Typed Gradient Evaluators" begin
     prec = 20
@@ -12,7 +12,7 @@ using NAML
     make_polydisc(centers, radii) = ValuationPolydisc{PadicFieldElem,Int,length(centers)}(tuple(centers...), tuple(radii...))
 
     @testset "ConstantEvaluator derivative" begin
-        c = NAML.Constant{PadicFieldElem}(5.0)
+        c = NonArchimedeanMachineLearning.Constant{PadicFieldElem}(5.0)
         eval_typed = batch_evaluate_init(c, ValuationPolydisc{PadicFieldElem,Int,2})
 
         p = make_polydisc([K(1), K(2)], [0, 0])
@@ -112,7 +112,7 @@ using NAML
         R, (x,) = polynomial_ring(K, ["x"])
         inner = AbsolutePolynomialSum([x])
         outer = DifferentiableFunction(x -> x^2, x -> 2x)
-        f = NAML.Comp(outer, inner)
+        f = NonArchimedeanMachineLearning.Comp(outer, inner)
 
         eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem,Int,1})
 
@@ -128,7 +128,7 @@ using NAML
 
     @testset "LambdaEvaluator derivative" begin
         # Lambda with derivative provided
-        l = NAML.Lambda{PadicFieldElem}(
+        l = NonArchimedeanMachineLearning.Lambda{PadicFieldElem}(
             p -> abs(p.center[1]),
             v -> 0.5  # dummy derivative for testing
         )
@@ -142,7 +142,7 @@ using NAML
         @test directional_derivative(eval_typed, v) == 0.5
 
         # Lambda without derivative should error
-        l_no_deriv = NAML.Lambda{PadicFieldElem}(p -> abs(p.center[1]))
+        l_no_deriv = NonArchimedeanMachineLearning.Lambda{PadicFieldElem}(p -> abs(p.center[1]))
         eval_no_deriv = batch_evaluate_init(l_no_deriv, ValuationPolydisc{PadicFieldElem,Int,1})
         @test_throws ErrorException directional_derivative(eval_no_deriv, v)
     end

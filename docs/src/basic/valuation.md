@@ -1,6 +1,6 @@
 # Valuation
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["basic/valuation.jl"]
 ```

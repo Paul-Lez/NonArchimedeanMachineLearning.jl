@@ -2,8 +2,8 @@
 # Let's test the basic functionality step by step
 
 using Oscar
-include("../src/NAML.jl")
-using .NAML
+include("../src/NonArchimedeanMachineLearning.jl")
+using .NonArchimedeanMachineLearning
 
 println("=" ^ 80)
 println("Debug Test: Building and evaluating loss function manually")

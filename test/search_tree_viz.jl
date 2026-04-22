@@ -8,7 +8,7 @@
 using Test
 using Oscar
 using D3Trees
-using NAML
+using NonArchimedeanMachineLearning
 
 # ---------------------------------------------------------------------------
 # Shared test fixtures
@@ -31,32 +31,32 @@ end
     @testset "Internal helpers" begin
         @testset "_value_to_color" begin
             # Unvisited node → grey
-            @test NAML._value_to_color(0.0, 0.0, 1.0, 0) == "#cccccc"
+            @test NonArchimedeanMachineLearning._value_to_color(0.0, 0.0, 1.0, 0) == "#cccccc"
 
             # Visited, at minimum → blue-ish (hue ≈ 240)
-            color_min = NAML._value_to_color(0.0, 0.0, 1.0, 1)
+            color_min = NonArchimedeanMachineLearning._value_to_color(0.0, 0.0, 1.0, 1)
             @test startswith(color_min, "hsl(")
             @test occursin("240", color_min)
 
             # Visited, at maximum → red-ish (hue ≈ 0)
-            color_max = NAML._value_to_color(1.0, 0.0, 1.0, 1)
+            color_max = NonArchimedeanMachineLearning._value_to_color(1.0, 0.0, 1.0, 1)
             @test startswith(color_max, "hsl(")
             @test occursin("0,", color_max)
 
             # Flat range (min == max) → clamp to 0.5 → hue 120 (mid-point)
-            color_flat = NAML._value_to_color(0.5, 0.5, 0.5, 1)
+            color_flat = NonArchimedeanMachineLearning._value_to_color(0.5, 0.5, 0.5, 1)
             @test startswith(color_flat, "hsl(120,")
         end
 
         @testset "_truncate_padic" begin
             short = "abc"
-            @test NAML._truncate_padic(short) == short
+            @test NonArchimedeanMachineLearning._truncate_padic(short) == short
 
             long = "a" ^ 20
-            truncated = NAML._truncate_padic(long; maxlen=16)
+            truncated = NonArchimedeanMachineLearning._truncate_padic(long; maxlen=16)
             @test length(truncated) == 17   # 16 chars + ellipsis character
             @test endswith(truncated, "…")
-            @test NAML._truncate_padic(long; maxlen=20) == long
+            @test NonArchimedeanMachineLearning._truncate_padic(long; maxlen=20) == long
         end
     end
 
@@ -72,7 +72,7 @@ end
         root = optim.state.root
 
         @testset "basic BFS" begin
-            children_vec, nodes_vec, depths = NAML._flatten_search_tree(root; max_depth=10)
+            children_vec, nodes_vec, depths = NonArchimedeanMachineLearning._flatten_search_tree(root; max_depth=10)
             @test length(nodes_vec) >= 1
             @test nodes_vec[1] === root
             @test depths[1] == 0
@@ -85,15 +85,15 @@ end
         end
 
         @testset "max_depth limit" begin
-            _, nodes_shallow, depths_shallow = NAML._flatten_search_tree(root; max_depth=1)
-            _, nodes_deep,    depths_deep    = NAML._flatten_search_tree(root; max_depth=5)
+            _, nodes_shallow, depths_shallow = NonArchimedeanMachineLearning._flatten_search_tree(root; max_depth=1)
+            _, nodes_deep,    depths_deep    = NonArchimedeanMachineLearning._flatten_search_tree(root; max_depth=5)
             @test maximum(depths_shallow; init=0) <= 1
             # deeper search includes at least as many nodes
             @test length(nodes_deep) >= length(nodes_shallow)
         end
 
         @testset "max_nodes limit" begin
-            _, nodes_limited, _ = NAML._flatten_search_tree(root; max_nodes=3)
+            _, nodes_limited, _ = NonArchimedeanMachineLearning._flatten_search_tree(root; max_nodes=3)
             @test length(nodes_limited) <= 3
         end
     end
@@ -118,7 +118,7 @@ end
         step!(optim)
 
         # Verify flatten does not duplicate nodes already seen (objectid deduplicated)
-        children_vec, nodes_vec, _ = NAML._flatten_search_tree(optim.state.root; max_depth=10)
+        children_vec, nodes_vec, _ = NonArchimedeanMachineLearning._flatten_search_tree(optim.state.root; max_depth=10)
         seen_ids = Set(objectid(n) for n in nodes_vec)
         @test length(seen_ids) == length(nodes_vec)
     end
@@ -212,7 +212,7 @@ end
 
         @testset "max_depth respected" begin
             t_shallow = visualize_search_tree(optim; max_depth=1)
-            _, _, depths = NAML._flatten_search_tree(optim.state.root; max_depth=1)
+            _, _, depths = NonArchimedeanMachineLearning._flatten_search_tree(optim.state.root; max_depth=1)
             @test length(t_shallow.children) == length(depths)
         end
 

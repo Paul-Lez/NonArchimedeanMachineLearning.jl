@@ -1,6 +1,6 @@
 # Polydisc
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["basic/polydisc.jl"]
 ```

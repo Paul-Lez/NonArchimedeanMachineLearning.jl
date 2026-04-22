@@ -2,7 +2,7 @@
 
 julia_version = "1.12.2"
 manifest_format = "2.0"
-project_hash = "5121bbf438e95a5d85ab9093c8428ca8cc7aa1c9"
+project_hash = "dc2e36f34511aab6f8ef091038e7374442e8cc0f"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -670,12 +670,6 @@ version = "0.10.1"
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 version = "2025.5.20"
 
-[[deps.NAML]]
-deps = ["AbstractAlgebra", "BenchmarkTools", "Combinatorics", "D3Trees", "LinearAlgebra", "Nemo", "Oscar", "Printf", "Revise", "Test"]
-path = ".."
-uuid = "aa0cea19-a6a0-4763-972a-18f6f03725f1"
-version = "0.1.0"
-
 [[deps.Ncurses_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "095850bc2a585bb20cad8d8f6f9f643d11b49a3d"
@@ -697,6 +691,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "41d401b96cb7fe500e1f5f8473e4e61e7b6a463e"
 uuid = "76642167-d241-5cee-8c94-7a494e8cb7b7"
 version = "1.13.1+0"
+
+[[deps.NonArchimedeanMachineLearning]]
+deps = ["AbstractAlgebra", "BenchmarkTools", "Combinatorics", "D3Trees", "LinearAlgebra", "Nemo", "Oscar", "Printf", "Revise", "Test"]
+path = ".."
+uuid = "aa0cea19-a6a0-4763-972a-18f6f03725f1"
+version = "0.1.0"
 
 [[deps.OpenBLAS32_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl"]

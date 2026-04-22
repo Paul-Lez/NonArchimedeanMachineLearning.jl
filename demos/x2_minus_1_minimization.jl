@@ -9,8 +9,8 @@ Usage:
     julia --project=. demos/x2_minus_1_minimization.jl
 """
 
-include("../src/NAML.jl")
-using .NAML
+include("../src/NonArchimedeanMachineLearning.jl")
+using .NonArchimedeanMachineLearning
 using Oscar
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ f = AbsolutePolynomialSum([x^2 - 1])
 
 # Build a typed loss
 VP    = ValuationPolydisc{PadicFieldElem, Int, 1}
-batch = NAML.batch_evaluate_init(f, VP)
+batch = NonArchimedeanMachineLearning.batch_evaluate_init(f, VP)
 loss  = Loss(params -> map(batch, params), _ -> 0)
 
 # Starting polydisc: the 2-adic unit ball centered at 1
@@ -77,7 +77,7 @@ for (name, l, prm) in [
         ("Greedy Descent", greedy_loss, greedy_param),
         ("MCTS",           mcts_loss,   mcts_param),
         ("DOO",            doo_loss,    doo_param)]
-    c = NAML.center(prm)[1]
-    r = NAML.radius(prm)[1]
+    c = NonArchimedeanMachineLearning.center(prm)[1]
+    r = NonArchimedeanMachineLearning.radius(prm)[1]
     println("  $name:  loss = $l,  radius = $r,  center = $c")
 end

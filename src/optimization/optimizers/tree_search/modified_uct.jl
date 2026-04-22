@@ -432,7 +432,7 @@ function modified_uct_search(root::ModifiedUCTNode{S,T,N}, loss::Loss, config::M
 end
 
 ##################################################
-# Integration with NAML Optimizer Interface
+# Integration with NonArchimedeanMachineLearning Optimizer Interface
 ##################################################
 
 @doc raw"""

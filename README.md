@@ -1,25 +1,25 @@
-# NAML — Non-Archimedean Optimisation (and a bit of ML)
+# NonArchimedeanMachineLearning — Non-Archimedean Optimisation (and a bit of ML)
 
-[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://Paul-Lez.github.io/NAML.jl/dev/)
-[![Build Status](https://github.com/Paul-Lez/NAML.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Paul-Lez/NAML.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Codecov](https://codecov.io/gh/Paul-Lez/NAML.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/Paul-Lez/NAML.jl)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://Paul-Lez.github.io/NAMLOptimization.jl/dev/)
+[![Build Status](https://github.com/Paul-Lez/NAMLOptimization.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Paul-Lez/NAMLOptimization.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Codecov](https://codecov.io/gh/Paul-Lez/NAMLOptimization.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/Paul-Lez/NAMLOptimization.jl)
 
-NAML is a Julia package for optimization over non-Archimedean fields. It provides tools to define objective functions on p-adic polydiscs and minimize them using a range of optimizers, from greedy descent to tree-search methods (MCTS, DOO, plus other experimental implementations).
+NonArchimedeanMachineLearning is a Julia package for optimization over non-Archimedean fields. It provides tools to define objective functions on p-adic polydiscs and minimize them using a range of optimizers, from greedy descent to tree-search methods (MCTS, DOO, plus other experimental implementations).
 
 ## Installation
 
-NAML depends on [Oscar.jl](https://github.com/oscar-system/Oscar.jl). From the Julia REPL:
+NonArchimedeanMachineLearning depends on [Oscar.jl](https://github.com/oscar-system/Oscar.jl). From the Julia REPL:
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/Paul-Lez/NAML.jl")
+Pkg.add(url="https://github.com/Paul-Lez/NAMLOptimization.jl")
 ```
 
 Or clone the repository and activate the project locally:
 
 ```bash
-git clone https://github.com/Paul-Lez/NAML.jl.git
-cd NAML.jl
+git clone https://github.com/Paul-Lez/NAMLOptimization.jl.git
+cd NAMLOptimization.jl
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ```
 
@@ -28,7 +28,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 Minimize |x² - 1|₂ over the 2-adic integers — the true minimizers are x = ±1.
 
 ```julia
-using NAML
+using NonArchimedeanMachineLearning
 using Oscar
 
 # Set up the 2-adic field with precision 20
@@ -40,7 +40,7 @@ f = AbsolutePolynomialSum([x^2 - 1])
 
 # Build a typed loss function
 VP    = ValuationPolydisc{PadicFieldElem, Int, 1}
-batch = NAML.batch_evaluate_init(f, VP)
+batch = NonArchimedeanMachineLearning.batch_evaluate_init(f, VP)
 loss  = Loss(params -> map(batch, params), _ -> 0)
 
 # Starting polydisc: the 2-adic unit ball centered at 1
@@ -54,7 +54,7 @@ for _ in 1:60
 end
 
 println("Best loss: ", eval_loss(optim))       # ≈ 0
-println("Center:    ", NAML.center(optim.param)) # ≈ ±1
+println("Center:    ", NonArchimedeanMachineLearning.center(optim.param)) # ≈ ±1
 ```
 
 Other optimizers can be swapped in just as easily:
@@ -74,7 +74,7 @@ See [demos/](demos/) for complete runnable scripts.
 
 ## Documentation
 
-Full documentation is available at **[paul-lez.github.io/NAML.jl/dev/](https://Paul-Lez.github.io/NAML.jl/dev/)**.
+Full documentation is available at **[paul-lez.github.io/NAMLOptimization.jl/dev/](https://Paul-Lez.github.io/NAMLOptimization.jl/dev/)**.
 
 ## Repository structure
 

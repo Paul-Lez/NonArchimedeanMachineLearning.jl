@@ -5,7 +5,7 @@
 
 using Test
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
 
 @testset "Tangent Vector Operations" begin
     prec = 20
@@ -26,18 +26,18 @@ using NAML
         @test v1.direction == dir1
         @test v1.magnitude == [1.0, 1.0]
 
-        v2 = NAML.zero(v1)  # Zero vector in same space
+        v2 = NonArchimedeanMachineLearning.zero(v1)  # Zero vector in same space
         @test v2 isa ValuationTangent
         @test v2.magnitude == [0.0, 0.0]
 
-        v3 = NAML.basis_vector(v1, 1)  # Basis vector
+        v3 = NonArchimedeanMachineLearning.basis_vector(v1, 1)  # Basis vector
         @test v3 isa ValuationTangent
     end
 
     @testset "Tangent Vector Addition" begin
         v1 = ValuationTangent(p1, dir1, [1.0, 1.0])
-        v2 = NAML.zero(v1)
-        v3 = NAML.basis_vector(v1, 1)
+        v2 = NonArchimedeanMachineLearning.zero(v1)
+        v3 = NonArchimedeanMachineLearning.basis_vector(v1, 1)
 
         # Test: Tangent vector addition
         result1 = v1 + v2

@@ -1,6 +1,6 @@
 # Dag Mcts
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["optimization/optimizers/tree_search/dag_mcts.jl"]
 ```

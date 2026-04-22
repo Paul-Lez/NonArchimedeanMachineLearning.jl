@@ -1,6 +1,6 @@
 # Loss
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["optimization/loss.jl"]
 ```

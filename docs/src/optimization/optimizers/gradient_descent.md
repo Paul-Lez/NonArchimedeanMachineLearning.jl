@@ -1,6 +1,6 @@
 # Gradient Descent
 
 ```@autodocs
-Modules = [NAML]
+Modules = [NonArchimedeanMachineLearning]
 Pages   = ["optimization/optimizers/gradient_descent.jl"]
 ```

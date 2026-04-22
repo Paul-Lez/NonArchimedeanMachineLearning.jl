@@ -1,7 +1,7 @@
 ## Test file for geodesic interpolation
 
-include("../src/naml.jl")
-using .NAML
+include("../src/NonArchimedeanMachineLearning.jl")
+using .NonArchimedeanMachineLearning
 using Oscar
 
 println("=== Testing Geodesic Interpolation ===\n")
@@ -108,7 +108,7 @@ d2_center = ValuationPolydisc([K(7)], [2])
 d_interp = geodesic_interpolation(d1_center, d2_center, 0.3)
 println("  Input center: $(d1_center.center[1])")
 println("  Output center: $(d_interp.center[1])")
-@assert NAML.valuation(d_interp.center[1] - d1_center.center[1]) > 15 "Center should be preserved"
+@assert NonArchimedeanMachineLearning.valuation(d_interp.center[1] - d1_center.center[1]) > 15 "Center should be preserved"
 println("✓ Center is preserved\n")
 
 println("Test 8: Error handling - invalid containment")

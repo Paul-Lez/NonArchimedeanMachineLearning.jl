@@ -7,7 +7,7 @@
 
 using Test
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
 
 @testset "Polynomial Learning with Greedy Descent" begin
     # Initialize 2-adic field with precision

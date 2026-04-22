@@ -5,7 +5,7 @@
 
 using Test
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
 
 @testset "Polynomial Functions" begin
     # Set up synthetic data
@@ -41,16 +41,16 @@ using NAML
     end
 
     @testset "Polynomial Evaluation" begin
-        @test NAML.evaluate(f_fun, p1) == 1 / 3
-        @test NAML.evaluate(f_as_linear, p1) == 1 / 3
-        @test NAML.evaluate(g_fun, p2) == 1
+        @test NonArchimedeanMachineLearning.evaluate(f_fun, p1) == 1 / 3
+        @test NonArchimedeanMachineLearning.evaluate(f_as_linear, p1) == 1 / 3
+        @test NonArchimedeanMachineLearning.evaluate(g_fun, p2) == 1
 
     end 
 
     @testset "Directional Derivative" begin
         f = 3 * x
         # Create tangent vector (direction polydisc coincides with p1)
-        v = NAML.basis_vector(p1, p1, 1)
+        v = NonArchimedeanMachineLearning.basis_vector(p1, p1, 1)
 
         # Test: Directional derivative
         dd = directional_derivative(f, v)

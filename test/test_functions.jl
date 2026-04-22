@@ -18,7 +18,7 @@
 using Oscar
 using LinearAlgebra
 using Test
-using NAML
+using NonArchimedeanMachineLearning
 
 @testset "functions.jl tests" begin
 

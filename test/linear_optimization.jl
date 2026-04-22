@@ -3,7 +3,7 @@
 
 using Test
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
 
 @testset "Linear Polynomial Optimization (3-adic)" begin
     p, prec = 3, 20

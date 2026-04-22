@@ -1,6 +1,6 @@
 using Test
-include("../src/NAML.jl")
-using .NAML
+include("../src/NonArchimedeanMachineLearning.jl")
+using .NonArchimedeanMachineLearning
 using Oscar  # For PadicField
 
 @testset "canonical_center with negative radius" begin
@@ -20,8 +20,8 @@ using Oscar  # For PadicField
         c1 = canonical_center(p1)
         c2 = canonical_center(p2)
 
-        println("  p1 center: $(NAML.center(p1)[1]), radius: $(NAML.radius(p1)[1])")
-        println("  p2 center: $(NAML.center(p2)[1]), radius: $(NAML.radius(p2)[1])")
+        println("  p1 center: $(NonArchimedeanMachineLearning.center(p1)[1]), radius: $(NonArchimedeanMachineLearning.radius(p1)[1])")
+        println("  p2 center: $(NonArchimedeanMachineLearning.center(p2)[1]), radius: $(NonArchimedeanMachineLearning.radius(p2)[1])")
         println("  canonical_center(p1): $c1")
         println("  canonical_center(p2): $c2")
         println("  Are they equal? $(p1 == p2)")
@@ -44,10 +44,10 @@ using Oscar  # For PadicField
         c2 = canonical_center(p2)
         c3 = canonical_center(p3)
 
-        println("  p1 center: $(NAML.center(p1)[1]), canonical: $c1")
-        println("  p2 center: $(NAML.center(p2)[1]), canonical: $c2")
-        println("  p3 center: $(NAML.center(p3)[1]), canonical: $c3")
-        println("  valuation(p1 - p2) = $(NAML.valuation(NAML.center(p1)[1] - NAML.center(p2)[1]))")
+        println("  p1 center: $(NonArchimedeanMachineLearning.center(p1)[1]), canonical: $c1")
+        println("  p2 center: $(NonArchimedeanMachineLearning.center(p2)[1]), canonical: $c2")
+        println("  p3 center: $(NonArchimedeanMachineLearning.center(p3)[1]), canonical: $c3")
+        println("  valuation(p1 - p2) = $(NonArchimedeanMachineLearning.valuation(NonArchimedeanMachineLearning.center(p1)[1] - NonArchimedeanMachineLearning.center(p2)[1]))")
 
         # With radius 0, polydiscs are equal if v(c1-c2) >= 0
         # v(5-7) = v(-2) = 1 >= 0, so they ARE equal
@@ -66,7 +66,7 @@ using Oscar  # For PadicField
         # So instead test that same r=0 gives same canonical for all non-negative val
         p4 = ValuationPolydisc([K(15)], [0])
         c4 = canonical_center(p4)
-        println("  p4 center: $(NAML.center(p4)[1]), canonical: $c4")
+        println("  p4 center: $(NonArchimedeanMachineLearning.center(p4)[1]), canonical: $c4")
         @test p1 == p4  # All have v(c1-c2) >= 0
         @test c1 == c4
     end
@@ -87,10 +87,10 @@ using Oscar  # For PadicField
         c3 = canonical_center(p3)
         c4 = canonical_center(p4)
 
-        println("  p1: center=$(NAML.center(p1)[1]), radius=-1, canonical=$c1")
-        println("  p2: center=$(NAML.center(p2)[1]), radius=-1, canonical=$c2")
-        println("  p3: center=$(NAML.center(p3)[1]), radius=-1, canonical=$c3")
-        println("  p4: center=$(NAML.center(p4)[1]), radius=-1, canonical=$c4")
+        println("  p1: center=$(NonArchimedeanMachineLearning.center(p1)[1]), radius=-1, canonical=$c1")
+        println("  p2: center=$(NonArchimedeanMachineLearning.center(p2)[1]), radius=-1, canonical=$c2")
+        println("  p3: center=$(NonArchimedeanMachineLearning.center(p3)[1]), radius=-1, canonical=$c3")
+        println("  p4: center=$(NonArchimedeanMachineLearning.center(p4)[1]), radius=-1, canonical=$c4")
 
         println("  p1 == p2? $(p1 == p2)")
         println("  p1 == p3? $(p1 == p3)")
@@ -122,8 +122,8 @@ using Oscar  # For PadicField
         c1 = canonical_center(p1)
         c2 = canonical_center(p2)
 
-        println("  p1: center=$(NAML.center(p1)[1]), radius=-2, canonical=$c1")
-        println("  p2: center=$(NAML.center(p2)[1]), radius=-2, canonical=$c2")
+        println("  p1: center=$(NonArchimedeanMachineLearning.center(p1)[1]), radius=-2, canonical=$c1")
+        println("  p2: center=$(NonArchimedeanMachineLearning.center(p2)[1]), radius=-2, canonical=$c2")
         println("  p1 == p2? $(p1 == p2)")
 
         @test p1 == p2
@@ -216,8 +216,8 @@ using Oscar  # For PadicField
                 for j in i+1:length(group)
                     if !(group[i] == group[j])
                         println("  ERROR: Hash collision between non-equal polydiscs!")
-                        println("    p1: center=$(NAML.center(group[i])[1]), radius=$(NAML.radius(group[i])[1])")
-                        println("    p2: center=$(NAML.center(group[j])[1]), radius=$(NAML.radius(group[j])[1])")
+                        println("    p1: center=$(NonArchimedeanMachineLearning.center(group[i])[1]), radius=$(NonArchimedeanMachineLearning.radius(group[i])[1])")
+                        println("    p2: center=$(NonArchimedeanMachineLearning.center(group[j])[1]), radius=$(NonArchimedeanMachineLearning.radius(group[j])[1])")
                         println("    canonical_center(p1): $(canonical_center(group[i]))")
                         println("    canonical_center(p2): $(canonical_center(group[j]))")
                         println("    hash: $h")
