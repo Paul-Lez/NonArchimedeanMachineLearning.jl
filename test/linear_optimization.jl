@@ -28,8 +28,7 @@ using NonArchimedeanMachineLearning
         optim = greedy_descent_init(param0, loss, 1, (false, 1))
         initial_loss = eval_loss(optim)
         for _ in 1:n_steps
-            ;
-            step!(optim);
+            step!(optim)
         end
         final_loss = eval_loss(optim)
 
@@ -47,8 +46,7 @@ using NonArchimedeanMachineLearning
         optim = mcts_descent_init(param0, loss, config)
         initial_loss = eval_loss(optim)
         for _ in 1:n_steps
-            ;
-            step!(optim);
+            step!(optim)
         end
         final_loss = eval_loss(optim)
 
@@ -65,8 +63,7 @@ using NonArchimedeanMachineLearning
         optim = greedy_descent_init(param0, loss, 1, (false, 1))
         initial_loss = eval_loss(optim)
         for _ in 1:n_steps
-            ;
-            step!(optim);
+            step!(optim)
         end
         final_loss = eval_loss(optim)
 
@@ -84,8 +81,7 @@ using NonArchimedeanMachineLearning
         optim = mcts_descent_init(param0, loss, config)
         initial_loss = eval_loss(optim)
         for _ in 1:n_steps
-            ;
-            step!(optim);
+            step!(optim)
         end
         final_loss = eval_loss(optim)
 

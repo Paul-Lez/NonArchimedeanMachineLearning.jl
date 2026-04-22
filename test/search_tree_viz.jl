@@ -69,8 +69,7 @@ end
         config = MCTSConfig(num_simulations = 30, persist_tree = false)
         optim = mcts_descent_init(param, loss, config)
         for _ in 1:3
-            ;
-            step!(optim);
+            step!(optim)
         end
 
         root = optim.state.root
