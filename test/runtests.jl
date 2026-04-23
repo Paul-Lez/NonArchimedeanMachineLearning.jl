@@ -14,6 +14,7 @@ using NonArchimedeanMachineLearning
         include("polydisc.jl")
         include("tangent_vector.jl")
         include("functions.jl")
+        include("test_canonical_center.jl")
         include("test_typed_evaluators.jl")
         include("test_typed_gradient_evaluators.jl")
     end
@@ -29,11 +30,13 @@ using NonArchimedeanMachineLearning
     end
 
     @testset "Tree Search Algorithms" begin
+        include("test_doo.jl")
         include("dag_mcts.jl")
         include("tree_search_algorithms.jl")
     end
 
     @testset "Visualization" begin
+        include("geodesic.jl")
         include("search_tree_viz.jl")
     end
 end
