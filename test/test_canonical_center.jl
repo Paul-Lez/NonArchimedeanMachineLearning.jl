@@ -1,6 +1,5 @@
 using Test
-include("../src/NonArchimedeanMachineLearning.jl")
-using .NonArchimedeanMachineLearning
+using NonArchimedeanMachineLearning
 using Oscar  # For PadicField
 
 @testset "canonical_center with negative radius" begin
