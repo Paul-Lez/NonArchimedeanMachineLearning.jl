@@ -31,6 +31,7 @@ using NonArchimedeanMachineLearning
 
     @testset "Tree Search Algorithms" begin
         include("test_doo.jl")
+        include("mcts.jl")
         include("dag_mcts.jl")
         include("tree_search_algorithms.jl")
     end
