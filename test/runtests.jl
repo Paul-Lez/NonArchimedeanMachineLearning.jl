@@ -24,6 +24,7 @@ using NonArchimedeanMachineLearning
     end
 
     @testset "Optimization" begin
+        include("optim_setup.jl")
         include("gradient_descent.jl")
         include("polynomial_learning.jl")
         include("convergence.jl")
