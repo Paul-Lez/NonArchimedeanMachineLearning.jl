@@ -1,6 +1,6 @@
-########### Greedy descent algorithm ###########
-
-# In this section we implement greedy descent algorithms
+"""
+Greedy local descent optimizer over the children of the current polydisc.
+"""
 
 @doc raw"""
     greedy_descent(loss::Loss, param::ValuationPolydisc{S,T,N}, next_branch::Int, settings::Tuple{Bool,Int}) where {S,T,N}

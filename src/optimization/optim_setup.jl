@@ -1,16 +1,24 @@
-###### THIS SECTIONS DEFINES THE DATA TYPES NEEDED FOR DOING OPTIMISATION AND PROVIDES SOME BASIC API #####
+"""
+Loss and optimizer state containers together with the core optimization loop
+API.
+"""
 
 @doc raw"""
-    Loss
+    Loss{F1,F2}
 
-A loss function structure for optimization.
+A batch-oriented loss function structure for optimization.
 
-Wraps both an evaluation function and a gradient function. Both functions should be
-closures that capture any necessary data (e.g., training data).
+Wraps both an evaluation function and a gradient function. Both functions should
+be closures that capture any necessary data (for example training data) and
+operate on batches.
 
 # Fields
-- `eval::Function`: Function to evaluate the loss, signature: `(param) -> scalar`
-- `grad::Function`: Function to compute gradient, signature: `(tangent_vector) -> scalar`
+- `eval::F1`: Function with signature `(params) -> values`, where `params` is a
+  collection of parameter polydiscs and `values` is the corresponding collection
+  of loss values
+- `grad::F2`: Function with signature `(tangents) -> values`, where `tangents`
+  is a collection of tangent vectors and `values` is the corresponding collection
+  of directional derivatives
 """
 struct Loss{F1, F2}
     eval::F1
@@ -29,7 +37,7 @@ end
 # "get_param!" available.  
 
 @doc raw"""
-    OptimSetup{S,T,N,U,V}
+    OptimSetup{S,T,N,U,V,L,O}
 
 Complete optimization setup containing loss, parameters, optimizer, and state.
 
@@ -37,11 +45,14 @@ Mutable structure that captures everything needed for optimization. The loss fun
 should have data baked in as a closure.
 
 # Fields
-- `loss::Loss`: Loss function (closure over data) with `eval: (param) -> scalar` and `grad: (tangent) -> scalar`
+- `loss::L`: Loss function (closure over data) with a batch evaluation method and
+  a batch directional-derivative method
 - `param::ValuationPolydisc{S,T,N}`: Current parameter values (mutable during optimization)
-- `optimiser::Function`: Optimizer function `(loss, param, state, context) -> (new_param, new_state, converged)`
+- `optimiser::O`: Optimizer function
+  `(loss, param, state, context) -> (new_param, new_state, converged)`
 - `state::U`: Optimization state (e.g., previous steps, momentum, etc.)
 - `context::V`: Optimizer settings (e.g., learning rate, degree, etc.)
+- `converged::Bool`: Whether the optimizer has converged
 
 # Type Parameters
 - `S`: Coefficient type (typically p-adic numbers)
@@ -49,6 +60,8 @@ should have data baked in as a closure.
 - `N`: Dimension of parameter space
 - `U`: State type
 - `V`: Context type
+- `L`: Concrete loss type
+- `O`: Concrete optimizer callable type
 """
 mutable struct OptimSetup{S, T, N, U, V, L <: Loss, O}
     # The loss function (should be a closure over any data)
@@ -89,12 +102,12 @@ function eval_loss(optim::OptimSetup)
 end
 
 @doc raw"""
-    update_param!(optim::OptimSetup{S,T,N,U,V}, param::ValuationPolydisc{S,T,N}) where {S,T,N,U,V}
+    update_param!(optim::OptimSetup{S,T,N,U,V,L,O}, param::ValuationPolydisc{S,T,N}) where {S,T,N,U,V,L,O}
 
 Update the parameter values in the optimization setup.
 
 # Arguments
-- `optim::OptimSetup{S,T,N,U,V}`: The optimization setup
+- `optim::OptimSetup{S,T,N,U,V,L,O}`: The optimization setup
 - `param::ValuationPolydisc{S,T,N}`: New parameter values
 
 # Notes
@@ -108,12 +121,12 @@ function update_param!(
 end
 
 @doc raw"""
-    update_state!(optim::OptimSetup{S,T,N,U,V}, state::U) where {S,T,N,U,V}
+    update_state!(optim::OptimSetup{S,T,N,U,V,L,O}, state::U) where {S,T,N,U,V,L,O}
 
 Update the optimizer state in the optimization setup.
 
 # Arguments
-- `optim::OptimSetup{S,T,N,U,V}`: The optimization setup
+- `optim::OptimSetup{S,T,N,U,V,L,O}`: The optimization setup
 - `state::U`: New state value
 
 # Notes

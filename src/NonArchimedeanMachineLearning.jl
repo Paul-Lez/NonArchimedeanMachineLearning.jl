@@ -1,3 +1,14 @@
+"""
+    NonArchimedeanMachineLearning
+
+Tools for optimization over non-Archimedean fields, with a focus on p-adic
+polydiscs and tree-based search methods.
+
+The package provides core geometric data structures, compositional objective
+functions, model and loss helpers, optimizers ranging from greedy descent to
+MCTS-style methods, and visualization utilities for search trees and loss
+landscapes.
+"""
 module NonArchimedeanMachineLearning
 
 using Oscar

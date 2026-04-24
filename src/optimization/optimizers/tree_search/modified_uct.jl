@@ -1,9 +1,7 @@
-########### Modified UCT (Depth-Dependent Confidence Bounds) Optimizer ###########
-
-# This file implements a modified UCT optimizer with depth-dependent confidence bounds.
-# Unlike standard UCT, this algorithm uses confidence intervals that increase with
-# the depth horizon (D-d), forcing more exploration at shallow nodes to avoid getting
-# stuck in sub-optimal branches.
+"""
+Modified UCT variant with depth-dependent confidence bounds for valuation-polydisc
+search.
+"""
 
 ##################################################
 # Modified UCT Node Structure

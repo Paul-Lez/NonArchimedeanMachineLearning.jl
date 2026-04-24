@@ -1,11 +1,10 @@
-########### Random descent algorithm (Baseline) ###########
+"""
+Baseline random descent optimizer for experimental comparison against structured
+search methods.
 
-# IMPORTANT: This optimizer exists ONLY for experimental/baseline comparison purposes.
-# It demonstrates worst-case random behavior to show that structured algorithms
-# (like greedy descent or MCTS) perform significantly better than random exploration.
-#
-# This optimizer randomly selects a child at each step without considering loss values.
-# Expected to perform poorly - serves as a lower bound for algorithm performance.
+This optimizer deliberately ignores loss values when selecting children, so it
+serves as a lower-bound baseline rather than a recommended optimization method.
+"""
 
 @doc raw"""
     random_descent(loss::Loss, param::ValuationPolydisc{S,T,N}, state::Int, settings::Tuple{Bool,Int}) where {S,T,N}
