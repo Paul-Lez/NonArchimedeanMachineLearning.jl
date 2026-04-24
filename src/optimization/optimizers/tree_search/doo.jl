@@ -26,16 +26,16 @@ Differences from HOO:
 # Currently using O(N) scan through leaves vector
 
 """
-    DOONode{S,T}
+    DOONode{S,T,N}
 
 Node in the DOO (Deterministic Optimistic Optimization) tree.
 
 Fields:
-- `polydisc::ValuationPolydisc{S,T}`: Region represented by this node
+- `polydisc::ValuationPolydisc{S,T,N}`: Region represented by this node
 - `depth::Int`: Depth in tree (root has depth 0)
 - `position::Int`: Position index among siblings
-- `parent::Union{DOONode{S,T}, Nothing}`: Parent node reference
-- `children::Vector{DOONode{S,T}}`: Expanded children
+- `parent::Union{DOONode{S,T,N}, Nothing}`: Parent node reference
+- `children::Vector{DOONode{S,T,N}}`: Expanded children
 - `value::Union{Float64, Nothing}`: Evaluated function value (after value_transform)
 - `is_expanded::Bool`: Whether node has been expanded
 """
@@ -94,16 +94,16 @@ struct DOOConfig
 end
 
 """
-    DOOState{S,T}
+    DOOState{S,T,N}
 
 State for DOO optimization.
 
 Fields:
-- `root::DOONode{S,T}`: Root of search tree
+- `root::DOONode{S,T,N}`: Root of search tree
 - `total_samples::Int`: Total function evaluations performed
 - `next_branch::Int`: Branch index for strict mode
 - `step_count::Int`: Number of optimization steps taken
-- `leaves::Vector{DOONode{S,T}}`: Vector of unexpanded leaf nodes
+- `leaves::Vector{DOONode{S,T,N}}`: Vector of unexpanded leaf nodes
 
 Note: leaves vector currently requires O(N) scan to find maximum b-value.
 TODO: Replace with PriorityQueue from DataStructures.jl for O(log N) performance.
@@ -231,8 +231,8 @@ function expand_node!(node::DOONode{S,T,N}, loss::Loss, config::DOOConfig,
 end
 
 """
-    doo_descent(loss::Loss, param::ValuationPolydisc{S,T},
-                state::DOOState{S,T}, config::DOOConfig) where {S,T}
+    doo_descent(loss::Loss, param::ValuationPolydisc{S,T,N},
+                state::DOOState{S,T,N}, config::DOOConfig) where {S,T,N}
 
 Perform one step of DOO optimization.
 

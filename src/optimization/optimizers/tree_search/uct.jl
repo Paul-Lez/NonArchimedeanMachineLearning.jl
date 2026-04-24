@@ -1,8 +1,7 @@
-########### UCT (Upper Confidence Bounds applied to Trees) Optimizer ###########
-
-# This file implements UCT optimization for non-Archimedean spaces.
-# UCT is a bandit-based tree search algorithm that balances exploration and
-# exploitation using upper confidence bounds derived from parent visit counts.
+"""
+Upper Confidence bounds applied to Trees (UCT) optimizer for valuation-polydisc
+search.
+"""
 
 ##################################################
 # UCT Node Structure

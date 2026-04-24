@@ -1,4 +1,7 @@
-## This file contains the basic of functions on the polydisc space and their calculus
+"""
+Core function types, evaluators, and differential calculus on valuation
+polydiscs.
+"""
 
 @doc raw"""
     PolydiscFunction{S}

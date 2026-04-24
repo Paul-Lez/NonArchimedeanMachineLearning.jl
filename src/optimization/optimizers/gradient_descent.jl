@@ -1,6 +1,6 @@
-########### Gradient descent optimiser #########
-
-# In this section we implement the tools necessary for gradient descent, and the gradient descent algorithm
+"""
+Gradient-based descent routines for valuation-polydisc parameters.
+"""
 
 @doc raw"""
     gradient_param(m::AbstractModel{S}, val::ValuationPolydisc{S,T,N1}, v::ValuationTangent{S,T,N2}) where {S,T,N1,N2}

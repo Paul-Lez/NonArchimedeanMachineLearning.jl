@@ -1,6 +1,6 @@
-########### Search Tree Visualization with D3Trees ###########
-
-# Interactive visualization of NonArchimedeanMachineLearning tree search optimizer states using D3Trees.jl.
+"""
+Interactive D3-based visualizations for tree-search and DAG optimizer states.
+"""
 
 using D3Trees
 
@@ -219,7 +219,7 @@ A `D3Tree` object. Displays interactively in Jupyter/VSCode, or use `inbrowser(t
 # Examples
 ```julia
 # After running MCTS optimization
-optim = mcts_descent_init(param, loss, 1, config)
+optim = mcts_descent_init(param, loss, config)
 for i in 1:50; step!(optim); end
 
 tree = visualize_search_tree(optim)

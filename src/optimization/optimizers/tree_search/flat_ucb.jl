@@ -1,8 +1,7 @@
-########### Flat UCB (Flat Upper Confidence Bounds) Optimizer ###########
-
-# This file implements Flat UCB optimization for non-Archimedean spaces.
-# Flat UCB applies standard UCB directly to leaves. Internal nodes propagate
-# the maximum B-value from their children in a bottom-up manner.
+"""
+Flat UCB optimizer that scores leaves directly in the valuation-polydisc search
+tree.
+"""
 
 ##################################################
 # Flat UCB Node Structure

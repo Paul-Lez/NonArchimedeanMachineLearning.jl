@@ -1,8 +1,6 @@
-########### Monte Carlo Tree Search (MCTS) Optimizer ###########
-
-# This file implements MCTS-based optimization for non-Archimedean spaces.
-# The key idea is to use MCTS to explore the tree of polydiscs and find
-# the one that minimizes the loss function.
+"""
+Monte Carlo Tree Search optimizer for non-Archimedean polydisc search spaces.
+"""
 
 ##################################################
 # MCTS Node Structure
@@ -99,8 +97,10 @@ Configuration parameters for the MCTS optimizer.
 - `max_children::Union{Int, Nothing}`: Maximum number of children to consider per expansion (nothing = all)
 - `strict::Bool`: If true, use single-branch descent; if false, use full children
 - `value_transform::Function`: Transform from loss to value (default: sigmoid_transform())
-- `selection_mode::SelectionMode`: Strategy for selecting next step (VisitCount or BestValue)
-- `persist_tree::Bool`: If true, reuse the subtree rooted at the best child across steps (default: false)
+- `selection_mode::SelectionMode`: Strategy for selecting the next step
+  (`VisitCount`, `BestValue`, or `BestLoss`)
+- `persist_tree::Bool`: If true, reuse the subtree rooted at the selected child
+  across steps (default: true)
 """
 struct MCTSConfig
     num_simulations::Int
@@ -125,8 +125,9 @@ Create an MCTS configuration with sensible defaults.
 - `max_children::Union{Int, Nothing}=nothing`: Max children to consider (nothing = all)
 - `strict::Bool=false`: Whether to use single-branch descent
 - `value_transform::Function=sigmoid_transform()`: Loss to value transformation (see `sigmoid_transform`, `tanh_transform`, `negation_transform`)
-- `selection_mode::SelectionMode=VisitCount`: Child selection strategy (VisitCount or BestValue)
-- `persist_tree::Bool=false`: If true, reuse subtree across optimization steps
+- `selection_mode::SelectionMode=VisitCount`: Child selection strategy
+  (`VisitCount`, `BestValue`, or `BestLoss`)
+- `persist_tree::Bool=true`: If true, reuse subtree across optimization steps
 """
 function MCTSConfig(;
     num_simulations::Int=100,

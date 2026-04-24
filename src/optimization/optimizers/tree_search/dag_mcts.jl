@@ -1,14 +1,7 @@
-########### DAG-MCTS (Monte Carlo Tree Search with Transposition Tables) ###########
-
-# This file implements MCTS adapted for Directed Acyclic Graphs (DAGs) using
-# a global transposition table. This is essential for polydisc optimization where
-# multiple sequences of coordinate refinements can lead to the same polydisc.
-#
-# Key differences from standard MCTS (mcts.jl):
-# 1. Nodes do NOT have a single parent pointer - they can have multiple parents
-# 2. A global transposition table maps polydisc state -> node instance
-# 3. Backpropagation uses an explicit path stack instead of parent pointers
-# 4. UCT formula uses global statistics from the shared node
+"""
+DAG-aware Monte Carlo Tree Search with a transposition table for shared
+polydisc states.
+"""
 
 ##################################################
 # DAG-MCTS Node Structure
@@ -96,8 +89,10 @@ Configuration parameters for the DAG-MCTS optimizer.
 - `exploration_constant::Float64`: UCT exploration constant c (usually √2 ≈ 1.41)
 - `degree::Int`: Degree for child polydisc generation (passed to `children` function)
 - `value_transform::Function`: Transform from loss to value (default: sigmoid_transform())
-- `persist_table::Bool`: Whether to persist transposition table across optimization steps
-- `selection_mode::SelectionMode`: Strategy for selecting next step (VisitCount or BestValue)
+- `persist_table::Bool`: Whether to persist the transposition table across optimization steps
+- `selection_mode::SelectionMode`: Strategy for selecting the next step
+  (`VisitCount`, `BestValue`, or `BestLoss`)
+- `track_parents::Bool`: Whether to retain parent pointers for debugging and verification
 
 # Design Decision (recorded for future experimentation)
 The `persist_table` option allows experimenting with:
@@ -129,7 +124,8 @@ Create a DAG-MCTS configuration with sensible defaults.
 - `degree::Int=1`: Child generation degree
 - `value_transform::Function=sigmoid_transform()`: Loss to value transformation (see `sigmoid_transform`, `tanh_transform`, `negation_transform`)
 - `persist_table::Bool=true`: Whether to persist transposition table across steps
-- `selection_mode::SelectionMode=VisitCount`: Child selection strategy (VisitCount or BestValue)
+- `selection_mode::SelectionMode=VisitCount`: Child selection strategy
+  (`VisitCount`, `BestValue`, or `BestLoss`)
 - `track_parents::Bool=false`: Whether to track parent pointers (needed for debug verification; off by default for performance)
 """
 function DAGMCTSConfig(;

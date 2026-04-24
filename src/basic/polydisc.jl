@@ -1,12 +1,10 @@
-################### POLYDISCS ###################
+"""
+Polydisc types and operations for non-Archimedean optimization.
 
-# This file sets up the basic structures and
-# API to work with polydiscs over the p-adics
-# Our convention is that the radius is always
-# measured wrt the valuation rather than the
-# absolute value.
-
-##################################################
+This file defines valuation-based polydiscs, auxiliary absolute-value polydiscs,
+and the basic geometry used throughout the package. Radii are measured in
+valuation coordinates unless stated otherwise.
+"""
 
 @doc raw"""
     ValuationPolydisc{S,T,N}
@@ -153,7 +151,7 @@ Extract the center point of a polydisc.
 - `p::ValuationPolydisc`: The polydisc
 
 # Returns
-`Vector{S}`: The center coordinates of the polydisc
+`NTuple{N,S}`: The center coordinates of the polydisc
 """
 function center(p::ValuationPolydisc)
     return p.center
@@ -168,7 +166,7 @@ Extract the radius vector of a polydisc.
 - `p::ValuationPolydisc`: The polydisc
 
 # Returns
-`Vector{T}`: The radius values (in valuation coordinates) for each dimension
+`NTuple{N,T}`: The radius values (in valuation coordinates) for each dimension
 """
 function radius(p::ValuationPolydisc)
     return p.radius

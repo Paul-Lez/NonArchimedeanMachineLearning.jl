@@ -1,10 +1,7 @@
-## This file contains various "standard" loss functions for non-Archimedean optimisation.
-##
-## Note: The Loss struct is defined in basic.jl
-## To specify a loss, one needs to provide a function to evaluate the loss
-## and a function to evaluate the gradient of the loss wrt parameters
-## (since we don't have any autodiff mechanism implemented yet!)
-## Both functions should be closures that capture any necessary data.
+"""
+Standard loss constructors built on the batch-oriented `Loss` interface used by
+the optimization layer.
+"""
 
 #################################################
 # Mean Squared Error (MSE) Loss Functions
