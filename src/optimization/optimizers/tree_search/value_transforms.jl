@@ -1,11 +1,7 @@
-##################################################
-# Value Transforms
-#
-# Functions that transform raw loss values into reward signals
-# for tree search optimizers (MCTS, DAG-MCTS, etc.).
-#
-# All transforms map loss → value where higher value = better.
-##################################################
+"""
+Loss-to-value transforms used by tree-search optimizers that maximize
+reward-style scores.
+"""
 
 @doc raw"""
     sigmoid_transform(; scale=1.0, center=0.0)

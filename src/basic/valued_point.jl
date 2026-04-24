@@ -1,23 +1,11 @@
-################### VALUED FIELD POINT WRAPPER ###################
+"""
+Wrapper type for valued-field elements that stores the prime and precision at
+the type level for faster polydisc operations.
 
-# This file provides a wrapper type that encodes field parameters
-# (prime, precision) at the type level for compile-time optimization.
-#
-# The motivation is that ValuationPolydisc{S,T,N} where S is a raw
-# PadicFieldElem doesn't know the prime at compile time. Hot-path
-# functions like children() call prime(p) at runtime (~100K calls
-# in some runs). By wrapping the element, we make P available to
-# the compiler.
-#
-# Usage:
-#   K = PadicField(2, 20)
-#   x = ValuedFieldPoint(K(1))  # Automatically extracts P=2, Prec=20
-#   prime(x)           # Returns 2 (compile-time constant)
-#   precision(x)       # Returns 20 (compile-time constant)
-#
-# The wrapper delegates arithmetic to the underlying Oscar type.
-
-####################################################################
+`ValuedFieldPoint` keeps the underlying scalar behavior while making field
+metadata available at compile time, which helps hot paths such as child
+generation avoid repeated runtime lookups.
+"""
 
 ## TODO: make this into a proper ring in the sense of AbstractAlgebra.jl.
 

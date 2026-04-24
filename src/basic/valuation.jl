@@ -1,16 +1,7 @@
-################### VALUATION AND ABSOLUTE VALUE ###################
-
-# This file provides generic implementations of valuation and absolute value
-# for p-adic numbers. By defining these functions here, we allow the codebase
-# to work with any type that implements them.
-#
-# For custom p-adic implementations, users should extend:
-# - valuation(a): returns the p-adic valuation of a
-# - Base.abs(a): returns the p-adic absolute value |a|_p = p^(-v(a))
-#
-# The prime p is extracted from the parent ring via Nemo.prime(a.parent).
-
-####################################################################
+"""
+Generic valuation, absolute-value, and unit interfaces for p-adic-style scalar
+types used throughout the package.
+"""
 
 @doc raw"""
     valuation(a::padic)

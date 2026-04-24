@@ -1,5 +1,6 @@
-# This file provides tools for computing the Frechet mean
-# of a set X = {p1, ..., pm} of n-polydiscs.
+"""
+Frechet mean routines for valued points and valuation polydiscs.
+"""
 
 @doc raw"""
     frechet_mean(X::Vector{Vector{PadicFieldElem}})

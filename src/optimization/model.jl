@@ -1,3 +1,8 @@
+"""
+Model structures and helpers for separating data variables from optimizable
+parameters.
+"""
+
 @doc raw"""
     AbstractModel{S}
 
@@ -33,7 +38,7 @@ struct AbstractModel{S}
 end
 
 @doc raw"""
-    Model{S,T,N}
+    Model{FS,PS,T,N}
 
 A complete model with specified parameter values.
 
@@ -41,11 +46,12 @@ Combines an abstract model (function and parameter mapping) with concrete curren
 values. The structure is mutable to allow parameters to be updated during optimization.
 
 # Fields
-- `fun::AbstractModel{S}`: The abstract model encoding the function structure and parameter layout
-- `param::ValuationPolydisc{S,T,N}`: The current parameter values in polydisc space
+- `fun::AbstractModel{FS}`: The abstract model encoding the function structure and parameter layout
+- `param::ValuationPolydisc{PS,T,N}`: The current parameter values in polydisc space
 
 # Type Parameters
-- `S`: The coefficient type (typically p-adic numbers)
+- `FS`: The scalar type expected by the underlying function
+- `PS`: The scalar type stored in the parameter polydisc
 - `T`: The type for radius/valuation values (typically `Int`)
 - `N`: The dimension of the parameter space
 

@@ -1,3 +1,6 @@
+"""
+Least-squares loss builders for linear models over non-Archimedean data.
+"""
 
 @doc raw"""
     make_ordinary_least_squares_loss(data::Vector{Tuple{Vector{S}, Vector{T}}})::Loss where {S, T}

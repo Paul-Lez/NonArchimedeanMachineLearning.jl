@@ -1,8 +1,7 @@
-########### Hierarchical Optimistic Optimization (HOO) ###########
-
-# This file implements the HOO algorithm from "X-Armed Bandits" by Bubeck et al. (2011).
-# HOO is a tree-based global optimization algorithm that maintains optimistic upper bounds
-# to balance exploration and exploitation in a hierarchical search space.
+"""
+Hierarchical Optimistic Optimization (HOO) for global search over valuation
+polydiscs.
+"""
 
 ##################################################
 # HOO Node Structure

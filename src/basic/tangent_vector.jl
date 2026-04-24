@@ -1,5 +1,6 @@
-## This file will contain the code for tangent vectors
-## Note: polydisc.jl is included by the main NonArchimedeanMachineLearning module before this file
+"""
+Tangent-vector utilities for directions in valuation-polydisc parameter spaces.
+"""
 
 @doc raw"""
     ValuationTangent{S, T, N}
@@ -11,7 +12,7 @@ this allows the tangent to have non-unit magnitude for each coordinate.
 
 # Fields
 - `point::ValuationPolydisc{S, T, N}`: The basepoint of the tangent vector
-- `direction::Vector{S}`: The direction vector in p-adic space
+- `direction::ValuationPolydisc{S, T, N}`: The target polydisc that determines the tangent direction
 - `magnitude::Vector{T}`: The magnitude of the tangent vector in each coordinate
 
 # Type Parameters
@@ -43,13 +44,13 @@ function dim(v::ValuationTangent)
 end
 
 @doc raw"""
-    zero(P::ValuationPolydisc{S, T, N}, Q::Vector{S}) where {S,T,N}
+    zero(P::ValuationPolydisc{S, T, N}, Q::ValuationPolydisc{S, T, N}) where {S,T,N}
 
 Create the zero tangent vector at a polydisc pointing in a specified direction.
 
 # Arguments
 - `P::ValuationPolydisc{S, T, N}`: The basepoint polydisc
-- `Q::Vector{S}`: The direction vector
+- `Q::ValuationPolydisc{S, T, N}`: The polydisc determining the tangent direction
 
 # Returns
 `ValuationTangent{S, T, N}`: Zero tangent vector at `P` in direction of segment `[P, Q]`
@@ -74,13 +75,13 @@ function zero(v::ValuationTangent{S, T, N}) where {S, T, N}
 end
 
 @doc raw"""
-    basis_vector(P::ValuationPolydisc{S, T, N}, Q::Vector{S}, i) where {S,T,N}
+    basis_vector(P::ValuationPolydisc{S, T, N}, Q::ValuationPolydisc{S, T, N}, i) where {S,T,N}
 
 Create the i-th standard basis tangent vector.
 
 # Arguments
 - `P::ValuationPolydisc{S, T, N}`: The basepoint polydisc
-- `Q::Vector{S}`: The direction vector
+- `Q::ValuationPolydisc{S, T, N}`: The polydisc determining the tangent direction
 - `i`: The coordinate index for the basis vector
 
 # Returns

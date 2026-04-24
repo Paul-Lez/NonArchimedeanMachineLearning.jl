@@ -2,7 +2,7 @@
 
 This module provides tools for visualizing loss landscapes on polydisc parameter spaces in non-Archimedean machine learning.
 
-For now this just works for dimension 1: in higher dimensions the pictures looks weird.
+For now this just works for dimension 1.
 
 ## Overview
 
