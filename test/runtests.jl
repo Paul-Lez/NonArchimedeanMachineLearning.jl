@@ -1,7 +1,7 @@
 # Main test runner for NonArchimedeanMachineLearning package
 #
 # This file is the entry point for the test suite. It can be run with:
-#   julia --project test/runtests.jl
+#   julia --project=. test/runtests.jl
 # or via Pkg.test():
 #   using Pkg; Pkg.test("NonArchimedeanMachineLearning")
 

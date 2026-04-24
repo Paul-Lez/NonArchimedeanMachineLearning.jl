@@ -1,6 +1,8 @@
 using Test
 using Oscar
-using NAML
+using NonArchimedeanMachineLearning
+
+const NAML = NonArchimedeanMachineLearning
 
 function square_loss(K)
     _, x = polynomial_ring(K, ["x"])
