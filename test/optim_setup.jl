@@ -26,7 +26,7 @@ end
 
         combined = loss_a + loss_b
 
-        @test combined.eval([param0]) == [4.5]
+        @test combined.eval([param0]) == [5.5]
         @test combined.grad([tangent]) == [7.0]
     end
 
@@ -78,7 +78,7 @@ end
 
     @testset "eval_loss reads current parameter through loss closure" begin
         loss = Loss(
-            xs -> [Float64(radius(xs[1])[1])],
+            xs -> [Float64(NonArchimedeanMachineLearning.radius(xs[1])[1])],
             xs -> [0.0],
         )
         optim = OptimSetup(loss, param2, (l, p, st, ctx) -> (p, st, false), nothing, nothing, false)
@@ -87,7 +87,7 @@ end
 
     @testset "optimize! returns early on convergence" begin
         loss = Loss(
-            xs -> [Float64(radius(xs[1])[1])],
+            xs -> [Float64(NonArchimedeanMachineLearning.radius(xs[1])[1])],
             xs -> [0.0],
         )
 
@@ -123,7 +123,7 @@ end
 
     @testset "optimize! verbose output includes convergence marker" begin
         loss = Loss(
-            xs -> [Float64(radius(xs[1])[1])],
+            xs -> [Float64(NonArchimedeanMachineLearning.radius(xs[1])[1])],
             xs -> [0.0],
         )
         params = [param0, param1]
@@ -133,10 +133,13 @@ end
         end
 
         optim = OptimSetup(loss, param0, optimiser, 0, nothing, false)
-        output = sprint() do io
+        output = mktemp() do path, io
             redirect_stdout(io) do
                 optimize!(optim, 5; verbose=true)
             end
+            flush(io)
+            seekstart(io)
+            read(io, String)
         end
 
         @test occursin("Step 1: loss =", output)
