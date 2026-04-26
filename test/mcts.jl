@@ -102,7 +102,7 @@ end
 
         first_child.is_solved = true
         first_child.proven_value = 10.0
-        @test NAML.select_path(root, 1.0) === second_child
+        @test NAML.select_path(root, 1.0) === first_child
 
         root.is_solved = true
         @test NAML.select_path(root, 1.0) === root
@@ -169,6 +169,9 @@ end
         child_b.total_value = 4.0
         child_b.min_loss = 4.0
 
+        root.visits = child_a.visits + child_b.visits
+        root.min_loss = min(child_a.min_loss, child_b.min_loss)
+
         grandchild_b = MCTSNode(ValuationPolydisc([K(1)], [2]), child_b)
         grandchild_b.visits = 3
         grandchild_b.total_value = 9.0
@@ -213,7 +216,7 @@ end
         end
 
         @test converged
-        @test all(r -> r == 3, radius(optim.param))
+        @test all(r -> r == 3, NonArchimedeanMachineLearning.radius(optim.param))
         @test isempty(children(optim.param, 1))
     end
 
