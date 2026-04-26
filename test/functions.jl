@@ -7,6 +7,16 @@ using Test
 using Oscar
 using NonArchimedeanMachineLearning
 
+function unwrap_polydisc(p)
+    centers = [NonArchimedeanMachineLearning.unwrap(c)
+               for c in NonArchimedeanMachineLearning.center(p)]
+    radii = collect(NonArchimedeanMachineLearning.radius(p))
+    return ValuationPolydisc{eltype(centers), eltype(radii), length(centers)}(
+        tuple(centers...),
+        tuple(radii...),
+    )
+end
+
 @testset "Polynomial Functions" begin
     # Set up synthetic data
     prec = 20
@@ -185,7 +195,8 @@ end
         ]
 
         for p in test_points
-            @test evaluate(abs_poly_sum, p) ≈ evaluate(lin_poly_sum, p) atol = 1e-10
+            @test NonArchimedeanMachineLearning.evaluate(abs_poly_sum, p) ≈
+                  NonArchimedeanMachineLearning.evaluate(lin_poly_sum, p) atol = 1e-10
         end
     end
 
@@ -206,7 +217,8 @@ end
 
         for f in polynomials
             for p in test_points
-                @test evaluate_abs(f, p) ≈ evaluate(AbsolutePolynomialSum([f]), p)
+                @test NonArchimedeanMachineLearning.evaluate(f, unwrap_polydisc(p)) ≈
+                      NonArchimedeanMachineLearning.evaluate(AbsolutePolynomialSum([f]), p)
             end
         end
     end
@@ -224,7 +236,8 @@ end
 
         for (center, radius) in test_points
             p = ValuationPolydisc(center, radius)
-            @test evaluate_abs(f_mv, p) ≈ evaluate(f_lin, p) atol = 1e-10
+            @test NonArchimedeanMachineLearning.evaluate(f_mv, unwrap_polydisc(p)) ≈
+                  NonArchimedeanMachineLearning.evaluate(f_lin, unwrap_polydisc(p)) atol = 1e-10
         end
     end
 end
@@ -236,9 +249,6 @@ end
 
     @testset "LinearPolynomial batch evaluator matches regular evaluation" begin
         poly = LinearPolynomial([K(1), K(1)], K(1))
-        batch_eval = batch_evaluate_init(poly)
-
-        @test batch_eval isa Function
 
         test_points = [
             ValuationPolydisc([K(0), K(0)], [0, 0]),
@@ -247,7 +257,9 @@ end
         ]
 
         for p in test_points
-            @test batch_eval(p) ≈ evaluate(poly, p) atol = 1e-10
+            batch_eval = batch_evaluate_init(poly, typeof(p))
+            @test batch_eval(p) ≈
+                  NonArchimedeanMachineLearning.evaluate(poly, unwrap_polydisc(p)) atol = 1e-10
         end
     end
 
@@ -255,7 +267,6 @@ end
         f1 = x + 1
         f2 = y + 2
         abs_sum = AbsolutePolynomialSum([f1, f2])
-        batch_eval = batch_evaluate_init(abs_sum)
 
         test_points = [
             ValuationPolydisc([K(0), K(0)], [0, 0]),
@@ -264,7 +275,8 @@ end
         ]
 
         for p in test_points
-            @test batch_eval(p) ≈ evaluate(abs_sum, p) atol = 1e-10
+            batch_eval = batch_evaluate_init(abs_sum, typeof(p))
+            @test batch_eval(p) ≈ NonArchimedeanMachineLearning.evaluate(abs_sum, p) atol = 1e-10
         end
     end
 
@@ -283,9 +295,10 @@ end
         ]
 
         for f in polynomials
-            batch_eval = batch_evaluate_init(f)
             for p in test_points
-                @test batch_eval(p) ≈ evaluate_abs(f, p) atol = 1e-10
+                batch_eval = batch_evaluate_init(f, typeof(p))
+                @test batch_eval(p) ≈
+                      NonArchimedeanMachineLearning.evaluate(f, unwrap_polydisc(p)) atol = 1e-10
             end
         end
     end
@@ -297,11 +310,11 @@ end
             LinearPolynomial([K(1), K(1)], K(2)),
         ]
         lin_sum = LinearAbsolutePolynomialSum(polys)
-        batch_eval = batch_evaluate_init(lin_sum)
 
         for i in 1:5
             p = ValuationPolydisc([K(i), K(i)], [0, 0])
-            @test batch_eval(p) ≈ evaluate(lin_sum, p) atol = 1e-10
+            batch_eval = batch_evaluate_init(lin_sum, typeof(p))
+            @test batch_eval(p) ≈ NonArchimedeanMachineLearning.evaluate(lin_sum, p) atol = 1e-10
         end
     end
 end
@@ -318,7 +331,7 @@ end
     p_r1 = ValuationPolydisc([K(0), K(0)], [1, 0])
     p_r2 = ValuationPolydisc([K(0), K(0)], [2, 0])
 
-    @test evaluate(abs_sum, p_r0) ≈ 0.25
-    @test evaluate(abs_sum, p_r1) ≈ 0.125
-    @test evaluate(abs_sum, p_r2) ≈ 0.0625
+    @test NonArchimedeanMachineLearning.evaluate(abs_sum, p_r0) ≈ 0.25
+    @test NonArchimedeanMachineLearning.evaluate(abs_sum, p_r1) ≈ 0.125
+    @test NonArchimedeanMachineLearning.evaluate(abs_sum, p_r2) ≈ 0.0625
 end
