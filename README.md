@@ -1,8 +1,8 @@
 # NonArchimedeanMachineLearning — Non-Archimedean Optimisation (and a bit of ML)
 
-[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://Paul-Lez.github.io/NAMLOptimization.jl/dev/)
-[![Build Status](https://github.com/Paul-Lez/NAMLOptimization.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Paul-Lez/NAMLOptimization.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Codecov](https://codecov.io/gh/Paul-Lez/NAMLOptimization.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/Paul-Lez/NAMLOptimization.jl)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://Paul-Lez.github.io/NonArchimedeanMachineLearning.jl/dev/)
+[![Build Status](https://github.com/Paul-Lez/NonArchimedeanMachineLearning.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Paul-Lez/NonArchimedeanMachineLearning.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Codecov](https://codecov.io/gh/Paul-Lez/NonArchimedeanMachineLearning.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/Paul-Lez/NonArchimedeanMachineLearning.jl)
 
 NonArchimedeanMachineLearning is a Julia package for optimization over non-Archimedean fields. It provides tools to define objective functions on p-adic polydiscs and minimize them using a range of optimizers, from greedy descent to tree-search methods (MCTS, DOO, plus other experimental implementations).
 
@@ -12,14 +12,14 @@ NonArchimedeanMachineLearning depends on [Oscar.jl](https://github.com/oscar-sys
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/Paul-Lez/NAMLOptimization.jl")
+Pkg.add(url="https://github.com/Paul-Lez/NonArchimedeanMachineLearning.jl")
 ```
 
 Or clone the repository and activate the project locally:
 
 ```bash
-git clone https://github.com/Paul-Lez/NAMLOptimization.jl.git
-cd NAMLOptimization.jl
+git clone https://github.com/Paul-Lez/NonArchimedeanMachineLearning.jl.git
+cd NonArchimedeanMachineLearning.jl
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ```
 
@@ -74,7 +74,7 @@ See [demos/](demos/) for complete runnable scripts.
 
 ## Documentation
 
-Full documentation is available at **[paul-lez.github.io/NAMLOptimization.jl/dev/](https://Paul-Lez.github.io/NAMLOptimization.jl/dev/)**.
+Full documentation is available at **[paul-lez.github.io/NonArchimedeanMachineLearning.jl/dev/](https://Paul-Lez.github.io/NonArchimedeanMachineLearning.jl/dev/)**.
 
 ## Repository structure
 

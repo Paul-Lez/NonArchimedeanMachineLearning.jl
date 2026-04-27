@@ -7,7 +7,9 @@ makedocs(
     format=Documenter.HTML(
         prettyurls=get(ENV, "CI", "false") == "true",
         edit_link="main",
-        size_threshold=400000 # 400 KB
+        size_threshold=400000, # 400 KB
+        assets=["assets/logo.png"],
+        logo="assets/logo.png"
     ),
     pages=[
         "Home" => "index.md",
@@ -46,7 +48,7 @@ makedocs(
 )
 
 deploydocs(
-    repo="github.com/Paul-Lez/NAMLOptimization.jl.git",
+    repo="github.com/Paul-Lez/NonArchimedeanMachineLearning.jl.git",
     devbranch="main",
     push_preview=true
 )
