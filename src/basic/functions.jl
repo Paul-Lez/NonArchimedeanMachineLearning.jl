@@ -122,6 +122,7 @@ Base.:-(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where {S} = Sub(a, b)
 Base.:*(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where {S} = Mul(a, b)
 Base.:/(a::PolydiscFunction{S}, b::PolydiscFunction{S}) where {S} = Div(a, b)
 Base.:*(a::Number, b::PolydiscFunction{S}) where {S} = SMul(a, b)
+Base.:/(a::Number, b::PolydiscFunction{S}) where {S} = Div(Constant{S}(a), b)
 
 # Scalar operations
 Base.:-(a::PolydiscFunction{S}, b::Number) where {S} = Sub(a, Constant{S}(b))
@@ -131,6 +132,7 @@ Base.:+(a::Number, b::PolydiscFunction{S}) where {S} = Add(Constant{S}(a), b)
 Base.:*(a::PolydiscFunction{S}, b::Number) where {S} = SMul(b, a)
 Base.:/(a::PolydiscFunction{S}, b::Number) where {S} = SMul(1 / b, a)
 Base.:-(a::PolydiscFunction{S}) where {S} = SMul(-1, a)
+Base.inv(a::PolydiscFunction{S}) where {S} = 1 / a
 
 Base.zero(::Type{PolydiscFunction{S}}) where {S} = Constant{S}(0)
 Base.zero(::PolydiscFunction{S}) where {S} = Constant{S}(0)
@@ -142,7 +144,7 @@ function Base.:^(a::PolydiscFunction{S}, b::Int) where {S}
     elseif b > 0
         return a * (a^(b - 1))
     elseif b < 0
-        return 1 / (a^b)
+        return 1 / (a^(-b))
     end
 end
 

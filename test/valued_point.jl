@@ -64,6 +64,20 @@ using NonArchimedeanMachineLearning
         @test NonArchimedeanMachineLearning.unwrap(z) == K(9)
     end
 
+    @testset "Mixed PadicFieldElem Operations" begin
+        x = ValuedFieldPoint(K(6))
+        y = K(2)
+
+        @test NonArchimedeanMachineLearning.unwrap(x + y) == K(8)
+        @test NonArchimedeanMachineLearning.unwrap(y + x) == K(8)
+        @test NonArchimedeanMachineLearning.unwrap(x - y) == K(4)
+        @test NonArchimedeanMachineLearning.unwrap(y - x) == -K(4)
+        @test NonArchimedeanMachineLearning.unwrap(x * y) == K(12)
+        @test NonArchimedeanMachineLearning.unwrap(y * x) == K(12)
+        @test NonArchimedeanMachineLearning.unwrap(x / y) == divexact(K(6), K(2))
+        @test NonArchimedeanMachineLearning.unwrap(y / x) == divexact(K(2), K(6))
+    end
+
     @testset "Division" begin
         # Create elements that divide evenly
         x = ValuedFieldPoint(K(6))
@@ -83,9 +97,14 @@ using NonArchimedeanMachineLearning
 
         @test x == y
         @test !(x == z)
+        @test x == K(5)
+        @test K(5) == x
+        @test !(x == K(7))
 
         # Hashing should be consistent
         @test hash(x) == hash(y)
+        @test iszero(ValuedFieldPoint(K(0)))
+        @test isone(ValuedFieldPoint(K(1)))
     end
 
     @testset "Valuation and Absolute Value" begin
@@ -99,6 +118,7 @@ using NonArchimedeanMachineLearning
         y = ValuedFieldPoint(K(5))  # 5 is a unit in 2-adics
         @test NonArchimedeanMachineLearning.valuation(y) == 0
         @test abs(y) == 1.0
+        @test NonArchimedeanMachineLearning.unit(y) == NonArchimedeanMachineLearning.unit(K(5))
     end
 
     @testset "Zero and One" begin
@@ -111,6 +131,18 @@ using NonArchimedeanMachineLearning
         o = one(x)
         @test NonArchimedeanMachineLearning.unwrap(o) == K(1)
         @test o isa ValuedFieldPoint{2,20,PadicFieldElem}
+
+        @test NonArchimedeanMachineLearning.unwrap(Oscar.zero(typeof(x), K)) == K(0)
+        @test NonArchimedeanMachineLearning.unwrap(Oscar.one(typeof(x), K)) == K(1)
+    end
+
+    @testset "Conversion and Promotion" begin
+        x = ValuedFieldPoint(K(5))
+        converted = convert(typeof(x), K(7))
+
+        @test converted isa typeof(x)
+        @test NonArchimedeanMachineLearning.unwrap(converted) == K(7)
+        @test promote_type(typeof(x), PadicFieldElem) == typeof(x)
     end
 
     @testset "Lift Operations" begin
@@ -129,6 +161,9 @@ using NonArchimedeanMachineLearning
         @test lifted_t isa NTuple{2,ValuedFieldPoint{2,20,PadicFieldElem}}
         @test NonArchimedeanMachineLearning.unwrap(lifted_t[1]) == K(4)
         @test NonArchimedeanMachineLearning.unwrap(lifted_t[2]) == K(5)
+
+        @test_throws ErrorException NonArchimedeanMachineLearning.lift(PadicFieldElem[])
+        @test_throws ErrorException NonArchimedeanMachineLearning.lift(())
     end
 
     @testset "Unwrap Operations" begin
@@ -145,6 +180,14 @@ using NonArchimedeanMachineLearning
         v = [x, y, z]
         unwrapped_v = NonArchimedeanMachineLearning.unwrap(v)
         @test unwrapped_v == [K(1), K(2), K(3)]
+    end
+
+    @testset "Integer Lifting" begin
+        x = ValuedFieldPoint(K(5))
+
+        @test NonArchimedeanMachineLearning.lift(ZZ, x) == Oscar.lift(ZZ, K(5))
+        @test NonArchimedeanMachineLearning.lift(ZZ, K(5)) == Oscar.lift(ZZ, K(5))
+        @test NonArchimedeanMachineLearning.lift(x) == Oscar.lift(K(5))
     end
 
     @testset "Type Stability" begin
