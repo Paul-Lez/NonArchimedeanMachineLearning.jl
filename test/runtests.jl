@@ -21,6 +21,7 @@ using NonArchimedeanMachineLearning
 
     @testset "Statistics" begin
         include("frechet.jl")
+        include("least_squares.jl")
     end
 
     @testset "Optimization" begin
@@ -30,6 +31,7 @@ using NonArchimedeanMachineLearning
     end
 
     @testset "Tree Search Algorithms" begin
+        include("value_transforms.jl")
         include("test_doo.jl")
         include("dag_mcts.jl")
         include("tree_search_algorithms.jl")
