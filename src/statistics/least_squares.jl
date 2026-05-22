@@ -73,14 +73,16 @@ function make_ordinary_least_squares_loss(data::Vector{Tuple{
 
     # Total loss function: sum of all squared residuals
     loss_function = sum(loss_terms)
-    batch_eval = batch_evaluate_init(loss_function)
-
-    function loss_eval(params::Vector{ValuationPolydisc{S, U, N}}) where {U, N}
-        return map(batch_eval, params)
+    function loss_eval(params::Vector{<:ValuationPolydisc})
+        isempty(params) && return Float64[]
+        batch_eval = batch_evaluate_init(loss_function, typeof(first(params)))
+        return [batch_eval(param) for param in params]
     end
 
-    function loss_grad(vs::Vector{ValuationTangent{S, U, N}}) where {U, N}
-        return [directional_derivative(loss_function, v) for v in vs]
+    function loss_grad(vs::Vector{<:ValuationTangent})
+        isempty(vs) && return Float64[]
+        batch_eval = batch_evaluate_init(loss_function, typeof(first(vs).point))
+        return [directional_derivative(batch_eval, v) for v in vs]
     end
 
     return Loss(loss_eval, loss_grad)
@@ -122,14 +124,16 @@ function solve_linear_system(A::Matrix{S}, b::Vector{S}, y::Vector{S})::Loss whe
 
     # Total loss: sum of squared residuals
     loss_function = sum([r^2 for r in residual_polys])
-    batch_eval = batch_evaluate_init(loss_function)
-
-    function loss_eval(params::Vector{ValuationPolydisc{S, T, N}}) where {T, N}
-        return map(batch_eval, params)
+    function loss_eval(params::Vector{<:ValuationPolydisc})
+        isempty(params) && return Float64[]
+        batch_eval = batch_evaluate_init(loss_function, typeof(first(params)))
+        return [batch_eval(param) for param in params]
     end
 
-    function loss_grad(vs::Vector{ValuationTangent{S, T, N}}) where {T, N}
-        return [directional_derivative(loss_function, v) for v in vs]
+    function loss_grad(vs::Vector{<:ValuationTangent})
+        isempty(vs) && return Float64[]
+        batch_eval = batch_evaluate_init(loss_function, typeof(first(vs).point))
+        return [directional_derivative(batch_eval, v) for v in vs]
     end
 
     return Loss(loss_eval, loss_grad)
