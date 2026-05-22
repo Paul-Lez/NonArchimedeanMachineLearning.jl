@@ -3,8 +3,7 @@ Test file for DOO (Deterministic Optimistic Optimization) implementation.
 """
 
 using Test
-include("../src/NonArchimedeanMachineLearning.jl")
-using .NonArchimedeanMachineLearning
+using NonArchimedeanMachineLearning
 using Oscar
 
 @testset "DOO Optimizer Tests" begin

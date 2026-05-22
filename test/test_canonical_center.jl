@@ -1,6 +1,5 @@
 using Test
-include("../src/NonArchimedeanMachineLearning.jl")
-using .NonArchimedeanMachineLearning
+using NonArchimedeanMachineLearning
 using Oscar  # For PadicField
 
 @testset "canonical_center with negative radius" begin
@@ -185,8 +184,9 @@ using Oscar  # For PadicField
         # Test with different centers at same radius
         centers = [K(i) for i in 0:7]
         radii = [-2, -1, 0, 1, 2]
+        polydisc_type = typeof(ValuationPolydisc([K(0)], [0]))
 
-        test_cases = []
+        test_cases = polydisc_type[]
         for r in radii
             for c in centers
                 push!(test_cases, ValuationPolydisc([c], [r]))
@@ -196,11 +196,11 @@ using Oscar  # For PadicField
         println("  Testing $(length(test_cases)) polydiscs ($(length(centers)) centers × $(length(radii)) radii)")
 
         # Group by hash
-        hash_groups = Dict{UInt, Vector{ValuationPolydisc{PadicFieldElem, Int, 1}}}()
+        hash_groups = Dict{UInt, Vector{polydisc_type}}()
         for p in test_cases
             h = hash(p)
             if !haskey(hash_groups, h)
-                hash_groups[h] = []
+                hash_groups[h] = polydisc_type[]
             end
             push!(hash_groups[h], p)
         end
@@ -246,12 +246,10 @@ using Oscar  # For PadicField
     @testset "Dict/Set usage with negative radius" begin
         println("\nTest 7: Dict and Set usage")
 
-        # Test that polydiscs can be used as Dict keys correctly
-        d = Dict{ValuationPolydisc{PadicFieldElem, Int, 1}, String}()
-
         p1 = ValuationPolydisc([K(0)], [-1])
         p2 = ValuationPolydisc([K(1)], [-1])  # Should be equal to p1
         p3 = ValuationPolydisc([K(0)], [1])   # Different radius
+        d = Dict{typeof(p1), String}()
 
         d[p1] = "first"
         d[p3] = "third"
