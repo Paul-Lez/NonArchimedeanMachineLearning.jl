@@ -7,6 +7,8 @@ using Test
 using Oscar
 using NonArchimedeanMachineLearning
 
+struct UnsupportedPolydiscFunction{S} <: NonArchimedeanMachineLearning.PolydiscFunction{S} end
+
 @testset "Polynomial Functions" begin
     # Set up synthetic data
     prec = 20
@@ -55,6 +57,114 @@ using NonArchimedeanMachineLearning
         # Test: Directional derivative
         dd = directional_derivative(f, v)
         @test dd isa Number || dd isa Vector  # Result should be numeric
+    end
+end
+
+@testset "PolydiscFunction algebra and internal evaluators" begin
+    NAML = NonArchimedeanMachineLearning
+    K = PadicField(2, 20)
+    make_pd(cs, rs) = ValuationPolydisc{PadicFieldElem, Int, length(cs)}(tuple(cs...), tuple(rs...))
+
+    p = make_pd([K(1)], [1])
+    direction = make_pd([K(1)], [2])
+    tangent = ValuationTangent(p, direction, [1])
+    linear = LinearAbsolutePolynomialSum([LinearPolynomial([K(1)], K(1))])
+    shifted = linear + 1
+
+    @testset "operator constructors evaluate exact composed values" begin
+        @test NAML.evaluate(linear, p) == 1 / 2
+        @test NAML.evaluate(linear + 2, p) == 5 / 2
+        @test NAML.evaluate(2 + linear, p) == 5 / 2
+        @test NAML.evaluate(linear - 1 / 4, p) == 1 / 4
+        @test NAML.evaluate(3 - linear, p) == 5 / 2
+        @test NAML.evaluate(linear * (linear + 3), p) == 7 / 4
+        @test NAML.evaluate((linear + 3) / (linear + 1), p) == 7 / 3
+        @test NAML.evaluate(3 * linear, p) == 3 / 2
+        @test NAML.evaluate(linear / 2, p) == 1 / 4
+        @test NAML.evaluate(-linear, p) == -1 / 2
+    end
+
+    @testset "power and reciprocal powers" begin
+        @test linear^0 == 1
+        @test NAML.evaluate(linear^2, p) == 1 / 4
+        @test NAML.evaluate(1 / linear, p) == 2.0
+        @test NAML.evaluate(linear^-1, p) == 2.0
+        @test NAML.evaluate(linear^-2, p) == 4.0
+    end
+
+    @testset "constant, lambda, and composition" begin
+        constant = NAML.Constant{PadicFieldElem}(7.0)
+        lambda = NAML.Lambda{PadicFieldElem}(q -> Float64(NAML.radius(q)[1] + NAML.dim(q)))
+        outer = DifferentiableFunction(x -> x + 10, _ -> 1.0)
+
+        @test NAML.evaluate(constant, p) == 7.0
+        @test NAML.evaluate(lambda, p) == 2.0
+        @test outer(3.5) == 13.5
+        @test NAML.evaluate(NAML.comp(outer, linear), p) == 10.5
+    end
+
+    @testset "linear rational functions" begin
+        numerator = LinearPolynomial([K(1)], K(1))
+        denominator = LinearPolynomial([K(0)], K(1))
+        second_num = LinearPolynomial([K(2)], K(0))
+        rational = NAML.LinearRationalFunction(numerator, denominator)
+        rational_sum = NAML.LinearRationalFunctionSum([
+            rational,
+            NAML.LinearRationalFunction(second_num, denominator)
+        ])
+
+        @test NAML.evaluate(rational, p) == 1 / 2
+        @test NAML.evaluate(rational_sum, p) == 1.0
+    end
+
+    @testset "typed evaluator values and construction errors" begin
+        @test batch_evaluate_init(shifted, p)(p) == 3 / 2
+        @test batch_evaluate_init(linear - 1, typeof(p))(p) == -1 / 2
+        @test batch_evaluate_init((linear + 3) / shifted, typeof(p))(p) == 7 / 3
+        @test batch_evaluate_init(3 * linear, typeof(p))(p) == 3 / 2
+        @test batch_evaluate_init(NAML.comp(DifferentiableFunction(x -> 2x, _ -> 2.0), linear),
+            typeof(p))(p) == 1.0
+
+        bad_poly = LinearPolynomial([K(1), K(1)], K(0))
+        @test_throws AssertionError batch_evaluate_init(
+            bad_poly, ValuationPolydisc{PadicFieldElem, Int, 1})
+        @test_throws ErrorException batch_evaluate_init(
+            UnsupportedPolydiscFunction{PadicFieldElem}(),
+            ValuationPolydisc{PadicFieldElem, Int, 1}
+        )
+    end
+
+    @testset "directional derivative and partial gradient helpers" begin
+        slope = LinearAbsolutePolynomialSum([LinearPolynomial([K(1)], K(0))])
+        slope_point = make_pd([K(0)], [1])
+        slope_direction = make_pd([K(0)], [2])
+        slope_tangent = ValuationTangent(slope_point, slope_direction, [1])
+
+        @test directional_derivative(NAML.Constant{PadicFieldElem}(3.0), tangent) == 0.0
+        @test directional_derivative(2 * slope, slope_tangent) == -1.0
+        @test directional_derivative(slope + slope, slope_tangent) == -1.0
+        @test directional_derivative(slope - slope, slope_tangent) == 0.0
+        @test NAML.partial_gradient(NAML.Constant{PadicFieldElem}(3.0), tangent, [1]) == [0.0]
+    end
+
+    @testset "ValuedFieldPoint lifting adapters preserve exact values" begin
+        p_vfp = ValuationPolydisc([K(1)], [1])
+        direction_vfp = ValuationPolydisc([K(1)], [2])
+        tangent_vfp = ValuationTangent(p_vfp, direction_vfp, [1])
+        slope = LinearAbsolutePolynomialSum([LinearPolynomial([K(1)], K(0))])
+        slope_point = ValuationPolydisc([K(0)], [1])
+        slope_direction = ValuationPolydisc([K(0)], [2])
+        slope_tangent = ValuationTangent(slope_point, slope_direction, [1])
+
+        @test NAML.evaluate(linear, p_vfp) == 1 / 2
+        @test batch_evaluate_init(linear + 1, typeof(p_vfp))(p_vfp) == 3 / 2
+        @test batch_evaluate_init((linear + 1) * (linear + 3), typeof(p_vfp))(p_vfp) == 21 / 4
+        @test batch_evaluate_init((linear + 3) / (linear + 1), typeof(p_vfp))(p_vfp) == 7 / 3
+        @test batch_evaluate_init(3 * linear, typeof(p_vfp))(p_vfp) == 3 / 2
+        @test batch_evaluate_init(NAML.comp(DifferentiableFunction(x -> x + 10, _ -> 1.0), linear),
+            typeof(p_vfp))(p_vfp) == 10.5
+        @test directional_derivative(linear, tangent_vfp) == 0.0
+        @test directional_derivative(slope, slope_tangent) == -1 / 2
     end
 end
 

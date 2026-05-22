@@ -171,7 +171,7 @@ model variable space that can be evaluated using polynomial evaluation mechanism
 - `param::ValuationPolydisc{S,T,N2}`: The parameter values (polydisc in parameter space)
 
 # Returns
-`ValuationPolydisc{S,T,N}`: A polydisc point with all variables interleaved in model order
+`ValuationPolydisc{S,T,N1+N2}`: A polydisc point with all variables interleaved in model order
 
 # Example
 For model ``f(x, \theta, y, \phi)`` with `param_info = [true, false, true, false]`:
@@ -192,7 +192,10 @@ function set_abstract_model_variable(m::AbstractModel{S}, val::ValuationPolydisc
     abstract_model_variable_center = Vector{S}([m.param_info[i] ? val.center[keys[i]] :
                                                 param.center[keys[i]]
                                                 for i in Base.eachindex(m.param_info)])
-    return ValuationPolydisc(abstract_model_variable_center, abstract_model_variable_radius)
+    return ValuationPolydisc{S, T, N1 + N2}(
+        tuple(abstract_model_variable_center...),
+        tuple(abstract_model_variable_radius...)
+    )
 end
 
 function set_abstract_model_variable(m::AbstractModel{S},
@@ -208,11 +211,18 @@ function set_abstract_model_variable(m::AbstractModel{S},
         val::ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N1},
         param::ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N2}) where {
         S, P, Prec, T, N1, N2}
-    unwrapped_val_center = tuple([vp.elem for vp in val.center]...)
-    unwrapped_val = ValuationPolydisc{S, T, N1}(unwrapped_val_center, val.radius)
-    unwrapped_param_center = tuple([vp.elem for vp in param.center]...)
-    unwrapped_param = ValuationPolydisc{S, T, N2}(unwrapped_param_center, param.radius)
-    return set_abstract_model_variable(m, unwrapped_val, unwrapped_param)
+    keys = getkeys(m)
+    VFP = ValuedFieldPoint{P, Prec, S}
+    abstract_model_variable_radius = Vector{T}([m.param_info[i] ? val.radius[keys[i]] :
+                                                param.radius[keys[i]]
+                                                for i in Base.eachindex(m.param_info)])
+    abstract_model_variable_center = Vector{VFP}([m.param_info[i] ? val.center[keys[i]] :
+                                                  param.center[keys[i]]
+                                                  for i in Base.eachindex(m.param_info)])
+    return ValuationPolydisc{VFP, T, N1 + N2}(
+        tuple(abstract_model_variable_center...),
+        tuple(abstract_model_variable_radius...)
+    )
 end
 
 @doc raw"""

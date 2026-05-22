@@ -327,7 +327,7 @@ Note: requires the field K to be passed since type alone doesn't contain field r
 """
 Oscar.zero(::Type{ValuedFieldPoint{
         P, Prec, S}},
-    K) where {P, Prec, S} = ValuedFieldPoint{P, Prec, S}(zero(K))
+    K) where {P, Prec, S} = ValuedFieldPoint{P, Prec, S}(Base.zero(K))
 
 @doc raw"""
     Oscar.one(::Type{ValuedFieldPoint{P,Prec,S}}, K) where {P,Prec,S}
@@ -337,7 +337,7 @@ Note: requires the field K to be passed since type alone doesn't contain field r
 """
 Oscar.one(
     ::Type{ValuedFieldPoint{
-        P, Prec, S}}, K) where {P, Prec, S} = ValuedFieldPoint{P, Prec, S}(one(K))
+        P, Prec, S}}, K) where {P, Prec, S} = ValuedFieldPoint{P, Prec, S}(Base.one(K))
 
 #=============================================================================
  Display
