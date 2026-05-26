@@ -363,13 +363,14 @@ end
 
 Compute the polydisc at parameter `x` along the geodesic from `d1` to `d2`.
 
-For two discs with the same center, the geodesic is linear interpolation of radii.
-If d1 = D(a, r) and d2 = D(a, s) with r ≤ s, then at parameter x ∈ [0,1],
-the interpolated disc is D(a, (1-x)r + xs).
+For two discs with the same center, the geodesic is linear interpolation of
+actual radii. If d1 = D(a, r) and d2 = D(a, s) with valuation radii r ≥ s,
+then at parameter x ∈ [0,1] the actual radius is
+``(1-x)p^{-r} + xp^{-s}``.
 
-Note: This function works with actual radii (not valuations) for interpolation.
-The input discs may have integer valuation radii, but the output will have
-Float64 radii representing the interpolated actual radius.
+`ValuationPolydisc.radius` is always returned in valuation coordinates. The
+interpolation is computed in actual-radius coordinates and converted back to
+Float64 valuation radii before constructing the result.
 
 # Arguments
 - `d1::ValuationPolydisc{S,T,N}`: First polydisc (must be contained in d2)
@@ -377,7 +378,7 @@ Float64 radii representing the interpolated actual radius.
 - `x::Real`: Interpolation parameter in [0, 1]
 
 # Returns
-`ValuationPolydisc{S,Float64,N}`: Interpolated polydisc with Float64 radii
+`ValuationPolydisc{S,Float64,N}`: Interpolated polydisc with Float64 valuation radii
 
 # Example
 ```julia
@@ -397,16 +398,17 @@ function geodesic_interpolation(d1::ValuationPolydisc{S, T, N},
 
     # Get the prime and convert to Julia Int
     p = Int(prime(d1))
+    x_float = Float64(x)
 
     # Convert valuation radii to actual radii
-    radii_1 = [valuation_to_radius(r, p) for r in d1.radius]
-    radii_2 = [valuation_to_radius(r, p) for r in d2.radius]
+    radii_1 = ntuple(i -> valuation_to_radius(d1.radius[i], p), N)
+    radii_2 = ntuple(i -> valuation_to_radius(d2.radius[i], p), N)
 
     # Linear interpolation of radii
-    radii_interp = [(1 - x) * r1 + x * r2 for (r1, r2) in zip(radii_1, radii_2)]
+    actual_radii_interp = ntuple(i -> (1 - x_float) * radii_1[i] + x_float * radii_2[i], N)
+    valuation_radii_interp = ntuple(i -> radius_to_valuation(actual_radii_interp[i], p), N)
 
-    # Return polydisc with interpolated radii (as Float64, not converted back to valuation)
-    return ValuationPolydisc(collect(d1.center), radii_interp)
+    return ValuationPolydisc{S, Float64, N}(d1.center, valuation_radii_interp)
 end
 
 @doc raw"""

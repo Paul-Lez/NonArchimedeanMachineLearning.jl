@@ -24,15 +24,21 @@ using NonArchimedeanMachineLearning
 
     d_0 = NonArchimedeanMachineLearning.geodesic_interpolation(d1, d2, 0.0)
     r1_actual = NonArchimedeanMachineLearning.valuation_to_radius(5, p)
-    @test abs(d_0.radius[1] - r1_actual) < 1e-10
+    @test isapprox(d_0.radius[1], 5.0; atol=1e-10)
 
     d_1 = NonArchimedeanMachineLearning.geodesic_interpolation(d1, d2, 1.0)
     r2_actual = NonArchimedeanMachineLearning.valuation_to_radius(2, p)
-    @test abs(d_1.radius[1] - r2_actual) < 1e-10
+    @test isapprox(d_1.radius[1], 2.0; atol=1e-10)
 
     d_mid = NonArchimedeanMachineLearning.geodesic_interpolation(d1, d2, 0.5)
     r_mid_expected = 0.5 * r1_actual + 0.5 * r2_actual
-    @test abs(d_mid.radius[1] - r_mid_expected) < 1e-10
+    val_mid_expected = NonArchimedeanMachineLearning.radius_to_valuation(r_mid_expected, p)
+    @test isapprox(d_mid.radius[1], val_mid_expected; atol=1e-10)
+    @test isapprox(
+        NonArchimedeanMachineLearning.valuation_to_radius(d_mid.radius[1], p),
+        r_mid_expected;
+        atol=1e-10,
+    )
 
     x_values = [0.0, 0.25, 0.5, 0.75, 1.0]
     radii = Float64[]
@@ -41,7 +47,7 @@ using NonArchimedeanMachineLearning
         push!(radii, d.radius[1])
     end
     for i in 1:(length(radii) - 1)
-        @test radii[i] <= radii[i + 1]
+        @test radii[i] >= radii[i + 1]
     end
 
     d1_2d = ValuationPolydisc([K(0), K(1)], [4, 3])
@@ -55,8 +61,16 @@ using NonArchimedeanMachineLearning
     r_mid_coord1 = 0.5 * r1_coord1 + 0.5 * r2_coord1
     r_mid_coord2 = 0.5 * r1_coord2 + 0.5 * r2_coord2
 
-    @test abs(d_mid_2d.radius[1] - r_mid_coord1) < 1e-10
-    @test abs(d_mid_2d.radius[2] - r_mid_coord2) < 1e-10
+    @test isapprox(
+        d_mid_2d.radius[1],
+        NonArchimedeanMachineLearning.radius_to_valuation(r_mid_coord1, p);
+        atol=1e-10,
+    )
+    @test isapprox(
+        d_mid_2d.radius[2],
+        NonArchimedeanMachineLearning.radius_to_valuation(r_mid_coord2, p);
+        atol=1e-10,
+    )
 
     K3 = PadicField(3, prec)
     d1_3 = ValuationPolydisc([K3(0)], [4])
@@ -66,7 +80,31 @@ using NonArchimedeanMachineLearning
     r1_3 = NonArchimedeanMachineLearning.valuation_to_radius(4, 3)
     r2_3 = NonArchimedeanMachineLearning.valuation_to_radius(1, 3)
     r_mid_3 = 0.5 * r1_3 + 0.5 * r2_3
-    @test abs(d_mid_3.radius[1] - r_mid_3) < 1e-10
+    @test isapprox(
+        d_mid_3.radius[1],
+        NonArchimedeanMachineLearning.radius_to_valuation(r_mid_3, 3);
+        atol=1e-10,
+    )
+
+    @testset "sample_loss_landscape evaluates valuation radii downstream" begin
+        S = typeof(ValuedFieldPoint(K(0)))
+        linear = LinearPolynomial([ValuedFieldPoint(K(1))], ValuedFieldPoint(K(0)))
+        linear_eval = batch_evaluate_init(linear, ValuationPolydisc{S, Float64, 1})
+        tree = ConvexHullTree(
+            [d2, d1],
+            Dict(1 => [2]),
+            Dict(2 => [1]),
+            [2],
+        )
+
+        samples = sample_loss_landscape(tree, disc -> linear_eval(disc), 3)[(1, 2)]
+        expected_losses = [r1_actual, r_mid_expected, r2_actual]
+
+        for ((x, loss_value), expected) in zip(samples, expected_losses)
+            @test x in (0.0, 0.5, 1.0)
+            @test isapprox(loss_value, expected; atol=1e-10)
+        end
+    end
 
     d1_center = ValuationPolydisc([K(7)], [5])
     d2_center = ValuationPolydisc([K(7)], [2])
