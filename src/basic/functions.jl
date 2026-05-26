@@ -137,14 +137,28 @@ Base.inv(a::PolydiscFunction{S}) where {S} = 1 / a
 Base.zero(::Type{PolydiscFunction{S}}) where {S} = Constant{S}(0)
 Base.zero(::PolydiscFunction{S}) where {S} = Constant{S}(0)
 
-# TODO: implement this in a smarter way!
+function _polydisc_positive_power(a::PolydiscFunction{S}, b::Int) where {S}
+    @assert b > 0 "exponent must be positive"
+    result = a
+    base = a
+    exponent = b - 1
+    while exponent > 0
+        if isodd(exponent)
+            result = result * base
+        end
+        exponent = exponent ÷ 2
+        exponent > 0 && (base = base * base)
+    end
+    return result
+end
+
 function Base.:^(a::PolydiscFunction{S}, b::Int) where {S}
     if b == 0
         return 1
     elseif b > 0
-        return a * (a^(b - 1))
-    elseif b < 0
-        return 1 / (a^(-b))
+        return _polydisc_positive_power(a, b)
+    else
+        return 1 / _polydisc_positive_power(a, -b)
     end
 end
 
@@ -173,21 +187,6 @@ struct LinearRationalFunctionSum{S} <: PolydiscFunction{S}
     rats::Vector{LinearRationalFunction{S}}
 end
 
-@doc raw"""
-    parent(F::PolydiscFunction{S}) where S
-
-Get the polynomial ring of a polydisc function.
-
-# Arguments
-- `F::PolydiscFunction{S}`: The polydisc function
-
-# Returns
-The parent polynomial ring
-"""
-function parent(F::PolydiscFunction{S}) where {S}
-    return parent(F)
-end
-
 # TODO(Paul-Lez): I think this doesn't make sense?
 @doc raw"""
     parent(F::AbsolutePolynomialSum{S}) where S
@@ -203,39 +202,6 @@ Get the polynomial ring of an absolute polynomial sum.
 function parent(F::AbsolutePolynomialSum{S}) where {S}
     return F.polys[1].parent
 end
-
-@doc raw"""
-    evaluate(f::PolydiscFunction{S}, p::ValuationPolydisc{S,T,N}) where {S, T, N}
-
-Evaluate a polydisc function at a polydisc.
-
-# Arguments
-- `f::PolydiscFunction{S}`: The polydisc function
-- `p::ValuationPolydisc{S,T,N}`: The evaluation point
-
-# Returns
-The function value at the point
-"""
-function evaluate(f::PolydiscFunction{S}, p::ValuationPolydisc{S, T, N}) where {S, T, N}
-    return evaluate(f, p)
-end
-
-@doc raw"""
-    directional_derivative(f::PolydiscFunction{S}, v::ValuationTangent{S,T}) where {S, T}
-
-Evaluate the directional derivative of a polydisc function at a tangent vector.
-
-# Arguments
-- `f::PolydiscFunction{S}`: The polydisc function
-- `v::ValuationTangent{S,T}`: The tangent vector direction
-
-# Returns
-`Float64`: The directional derivative in the direction of `v`
-#
-# Note: The actual implementation for PolydiscFunction is defined later in this file
-# after the specific implementations for AbsolutePolynomialSum and other subtypes.
-"""
-# Removed duplicate stub definition - see line ~562 for actual implementation
 
 # TODO(Paul-Lez): there are various optimisations to be done here:
 # Profiling suggests that:
@@ -330,37 +296,37 @@ function evaluate(f::LinearRationalFunctionSum{S}, var::ValuationPolydisc{
 end
 
 @doc raw"""
-    directional_derivative(fun::AbsolutePolynomialSum{S}, v::ValuationTangent{S,T}) where {S, T}
+    directional_derivative(fun::AbsolutePolynomialSum{S}, v::ValuationTangent{S,T,N}) where {S, T, N}
 
 Compute the directional derivative of a polynomial sum along a tangent direction.
 
 # Arguments
 - `fun::AbsolutePolynomialSum{S}`: The polynomial sum
-- `v::ValuationTangent{S,T}`: The tangent direction
+- `v::ValuationTangent{S,T,N}`: The tangent direction
 
 # Returns
 `Float64`: The directional derivative in direction `v`
 """
 function directional_derivative(fun::AbsolutePolynomialSum{S}, v::ValuationTangent{
-        S, T}) where {S, T}
+        S, T, N}) where {S, T, N}
     return sum([directional_derivative(f, v) for f in fun.polys])
 end
 
-function directional_derivative(fun::Add{S}, v::ValuationTangent{S, T}) where {S, T}
+function directional_derivative(fun::Add{S}, v::ValuationTangent{S, T, N}) where {S, T, N}
     return directional_derivative(fun.left, v) + directional_derivative(fun.right, v)
 end
 
-function directional_derivative(fun::Sub{S}, v::ValuationTangent{S, T}) where {S, T}
+function directional_derivative(fun::Sub{S}, v::ValuationTangent{S, T, N}) where {S, T, N}
     return directional_derivative(fun.left, v) - directional_derivative(fun.right, v)
 end
 
-function directional_derivative(fun::Mul{S}, v::ValuationTangent{S, T}) where {S, T}
+function directional_derivative(fun::Mul{S}, v::ValuationTangent{S, T, N}) where {S, T, N}
     # Product rule: (f*g)' = f'*g + f*g'
     return directional_derivative(fun.left, v) * evaluate(fun.right, v.point) +
            evaluate(fun.left, v.point) * directional_derivative(fun.right, v)
 end
 
-function directional_derivative(fun::Div{S}, v::ValuationTangent{S, T}) where {S, T}
+function directional_derivative(fun::Div{S}, v::ValuationTangent{S, T, N}) where {S, T, N}
     # Quotient rule: (f/g)' = (f'*g - f*g') / g²
     f = fun.top
     g = fun.bottom
@@ -371,23 +337,23 @@ function directional_derivative(fun::Div{S}, v::ValuationTangent{S, T}) where {S
     return (f_deriv * g_val - f_val * g_deriv) / (g_val^2)
 end
 
-function directional_derivative(fun::SMul{S}, v::ValuationTangent{S, T}) where {S, T}
+function directional_derivative(fun::SMul{S}, v::ValuationTangent{S, T, N}) where {S, T, N}
     return fun.left * directional_derivative(fun.right, v)
 end
 
-function directional_derivative(c::Constant{S}, v::ValuationTangent{S, T}) where {S, T}
+function directional_derivative(c::Constant{S}, v::ValuationTangent{S, T, N}) where {S, T, N}
     # Constant functions have zero derivative
     return 0.0
 end
 
-function directional_derivative(fun::Comp{S}, v::ValuationTangent{S, T}) where {S, T}
+function directional_derivative(fun::Comp{S}, v::ValuationTangent{S, T, N}) where {S, T, N}
     # Chain rule: (f ∘ g)' = f'(g(x)) * g'(x)
     inner_val = evaluate(fun.right, v.point)
     inner_deriv = directional_derivative(fun.right, v)
     return fun.left.df(inner_val) * inner_deriv
 end
 
-function directional_derivative(l::Lambda{S}, v::ValuationTangent{S, T}) where {S, T}
+function directional_derivative(l::Lambda{S}, v::ValuationTangent{S, T, N}) where {S, T, N}
     l.derivative === nothing &&
         error("Lambda function has no derivative. Provide a derivative function at construction time.")
     return l.derivative(v)
@@ -741,19 +707,6 @@ end
  Legacy batch_evaluate_init Interface - Backwards Compatibility
 =============================================================================#
 
-@doc raw"""
-    batch_evaluate_init(f::PolydiscFunction{S})::Function where S
-
-Legacy interface returning untyped closures. Retained for backwards compatibility.
-
-**DEPRECATED**: Use the typed interface `batch_evaluate_init(f, ::Type{ValuationPolydisc{S,T,N}})` instead.
-
-This interface returns untyped closures which prevent compile-time specialization on T and N.
-"""
-function batch_evaluate_init(f::PolydiscFunction{S})::Function where {S}
-    return batch_evaluate_init(f)
-end
-
 function batch_evaluate_init(poly::LinearPolynomial{S})::Function where {S}
     abs_poly_coeffs = map(valuation, poly.coefficients)
     num_coeffs = length(poly.coefficients)
@@ -849,7 +802,7 @@ end
 # At the moment we work with multiple differential operators: the directional derivative along a tangent vector, and the gradient at a point.
 
 @doc raw"""
-    directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S,T}) where {S, T}
+    directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S,T,N}) where {S, T, N}
 
 Find the exponent vector(s) along which a polynomial achieves its maximum absolute value.
 
@@ -861,13 +814,13 @@ integer quantity ``v(a_n) + \langle r, n \rangle`` over non-zero terms.
 
 # Arguments
 - `f::AbstractAlgebra.Generic.MPoly{S}`: A multivariate polynomial
-- `v::ValuationTangent{S,T}`: The tangent vector defining the direction
+- `v::ValuationTangent{S,T,N}`: The tangent vector defining the direction
 
 # Returns
 `Vector`: The exponent vector with minimum valuation weight, breaking ties by minimizing `dot(n, v.magnitude)`
 """
 function directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{
-        S, T}) where {S, T}
+        S, T, N}) where {S, T, N}
     t = gens(f.parent)
     # For now, we're assuming the direction is always downwards so we can 
     # use the center for the "target". This works for descent, but not in general.
@@ -886,7 +839,7 @@ function directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationT
 end
 
 @doc raw"""
-    directional_derivative(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S,T}) where {S, T}
+    directional_derivative(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{S,T,N}) where {S, T, N}
 
 Compute the directional derivative of a multivariate polynomial along a tangent direction.
 
@@ -895,13 +848,13 @@ Uses the formula: if locally ``|f| = a_n r^n`` for exponent ``n``, then
 
 # Arguments
 - `f::AbstractAlgebra.Generic.MPoly{S}`: The polynomial
-- `v::ValuationTangent{S,T}`: The tangent direction
+- `v::ValuationTangent{S,T,N}`: The tangent direction
 
 # Returns
 `Float64`: The directional derivative
 """
 function directional_derivative(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{
-        S, T}) where {S, T}
+        S, T, N}) where {S, T, N}
     # Recover the variables of the polynomial ring we're working over
     x = gens(f.parent)
     # Compute the expansion of f around the direction a of the tangent vector v, i.e.
@@ -966,53 +919,36 @@ function directional_derivative(poly::LinearPolynomial{S}, v::ValuationTangent{
 end
 
 @doc raw"""
-    directional_derivative(fun::PolydiscFunction{S}, v::ValuationTangent{S,T}) where {S, T}
-
-Compute the directional derivative of a polydisc function (sum of polynomials).
-
-# Arguments
-- `fun::PolydiscFunction{S}`: The polydisc function
-- `v::ValuationTangent{S,T}`: The tangent direction
-
-# Returns
-`Float64`: Sum of directional derivatives across all polynomials
-"""
-function directional_derivative(fun::PolydiscFunction{S}, v::ValuationTangent{
-        S, T}) where {S, T}
-    return sum([directional_derivative(f, v) for f in fun.polys])
-end
-
-@doc raw"""
-    grad(f, v::ValuationTangent{S,T}) where {S, T}
+    grad(f, v::ValuationTangent{S,T,N}) where {S, T, N}
 
 Compute the gradient of a polynomial by evaluating directional derivatives along all coordinates.
 
 # Arguments
 - `f`: The polynomial or function
-- `v::ValuationTangent{S,T}`: A reference tangent vector defining the space
+- `v::ValuationTangent{S,T,N}`: A reference tangent vector defining the space
 
 # Returns
 `Vector`: Gradient components, one for each coordinate direction
 """
-function grad(f, v::ValuationTangent{S, T}) where {S, T}
+function grad(f, v::ValuationTangent{S, T, N}) where {S, T, N}
     return [directional_derivative(f, basis_vector(v, i))
             for i in Base.eachindex(v.magnitude)]
 end
 
 @doc raw"""
-    partial_gradient(f, v::ValuationTangent{S,T}, gradient_indices) where {S, T}
+    partial_gradient(f, v::ValuationTangent{S,T,N}, gradient_indices) where {S, T, N}
 
 Compute partial derivatives along specified coordinate directions.
 
 # Arguments
 - `f`: The polynomial or function
-- `v::ValuationTangent{S,T}`: A reference tangent vector
+- `v::ValuationTangent{S,T,N}`: A reference tangent vector
 - `gradient_indices`: Indices of coordinates for which to compute derivatives
 
 # Returns
 `Vector`: Directional derivatives for the specified coordinates
 """
-function partial_gradient(f, v::ValuationTangent{S, T}, gradient_indices) where {S, T}
+function partial_gradient(f, v::ValuationTangent{S, T, N}, gradient_indices) where {S, T, N}
     return [directional_derivative(f, basis_vector(v, i)) for i in gradient_indices]
 end
 

@@ -90,6 +90,7 @@ end
         @test NAML.evaluate(1 / linear, p) == 2.0
         @test NAML.evaluate(linear^-1, p) == 2.0
         @test NAML.evaluate(linear^-2, p) == 4.0
+        @test NAML.evaluate(linear^-3, p) == 8.0
     end
 
     @testset "constant, lambda, and composition" begin
@@ -118,6 +119,8 @@ end
     end
 
     @testset "typed evaluator values and construction errors" begin
+        unsupported = UnsupportedPolydiscFunction{PadicFieldElem}()
+
         @test batch_evaluate_init(shifted, p)(p) == 3 / 2
         @test batch_evaluate_init(linear - 1, typeof(p))(p) == -1 / 2
         @test batch_evaluate_init((linear + 3) / shifted, typeof(p))(p) == 7 / 3
@@ -129,9 +132,13 @@ end
         @test_throws AssertionError batch_evaluate_init(
             bad_poly, ValuationPolydisc{PadicFieldElem, Int, 1})
         @test_throws ErrorException batch_evaluate_init(
-            UnsupportedPolydiscFunction{PadicFieldElem}(),
+            unsupported,
             ValuationPolydisc{PadicFieldElem, Int, 1}
         )
+        @test_throws MethodError batch_evaluate_init(unsupported)
+        @test_throws MethodError NAML.parent(unsupported)
+        @test_throws MethodError NAML.evaluate(unsupported, p)
+        @test_throws MethodError directional_derivative(unsupported, tangent)
     end
 
     @testset "directional derivative and partial gradient helpers" begin
