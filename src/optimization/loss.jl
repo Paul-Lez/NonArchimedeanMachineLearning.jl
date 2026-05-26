@@ -110,20 +110,22 @@ function MSE_loss_init_new(model::AbstractModel{S}, data::Vector{Tuple{S, U}}) w
     # Specialize the model at each data point
     specialized_model = 1 / length(data) *
                         sum([(specialise(model, [val]) - abs(out))^2 for (val, out) in data])
-
-    # Initialize batch evaluation for each specialized model
-    batch_eval = batch_evaluate_init(specialized_model)
+    param_polydisc_type = ValuationPolydisc{S, Int, count(.!model.param_info)}
 
     # TODO: this is currently quite slow compared to the previous
     # implementation. Do some profiling!
 
+    batch_eval = batch_evaluate_init(specialized_model, param_polydisc_type)
+
     # Create a closure that computes the MSE for a batch of parameter values
-    function MSE_compute(params::Vector{ValuationPolydisc{S, T, N}}) where {S, T, N}
-        return map(batch_eval, params)
+    function MSE_compute(params)
+        isempty(params) && return Float64[]
+        return [batch_eval(param) for param in params]
     end
 
     # Create a closure that computes the gradient of the loss along a batch of tangent directions
-    function MSE_grad(vs::Vector{ValuationTangent{S, T, N}}) where {S, T, N}
+    function MSE_grad(vs)
+        isempty(vs) && return Float64[]
         return [directional_derivative(batch_eval, v) for v in vs]
     end
     return Loss(MSE_compute, MSE_grad)
