@@ -75,11 +75,47 @@ using NonArchimedeanMachineLearning
         @test eval_result ≈ symbolic_result
     end
 
+    @testset "SubEvaluator derivative" begin
+        R, (x,) = polynomial_ring(K, ["x"])
+        f1 = AbsolutePolynomialSum([x^2])
+        f2 = AbsolutePolynomialSum([x])
+        f = f1 - f2
+
+        eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem, Int, 1})
+
+        p = make_polydisc([K(3)], [0])
+        dir = make_polydisc([K(1)], [1])
+        v = ValuationTangent(p, dir, [1])
+
+        eval_result = directional_derivative(eval_typed, v)
+        symbolic_result = directional_derivative(f, v)
+
+        @test eval_result ≈ symbolic_result
+    end
+
     @testset "MulEvaluator derivative (product rule)" begin
         R, (x,) = polynomial_ring(K, ["x"])
         f1 = AbsolutePolynomialSum([x])
         f2 = AbsolutePolynomialSum([x + K(1)])
         f = f1 * f2
+
+        eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem, Int, 1})
+
+        p = make_polydisc([K(3)], [0])
+        dir = make_polydisc([K(1)], [1])
+        v = ValuationTangent(p, dir, [1])
+
+        eval_result = directional_derivative(eval_typed, v)
+        symbolic_result = directional_derivative(f, v)
+
+        @test eval_result ≈ symbolic_result
+    end
+
+    @testset "DivEvaluator derivative (quotient rule)" begin
+        R, (x,) = polynomial_ring(K, ["x"])
+        f1 = AbsolutePolynomialSum([x + K(1)])
+        f2 = AbsolutePolynomialSum([x + K(3)])
+        f = f1 / f2
 
         eval_typed = batch_evaluate_init(f, ValuationPolydisc{PadicFieldElem, Int, 1})
 
