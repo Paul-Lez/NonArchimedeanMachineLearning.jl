@@ -3,7 +3,7 @@
 # Tests cover:
 # - Internal helper functions (_value_to_color, _truncate_padic, accessors)
 # - _flatten_search_tree: BFS ordering, max_depth/max_nodes limits, DAG deduplication
-# - visualize_search_tree: dispatches for node / state / OptimSetup, various optimizer types
+# - visualize_search_tree: dispatches for node / state / OptimSetup
 
 using Test
 using Oscar
@@ -165,25 +165,6 @@ end
             @test length(t.children) >= 1
         end
 
-        @testset "HOO: OptimSetup" begin
-            config = HOOConfig(max_depth = 4)
-            optim = hoo_descent_init(param, loss, config)
-            step!(optim)
-
-            t = visualize_search_tree(optim)
-            @test t isa D3Tree
-            @test length(t.children) >= 1
-        end
-
-        @testset "UCT: OptimSetup" begin
-            config = UCTConfig(num_simulations = 20)
-            optim = uct_descent_init(param, loss, config)
-            step!(optim)
-
-            t = visualize_search_tree(optim)
-            @test t isa D3Tree
-            @test length(t.children) >= 1
-        end
     end
 
     # -------------------------------------------------------------------

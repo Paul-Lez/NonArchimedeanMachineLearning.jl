@@ -159,43 +159,6 @@ using Oscar
         @test NonArchimedeanMachineLearning.b_value(unexplored, config) == Inf
     end
 
-    @testset "DOO vs HOO Comparison" begin
-        # Compare DOO with HOO on same problem
-        delta = h -> 0.5^h
-        doo_config = DOOConfig(delta = delta, degree = 1)
-        doo_optim = doo_descent_init(param, loss, 1, doo_config)
-
-        hoo_config = HOOConfig(rho = 0.5, nu1 = 0.1, max_depth = 10, degree = 1)
-        hoo_optim = hoo_descent_init(param, loss, hoo_config)
-
-        # Record initial losses
-        initial_doo_loss = eval_loss(doo_optim)
-        initial_hoo_loss = eval_loss(hoo_optim)
-
-        # Run both for same number of steps
-        for i in 1:15
-            step!(doo_optim)
-            step!(hoo_optim)
-        end
-
-        doo_loss = eval_loss(doo_optim)
-        hoo_loss = eval_loss(hoo_optim)
-
-        println("\nDOO vs HOO Comparison:")
-        println("DOO loss: ", doo_loss)
-        println("HOO loss: ", hoo_loss)
-        println("DOO samples: ", doo_optim.state.total_samples)
-        println("HOO samples: ", hoo_optim.state.total_samples)
-
-        # Both should improve from initial loss
-        @test doo_loss < initial_doo_loss
-        @test hoo_loss < initial_hoo_loss
-
-        # Both should have reasonable sample counts
-        @test doo_optim.state.total_samples > 0
-        @test hoo_optim.state.total_samples > 0
-    end
-
     @testset "DOO Strict Mode" begin
         # Test strict mode (expand one branch at a time)
         delta = h -> 2.0^(-h)

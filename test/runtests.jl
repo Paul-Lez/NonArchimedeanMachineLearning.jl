@@ -36,7 +36,6 @@ using NonArchimedeanMachineLearning
         include("value_transforms.jl")
         include("test_doo.jl")
         include("dag_mcts.jl")
-        include("tree_search_algorithms.jl")
     end
 
     @testset "Visualization" begin

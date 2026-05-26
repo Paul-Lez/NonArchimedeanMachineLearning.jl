@@ -29,11 +29,7 @@ include("optimization/optimizers/greedy_descent.jl")
 include("optimization/optimizers/random_descent.jl")
 include("optimization/loss.jl")
 include("optimization/optimizers/tree_search/value_transforms.jl")
-include("optimization/optimizers/tree_search/hoo.jl")
 include("optimization/optimizers/tree_search/mcts.jl")
-include("optimization/optimizers/tree_search/uct.jl")
-include("optimization/optimizers/tree_search/modified_uct.jl")
-include("optimization/optimizers/tree_search/flat_ucb.jl")
 include("optimization/optimizers/tree_search/doo.jl")
 include("optimization/optimizers/tree_search/dag_mcts.jl")
 include("statistics/frechet.jl")
@@ -94,11 +90,6 @@ export random_descent, random_descent_init
 # From optimization/optimizers/gradient_descent.jl
 export gradient_param, gradient_descent, gradient_descent_init
 
-# From optimization/optimizers/tree_search/hoo.jl
-export HOONode, HOOConfig, HOOState
-export hoo_descent, hoo_descent_init
-export get_tree_size, get_visited_nodes, get_leaf_nodes
-
 # From optimization/optimizers/tree_search/value_transforms.jl
 export sigmoid_transform, tanh_transform, negation_transform, inverse_transform
 export DEFAULT_VALUE_TRANSFORM
@@ -107,18 +98,7 @@ export DEFAULT_VALUE_TRANSFORM
 export MCTSNode, MCTSConfig, MCTSState
 export SelectionMode, VisitCount, BestValue, BestLoss
 export mcts_descent, mcts_descent_init
-
-# From optimization/optimizers/tree_search/uct.jl
-export UCTNode, UCTConfig, UCTState
-export uct_descent, uct_descent_init
-
-# From optimization/optimizers/tree_search/modified_uct.jl
-export ModifiedUCTNode, ModifiedUCTConfig, ModifiedUCTState
-export modified_uct_descent, modified_uct_descent_init
-
-# From optimization/optimizers/tree_search/flat_ucb.jl
-export FlatUCBNode, FlatUCBConfig, FlatUCBState
-export flat_ucb_descent, flat_ucb_descent_init
+export get_tree_size
 
 # From optimization/optimizers/tree_search/doo.jl
 export DOONode, DOOConfig, DOOState

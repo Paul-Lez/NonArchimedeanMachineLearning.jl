@@ -11,16 +11,14 @@ using D3Trees
 const _TreeNode{S,
     T,
     N} = Union{
-    MCTSNode{S, T, N}, UCTNode{S, T, N}, DAGMCTSNode{S, T, N},
-    HOONode{S, T, N}, ModifiedUCTNode{S, T, N}, FlatUCBNode{S, T, N},
+    MCTSNode{S, T, N}, DAGMCTSNode{S, T, N},
     DOONode{S, T, N}
 }
 
 const _TreeState{S,
     T,
     N} = Union{
-    MCTSState{S, T, N}, UCTState{S, T, N}, DAGMCTSState{S, T, N},
-    HOOState{S, T, N}, ModifiedUCTState{S, T, N}, FlatUCBState{S, T, N},
+    MCTSState{S, T, N}, DAGMCTSState{S, T, N},
     DOOState{S, T, N}
 }
 
@@ -30,21 +28,13 @@ _visits(node::_TreeNode) = node.visits
 _visits(node::DOONode) = isnothing(node.value) ? 0 : 1
 
 _avg_value(node::MCTSNode) = node.visits > 0 ? node.total_value / node.visits : 0.0
-_avg_value(node::UCTNode) = node.visits > 0 ? node.total_value / node.visits : 0.0
 _avg_value(node::DAGMCTSNode) = node.visits > 0 ? node.total_value / node.visits : 0.0
-_avg_value(node::ModifiedUCTNode) = node.visits > 0 ? node.total_value / node.visits : 0.0
-_avg_value(node::FlatUCBNode) = node.visits > 0 ? node.total_value / node.visits : 0.0
-_avg_value(node::HOONode) = node.visits > 0 ? node.sum_values / node.visits : 0.0
 _avg_value(node::DOONode) = something(node.value, 0.0)
 
 _node_children(node::_TreeNode) = node.children
 
 _node_type_name(::MCTSNode) = "MCTS"
-_node_type_name(::UCTNode) = "UCT"
 _node_type_name(::DAGMCTSNode) = "DAG-MCTS"
-_node_type_name(::HOONode) = "HOO"
-_node_type_name(::ModifiedUCTNode) = "Mod-UCT"
-_node_type_name(::FlatUCBNode) = "Flat-UCB"
 _node_type_name(::DOONode) = "DOO"
 
 function _has_depth(node::_TreeNode)
@@ -209,7 +199,8 @@ end
 Create an interactive D3Tree visualization from any NonArchimedeanMachineLearning tree search node or state.
 
 # Arguments
-- `root_or_state`: Any search tree node (MCTSNode, UCTNode, etc.), state (MCTSState, etc.),
+- `root_or_state`: Any search tree node (MCTSNode, DAGMCTSNode, DOONode),
+  state (MCTSState, DAGMCTSState, DOOState),
   or OptimSetup with a tree search state.
 - `max_depth::Int=10`: Maximum tree depth to include.
 - `max_nodes::Int=10000`: Maximum number of nodes to include.
