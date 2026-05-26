@@ -198,8 +198,9 @@ function expand_node!(node::DOONode{S, T, N}, loss::Loss, config::DOOConfig,
 
     # Generate children polydiscs
     if config.strict
-        # Expand along single branch
-        child_polydiscs = children_along_branch(node.polydisc, state.next_branch)
+        # Expand along one coordinate branch at a time.
+        branch_index = mod1(state.next_branch, dim(node.polydisc))
+        child_polydiscs = children_along_branch(node.polydisc, branch_index)
     else
         # Full expansion along all branches
         child_polydiscs = children(node.polydisc, config.degree)
@@ -270,8 +271,7 @@ function doo_descent(loss::Loss, param::ValuationPolydisc{S, T, N},
 
     # Update branch index for strict mode
     if config.strict
-        p = Int(prime(param))
-        state.next_branch = mod1(state.next_branch + 1, p^config.degree)
+        state.next_branch = mod1(state.next_branch + 1, dim(param))
     end
 
     # Return the best-valued node found so far as the new parameter

@@ -80,17 +80,12 @@ using Oscar
 
         # Take a few optimization steps
         initial_loss = eval_loss(optim)
-        println("Initial loss: ", initial_loss)
 
         for i in 1:10
             step!(optim)
         end
 
         final_loss = eval_loss(optim)
-        println("Loss after 10 steps: ", final_loss)
-        println("Total samples: ", optim.state.total_samples)
-        println("Tree size: ", get_tree_size(optim.state))
-        println("Leaf count: ", get_leaf_count(optim.state))
 
         # Loss should improve
         @test final_loss < initial_loss
@@ -160,19 +155,14 @@ using Oscar
     end
 
     @testset "DOO Strict Mode" begin
-        # Test strict mode (expand one branch at a time)
         delta = h -> 2.0^(-h)
         config = DOOConfig(delta = delta, degree = 1, strict = true)
         optim = doo_descent_init(param, loss, 1, config)
 
-        initial_branch = optim.state.next_branch
-
-        # Take one step
-        step!(optim)
-
-        # Branch index should have advanced
-        @test optim.state.next_branch != initial_branch || prime(param)^1 == 1
+        for _ in 1:3
+            @test_nowarn step!(optim)
+            @test 1 <= optim.state.next_branch <= NonArchimedeanMachineLearning.dim(param)
+        end
+        @test get_tree_size(optim.state) > 1
     end
 end
-
-println("\nAll DOO tests passed!")
