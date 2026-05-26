@@ -47,9 +47,9 @@ Starts from the join of all polydiscs and refines for a specified number of step
 # Returns
 `ValuationPolydisc{S, T, N}`: The approximate Fréchet mean polydisc
 
-# Implementation
-Uses a custom loss with `greedy_descent_init`. This should eventually become a direct
-polydisc-loss implementation.
+# Implementation Notes
+Builds an auxiliary loss from the pairwise polydisc distances and minimizes it
+with greedy descent.
 """
 function frechet_mean(X::Array{ValuationPolydisc{S, T, N}, 1}, prec) where {S, T, N}
     mean_point = Vector{S}()

@@ -729,7 +729,7 @@ function extract_spanning_tree(tree::ConvexHullTree{S, T, N}) where {S, T, N}
         end
     end
 
-    # Handle any disconnected nodes (shouldn't happen, but just in case)
+    # Handle disconnected nodes conservatively.
     for i in 1:n
         if i ∉ visited
             # Find any parent that was visited
@@ -1054,8 +1054,7 @@ function plot_tree_with_loss(tree::ConvexHullTree{S, T, N}, landscape::Dict;
         end
     end
 
-    # Add colorbar by creating a dummy heatmap
-    # Create a small gradient for the colorbar
+    # Add a colorbar using a one-point scatter trace.
     z_range = range(min_loss, max_loss, length = 100)
     Plots.scatter!(plt, [NaN], [NaN],
         zcolor = [min_loss],

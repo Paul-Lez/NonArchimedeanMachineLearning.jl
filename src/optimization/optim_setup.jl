@@ -31,11 +31,6 @@ function Base.:+(f::Loss, g::Loss)
     return Loss(eval, grad)
 end
 
-# TODO: possible refactor:
-# We can bundle the value of param in the state, 
-# by assuming that the state type always has a method
-# "get_param!" available.  
-
 @doc raw"""
     OptimSetup{S,T,N,U,V,L,O}
 
@@ -74,9 +69,7 @@ mutable struct OptimSetup{S, T, N, U, V, L <: Loss, O}
     # (plus eventually other parameters, e.g. learning rate)
     # and outputs a new choice of parameters
     optimiser::O
-    # The state is an optional field that records the state of the optimisation
-    # process, e.g. previous steps that were made, etc.
-    # This is useful since some optimisation methods may depend on the state.
+    # Algorithm-specific state carried across optimization steps.
     state::U
     # The context type. This records things like settings for the optimiser, etc
     context::V

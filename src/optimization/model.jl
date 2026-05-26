@@ -497,9 +497,6 @@ function specialise(m::AbstractModel{S}, data::Vector{Vector{S}})::PolydiscFunct
     # Specialize the model at each data point
     specialized_funcs = [specialise(m, val) for val in data]
 
-    # TODO: we don't need this anymore because we can now add
-    # arbitrary polydisc functions. But perhaps there are speed considerations?
-
     # Combine by appending polynomials
     if isa(specialized_funcs[1], AbsolutePolynomialSum)
         combined_polys = reduce(vcat, [f.polys for f in specialized_funcs])

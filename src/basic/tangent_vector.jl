@@ -23,8 +23,7 @@ this allows the tangent to have non-unit magnitude for each coordinate.
 struct ValuationTangent{S, T, N} #where T<:Oscar.scalar_types
     point::ValuationPolydisc{S, T, N}
     direction::ValuationPolydisc{S, T, N}
-    # Possibly we should allow the magnitude to have a different type?
-    # not sure if that would ever come up
+    # Magnitudes currently share the same scalar type as the base polydisc radii.
     magnitude::Vector{T}
 end
 

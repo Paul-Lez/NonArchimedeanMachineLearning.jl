@@ -187,7 +187,6 @@ struct LinearRationalFunctionSum{S} <: PolydiscFunction{S}
     rats::Vector{LinearRationalFunction{S}}
 end
 
-# TODO(Paul-Lez): I think this doesn't make sense?
 @doc raw"""
     parent(F::AbsolutePolynomialSum{S}) where S
 

@@ -85,7 +85,7 @@ export MSE_loss_init, MPE_loss_init
 # From optimization/optimizers/greedy_descent.jl
 export greedy_descent, greedy_descent_init
 
-# From optimization/optimizers/random_descent.jl (BASELINE ONLY - for experimental comparison)
+# From optimization/optimizers/random_descent.jl (baseline comparison)
 export random_descent, random_descent_init
 
 # From optimization/optimizers/gradient_descent.jl

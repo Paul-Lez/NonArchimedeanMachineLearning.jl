@@ -572,8 +572,6 @@ function children(p::ValuationPolydisc{ValuedFieldPoint{P, Prec, PFE}, T, N},
     return output
 end
 
-# TODO: this should also work when the valuation is negative...
-
 @doc raw"""
     children_along_branches(p::ValuationPolydisc{S,T,N}, branch_indices; skip_saturated=true) where {S,T,N}
 
@@ -749,7 +747,7 @@ end
 # HashedPolydisc
 ##################################################
 
-# TODO: Consider refactoring to an abstract type hierarchy:
+# Possible future refactor:
 #   abstract type AbstractValuationPolydisc{S,T,N} end
 #   struct ValuationPolydisc{S,T,N} <: AbstractValuationPolydisc{S,T,N} ... end
 #   struct HashedValuationPolydisc{S,T,N} <: AbstractValuationPolydisc{S,T,N} ... end
