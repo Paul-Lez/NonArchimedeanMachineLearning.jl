@@ -16,7 +16,6 @@ using NonArchimedeanMachineLearning
 
         @test typeof(p1) ==
               ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int, 2}
-        println("✓ Basic polydisc creation works")
     end
 
     @testset "LinearPolynomial Evaluator" begin
@@ -42,7 +41,6 @@ using NonArchimedeanMachineLearning
         @test typeof(eval_typed) ==
               LinearPolynomialEvaluator{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}
 
-        println("✓ LinearPolynomial evaluator works! Result: $result")
     end
 
     @testset "Constant Evaluator" begin
@@ -67,7 +65,6 @@ using NonArchimedeanMachineLearning
         @test typeof(eval_typed) ==
               ConstantEvaluator{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}
 
-        println("✓ Constant evaluator works!")
     end
 
     @testset "MPoly Evaluator" begin
@@ -93,7 +90,6 @@ using NonArchimedeanMachineLearning
         # MPoly with PadicFieldElem coefficients gets wrapped in LambdaEvaluator for type compatibility
         @test typeof(eval_typed) <: PolydiscFunctionEvaluator
 
-        println("✓ MPoly evaluator works! Result: $result (type: $(typeof(eval_typed)))")
     end
 
     @testset "Sum Evaluator for LinearAbsolutePolynomialSum" begin
@@ -118,6 +114,5 @@ using NonArchimedeanMachineLearning
         @test result > 0
         @test typeof(eval_typed) <: SumEvaluator
 
-        println("✓ Sum evaluator works! Result: $result")
     end
 end

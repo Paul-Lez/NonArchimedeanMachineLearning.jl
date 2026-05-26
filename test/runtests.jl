@@ -43,5 +43,3 @@ using NonArchimedeanMachineLearning
         include("search_tree_viz.jl")
     end
 end
-
-println("\n✓ All tests completed successfully!")
