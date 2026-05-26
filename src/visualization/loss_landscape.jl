@@ -827,8 +827,8 @@ end
 Compute (x, y) positions for all nodes in the tree for visualization.
 
 Uses a radius-based layout where:
-- Y-coordinate is determined by radius (smaller radius = higher position)
-- Nodes with the same radius are at the same vertical level
+- Y-coordinate is determined by valuation radius (smaller actual radius = higher position)
+- Nodes with the same valuation radius are at the same vertical level
 - X-coordinates spread nodes to avoid overlap while respecting tree structure
 
 # Arguments
@@ -850,10 +850,10 @@ function compute_tree_layout(tree::ConvexHullTree{S, T, N}) where {S, T, N}
     # Get radius values for each node (sum for multi-dimensional polydiscs)
     radius_values = [sum(collect(tree.nodes[i].radius)) for i in 1:n]
 
-    # Get unique radius values and sort them (smallest radius = top of tree)
-    unique_radii = sort(unique(radius_values))
+    # Larger valuation radius means a smaller actual p-adic disc, so those nodes go on top.
+    unique_radii = sort(unique(radius_values); rev = true)
 
-    # Map radius to y-coordinate (smallest radius = highest y)
+    # Map valuation radius to y-coordinate (smallest actual radius = highest y)
     radius_to_y = Dict{Float64, Float64}()
     max_level = length(unique_radii) - 1
     for (level, r) in enumerate(unique_radii)

@@ -11,11 +11,31 @@ using NonArchimedeanMachineLearning
     p = 2
 
     # Test that conversion functions are inverses
-    test_vals = [0, 1, 2, 5, 10]
+    test_vals = [-2, -1, 0, 1, 2, 5, 10]
     for val in test_vals
         r = NonArchimedeanMachineLearning.valuation_to_radius(val, p)
         val_back = NonArchimedeanMachineLearning.radius_to_valuation(r, p)
         @test abs(val - val_back) < 1e-10
+    end
+
+    @testset "Valuation radius conventions" begin
+        @test NonArchimedeanMachineLearning.valuation_to_radius(-2, p) ≈ 4.0
+        @test NonArchimedeanMachineLearning.valuation_to_radius(2, p) ≈ 0.25
+        @test NonArchimedeanMachineLearning.radius_strictly_smaller((3,), (1,))
+        @test !NonArchimedeanMachineLearning.radius_strictly_smaller((1,), (3,))
+        @test !NonArchimedeanMachineLearning.radius_strictly_smaller((2,), (2,))
+
+        parent = ValuationPolydisc([K(0)], [0])
+        child = ValuationPolydisc([K(0)], [2])
+        tree = ConvexHullTree(
+            [parent, child],
+            Dict(1 => [2], 2 => Int[]),
+            Dict(1 => Int[], 2 => [1]),
+            [2]
+        )
+        positions, _, _, _ = NonArchimedeanMachineLearning.compute_tree_layout(tree)
+
+        @test positions[2][2] > positions[1][2]
     end
 
     # Create two nested discs
