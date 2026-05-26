@@ -1,7 +1,6 @@
 ## Demo script for convex hull computation
 
-include("../src/NonArchimedeanMachineLearning.jl")
-using .NonArchimedeanMachineLearning
+using NonArchimedeanMachineLearning
 using Oscar
 
 println("=== Convex Hull Computation Demo ===\n")

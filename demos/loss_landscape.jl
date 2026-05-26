@@ -1,5 +1,4 @@
-include("../src/NonArchimedeanMachineLearning.jl")
-using .NonArchimedeanMachineLearning
+using NonArchimedeanMachineLearning
 using Oscar
 
 println("=== Loss Landscape Sampling Demo ===\n")

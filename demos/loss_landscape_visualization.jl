@@ -1,8 +1,7 @@
 ## Loss Landscape Visualization Demo
 ## This script demonstrates the complete loss landscape visualization pipeline
 
-include("../src/NonArchimedeanMachineLearning.jl")
-using .NonArchimedeanMachineLearning
+using NonArchimedeanMachineLearning
 using Oscar
 
 println("=== Loss Landscape Visualization Demo ===\n")

@@ -9,8 +9,7 @@ Usage:
     julia --project=. demos/x2_minus_1_minimization.jl
 """
 
-include("../src/NonArchimedeanMachineLearning.jl")
-using .NonArchimedeanMachineLearning
+using NonArchimedeanMachineLearning
 using Oscar
 
 # ── Setup ─────────────────────────────────────────────────────────────────────

@@ -2,8 +2,7 @@
 # Quick test: DAG-MCTS on a 3-variable LinearAbsolutePolynomialSum, then visualize the search tree.
 
 using Oscar
-include("../src/NonArchimedeanMachineLearning.jl")
-using .NonArchimedeanMachineLearning
+using NonArchimedeanMachineLearning
 
 using D3Trees
 
