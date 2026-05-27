@@ -4,13 +4,30 @@ polydisc states.
 """
 
 ##################################################
-# DAG-MCTS Node Structure
+# DAG-MCTS Variants and Node Structures
 ##################################################
+
+abstract type AbstractDAGMCTSNode{S, T, N} end
+abstract type AbstractDAGMCTSState{S, T, N} end
+
+@doc raw"""
+    DAGMCTSVariant
+
+Selects the internal DAG-MCTS algorithm.
+
+# Values
+- `PathStatsDAGMCTS`: Search statistics are stored on
+  root-to-node paths and selection uses DUCB. Node evaluations are shared through
+  a transposition cache.
+- `NodeStatsDAGMCTS`: Search statistics are stored
+  directly on shared DAG nodes.
+"""
+@enum DAGMCTSVariant PathStatsDAGMCTS NodeStatsDAGMCTS
 
 @doc raw"""
     DAGMCTSNode{S,T,N}
 
-A node in the DAG-MCTS search graph.
+A node in the node-statistics DAG-MCTS search graph.
 
 Unlike standard MCTS nodes, DAG nodes can have multiple parents since the same
 polydisc state can be reached via different action sequences.
@@ -32,7 +49,7 @@ We track all parents in a vector rather than having no parent information.
 This is more expensive but useful for analysis and debugging. The alternative
 would be to track no parent info and rely purely on the explicit path during traversal.
 """
-mutable struct DAGMCTSNode{S, T, N}
+mutable struct DAGMCTSNode{S, T, N} <: AbstractDAGMCTSNode{S, T, N}
     polydisc::ValuationPolydisc{S, T, N}
     parents::Vector{DAGMCTSNode{S, T, N}}
     children::Vector{DAGMCTSNode{S, T, N}}
@@ -75,6 +92,59 @@ function average_value(node::DAGMCTSNode)
     return node.visits > 0 ? node.total_value / node.visits : 0.0
 end
 
+@doc raw"""
+    DAGMCTSPathStats
+
+Visit/value statistics for a single root-to-node path in the path-style
+DAG-MCTS variant.
+"""
+mutable struct DAGMCTSPathStats
+    visits::Int
+    total_value::Float64
+end
+
+DAGMCTSPathStats() = DAGMCTSPathStats(0, 0.0)
+
+average_value(stats::DAGMCTSPathStats) =
+    stats.visits > 0 ? stats.total_value / stats.visits : 0.0
+
+const DAGMCTSPathKey{S, T, N} = Tuple{Vararg{HashedPolydisc{S, T, N}}}
+
+@doc raw"""
+    DAGMCTSPathNode{S,T,N}
+
+A node in the path-style DAG-MCTS search graph.
+
+This node stores only graph structure plus lightweight diagnostic aggregate
+statistics. DUCB selection and backpropagation use `DAGMCTSPathStats` keyed by
+root-to-node paths, not these node aggregates.
+"""
+mutable struct DAGMCTSPathNode{S, T, N} <: AbstractDAGMCTSNode{S, T, N}
+    polydisc::ValuationPolydisc{S, T, N}
+    parents::Vector{DAGMCTSPathNode{S, T, N}}
+    children::Vector{DAGMCTSPathNode{S, T, N}}
+    visits::Int
+    total_value::Float64
+    is_expanded::Bool
+    is_terminal::Bool
+end
+
+function DAGMCTSPathNode(polydisc::ValuationPolydisc{S, T, N}) where {S, T, N}
+    return DAGMCTSPathNode{S, T, N}(
+        polydisc,
+        DAGMCTSPathNode{S, T, N}[],
+        DAGMCTSPathNode{S, T, N}[],
+        0,
+        0.0,
+        false,
+        false
+    )
+end
+
+function average_value(node::DAGMCTSPathNode)
+    return node.visits > 0 ? node.total_value / node.visits : 0.0
+end
+
 ##################################################
 # DAG-MCTS Configuration
 ##################################################
@@ -93,6 +163,8 @@ Configuration parameters for the DAG-MCTS optimizer.
 - `selection_mode::SelectionMode`: Strategy for selecting the next step
   (`VisitCount`, `BestValue`, or `BestLoss`)
 - `track_parents::Bool`: Whether to retain parent pointers for debugging and verification
+- `variant::DAGMCTSVariant`: Internal DAG-MCTS algorithm. The default is
+  `PathStatsDAGMCTS`.
 
 # Design Decision (recorded for future experimentation)
 The `persist_table` option allows experimenting with:
@@ -111,6 +183,7 @@ struct DAGMCTSConfig
     persist_table::Bool
     selection_mode::SelectionMode
     track_parents::Bool
+    variant::DAGMCTSVariant
 end
 
 @doc raw"""
@@ -122,29 +195,41 @@ Create a DAG-MCTS configuration with sensible defaults.
 - `num_simulations::Int=100`: Number of simulations per step
 - `exploration_constant::Float64=1.41`: UCT exploration constant
 - `degree::Int=1`: Child generation degree
-- `value_transform::Function=sigmoid_transform()`: Loss to value transformation (see `sigmoid_transform`, `tanh_transform`, `negation_transform`)
-- `persist_table::Bool=true`: Whether to persist transposition table across steps
-- `selection_mode::SelectionMode=VisitCount`: Child selection strategy
-  (`VisitCount`, `BestValue`, or `BestLoss`)
+- `value_transform::Function=DEFAULT_VALUE_TRANSFORM`: Loss to value transformation (see `sigmoid_transform`, `tanh_transform`, `negation_transform`)
+- `persist_table`: Whether to persist the transposition table across steps.
+  Defaults to `false` for the path-stat variant and `true` for the
+  node-stat variant.
+- `selection_mode`: Child selection strategy (`VisitCount`, `BestValue`, or
+  `BestLoss`). Defaults to `BestValue` for the path-stat variant
+  and `VisitCount` for the node-stat variant.
 - `track_parents::Bool=false`: Whether to track parent pointers (needed for debug verification; off by default for performance)
+- `variant::DAGMCTSVariant=PathStatsDAGMCTS`: Select the dag-mcts implementation.
 """
 function DAGMCTSConfig(;
         num_simulations::Int = 100,
         exploration_constant::Float64 = 1.41,
         degree::Int = 1,
         value_transform::Function = DEFAULT_VALUE_TRANSFORM,
-        persist_table::Bool = true,
-        selection_mode::SelectionMode = VisitCount,
-        track_parents::Bool = false
+        persist_table::Union{Bool, Nothing} = nothing,
+        selection_mode::Union{SelectionMode, Nothing} = nothing,
+        track_parents::Bool = false,
+        variant::DAGMCTSVariant = PathStatsDAGMCTS
 )
+    resolved_persist_table = isnothing(persist_table) ? variant == NodeStatsDAGMCTS :
+                             persist_table
+    resolved_selection_mode = isnothing(selection_mode) ?
+                              (variant == PathStatsDAGMCTS ? BestValue : VisitCount) :
+                              selection_mode
+
     return DAGMCTSConfig(
         num_simulations,
         exploration_constant,
         degree,
         value_transform,
-        persist_table,
-        selection_mode,
-        track_parents
+        resolved_persist_table,
+        resolved_selection_mode,
+        track_parents,
+        variant
     )
 end
 
@@ -170,7 +255,7 @@ State maintained across DAG-MCTS optimization steps.
 - `min_loss::Float64`: Minimum raw loss seen so far
 - `min_loss_root_child::Union{DAGMCTSNode{S,T,N}, Nothing}`: Which direct child of root leads to min_loss_node
 """
-mutable struct DAGMCTSState{S, T, N}
+mutable struct DAGMCTSState{S, T, N} <: AbstractDAGMCTSState{S, T, N}
     root::DAGMCTSNode{S, T, N}
     transposition_table::Dict{HashedPolydisc{S, T, N}, DAGMCTSNode{S, T, N}}
     step_count::Int
@@ -181,6 +266,27 @@ mutable struct DAGMCTSState{S, T, N}
     min_loss_node::Union{DAGMCTSNode{S, T, N}, Nothing}
     min_loss::Float64
     min_loss_root_child::Union{DAGMCTSNode{S, T, N}, Nothing}
+end
+
+@doc raw"""
+    DAGMCTSPathState{S,T,N}
+
+State for the path-style DAG-MCTS variant.
+
+The graph is stored in `transposition_table`, objective evaluations are cached
+in `evaluation_cache`, and MCTS statistics are stored in `path_stats` keyed by
+root-to-node paths.
+"""
+mutable struct DAGMCTSPathState{S, T, N} <: AbstractDAGMCTSState{S, T, N}
+    root::DAGMCTSPathNode{S, T, N}
+    transposition_table::Dict{HashedPolydisc{S, T, N}, DAGMCTSPathNode{S, T, N}}
+    evaluation_cache::Dict{HashedPolydisc{S, T, N}, Float64}
+    loss_cache::Dict{HashedPolydisc{S, T, N}, Float64}
+    path_stats::Dict{DAGMCTSPathKey{S, T, N}, DAGMCTSPathStats}
+    step_count::Int
+    min_loss_node::Union{DAGMCTSPathNode{S, T, N}, Nothing}
+    min_loss::Float64
+    min_loss_root_child::Union{DAGMCTSPathNode{S, T, N}, Nothing}
 end
 
 ##################################################
@@ -222,6 +328,35 @@ function get_or_create_node!(
     end
 
     return node
+end
+
+@doc raw"""
+    get_or_create_path_node!(table, polydisc, parent=nothing)
+
+Look up or create a node for the path-stat DAG-MCTS variant.
+"""
+function get_or_create_path_node!(
+        table::Dict{HashedPolydisc{S, T, N}, DAGMCTSPathNode{S, T, N}},
+        polydisc::ValuationPolydisc{S, T, N},
+        parent::Union{DAGMCTSPathNode{S, T, N}, Nothing} = nothing
+) where {S, T, N}
+    key = HashedPolydisc(polydisc)
+    node = get!(table, key) do
+        DAGMCTSPathNode(polydisc)
+    end
+
+    if !isnothing(parent) && !(parent in node.parents)
+        push!(node.parents, parent)
+    end
+
+    return node
+end
+
+function _extend_path_key(
+        key::DAGMCTSPathKey{S, T, N},
+        child::DAGMCTSPathNode{S, T, N}
+) where {S, T, N}
+    return (key..., HashedPolydisc(child.polydisc))
 end
 
 ##################################################
@@ -277,6 +412,60 @@ function select_child(node::DAGMCTSNode, exploration_constant::Float64)
         else
             score = uct_score(child, node.visits, exploration_constant)
         end
+        if score > best_score
+            best_score = score
+            best_action = action
+            best_child = child
+        end
+    end
+
+    return best_action, best_child
+end
+
+@doc raw"""
+    ducb_score(path_stats, path_key, child, exploration_constant)
+
+Compute the path-statistics DAG upper confidence bound
+
+```math
+DUCB(P, y) = Q(P \cdot y) + c \sqrt{\log N(P) / N(P \cdot y)}.
+```
+
+Unvisited path extensions are assigned `Inf`.
+"""
+function ducb_score(
+        path_stats::Dict{DAGMCTSPathKey{S, T, N}, DAGMCTSPathStats},
+        path_key::DAGMCTSPathKey{S, T, N},
+        child::DAGMCTSPathNode{S, T, N},
+        exploration_constant::Float64
+) where {S, T, N}
+    child_key = _extend_path_key(path_key, child)
+    child_stats = get(path_stats, child_key, DAGMCTSPathStats())
+    if child_stats.visits == 0
+        return Inf
+    end
+
+    parent_stats = get(path_stats, path_key, DAGMCTSPathStats())
+    parent_visits = max(parent_stats.visits, 1)
+    exploitation = average_value(child_stats)
+    exploration = exploration_constant * sqrt(log(parent_visits) / child_stats.visits)
+    return exploitation + exploration
+end
+
+function select_child(
+        node::DAGMCTSPathNode{S, T, N},
+        path_key::DAGMCTSPathKey{S, T, N},
+        path_stats::Dict{DAGMCTSPathKey{S, T, N}, DAGMCTSPathStats},
+        exploration_constant::Float64
+) where {S, T, N}
+    @assert !isempty(node.children) "Cannot select from node with no children"
+
+    best_score = -Inf
+    best_action = 1
+    best_child = node.children[1]
+
+    for (action, child) in enumerate(node.children)
+        score = ducb_score(path_stats, path_key, child, exploration_constant)
         if score > best_score
             best_score = score
             best_action = action
@@ -349,6 +538,29 @@ function expand_node!(
     end
 end
 
+function expand_node!(
+        node::DAGMCTSPathNode{S, T, N},
+        table::Dict{HashedPolydisc{S, T, N}, DAGMCTSPathNode{S, T, N}},
+        config::DAGMCTSConfig
+) where {S, T, N}
+    if node.is_expanded
+        return
+    end
+
+    child_polydiscs = children(node.polydisc, config.degree)
+
+    n_children = length(child_polydiscs)
+    resize!(node.children, n_children)
+    parent_for_link = config.track_parents ? node : nothing
+    for (i, child_polydisc) in enumerate(child_polydiscs)
+        child_node = get_or_create_path_node!(table, child_polydisc, parent_for_link)
+        node.children[i] = child_node
+    end
+
+    node.is_expanded = true
+    node.is_terminal = isempty(node.children)
+end
+
 @doc raw"""
     select_path(root::DAGMCTSNode, exploration_constant::Float64)
 
@@ -377,6 +589,25 @@ function select_path(root::DAGMCTSNode, exploration_constant::Float64)
     return path
 end
 
+function select_path(
+        root::DAGMCTSPathNode{S, T, N},
+        state::DAGMCTSPathState{S, T, N},
+        exploration_constant::Float64
+) where {S, T, N}
+    path = DAGMCTSPathNode{S, T, N}[root]
+    path_key = (HashedPolydisc(root.polydisc),)
+    node = root
+
+    while node.is_expanded && !isempty(node.children)
+        _, child = select_child(node, path_key, state.path_stats, exploration_constant)
+        push!(path, child)
+        path_key = _extend_path_key(path_key, child)
+        node = child
+    end
+
+    return path, path_key
+end
+
 @doc raw"""
     evaluate_node(node::DAGMCTSNode{S,T,N}, loss::Loss, config::DAGMCTSConfig) where {S,T,N}
 
@@ -389,6 +620,33 @@ function evaluate_node(node::DAGMCTSNode{S, T, N}, loss::Loss, config::DAGMCTSCo
         S, T, N}
     loss_value = loss.eval([node.polydisc])[1]
     return config.value_transform(loss_value)
+end
+
+function evaluate_node(
+        node::DAGMCTSPathNode{S, T, N},
+        loss::Loss,
+        config::DAGMCTSConfig
+) where {S, T, N}
+    loss_value = loss.eval([node.polydisc])[1]
+    return config.value_transform(loss_value)
+end
+
+function cached_evaluate_node!(
+        state::DAGMCTSPathState{S, T, N},
+        node::DAGMCTSPathNode{S, T, N},
+        loss::Loss,
+        config::DAGMCTSConfig
+) where {S, T, N}
+    key = HashedPolydisc(node.polydisc)
+    if haskey(state.evaluation_cache, key)
+        return state.evaluation_cache[key], state.loss_cache[key]
+    end
+
+    loss_value = loss.eval([node.polydisc])[1]
+    value = config.value_transform(loss_value)
+    state.evaluation_cache[key] = value
+    state.loss_cache[key] = loss_value
+    return value, loss_value
 end
 
 @doc raw"""
@@ -438,6 +696,35 @@ function backpropagate!(path::Vector{<:DAGMCTSNode}, value::Float64, state::DAGM
         if !isnothing(root_child)
             state.min_loss_root_child = root_child
         end
+    end
+end
+
+function backpropagate!(
+        path::Vector{DAGMCTSPathNode{S, T, N}},
+        path_key::DAGMCTSPathKey{S, T, N},
+        value::Float64,
+        state::DAGMCTSPathState{S, T, N},
+        eval_node::DAGMCTSPathNode{S, T, N} = path[end],
+        loss_value::Float64 = NaN
+) where {S, T, N}
+    for i in eachindex(path)
+        prefix_key = path_key[1:i]
+        stats = get!(state.path_stats, prefix_key) do
+            DAGMCTSPathStats()
+        end
+        stats.visits += 1
+        stats.total_value += value
+
+        # Diagnostic aggregate only. DUCB never reads node-level statistics.
+        node = path[i]
+        node.visits += 1
+        node.total_value += value
+    end
+
+    if !isnan(loss_value) && loss_value < state.min_loss
+        state.min_loss = loss_value
+        state.min_loss_node = eval_node
+        state.min_loss_root_child = length(path) >= 2 ? path[2] : nothing
     end
 end
 
@@ -833,6 +1120,123 @@ function dag_mcts_search(
     return best_child.polydisc, best_child, root.is_terminal
 end
 
+@doc raw"""
+    dag_mcts_path_simulation!(root, table, loss, config, state)
+
+Run one path-style DAG-MCTS simulation.
+
+Selection uses DUCB on path extensions, evaluation is cached by polydisc in the
+transposition cache, and backpropagation updates every prefix of the sampled
+path.
+"""
+function dag_mcts_path_simulation!(
+        root::DAGMCTSPathNode{S, T, N},
+        table::Dict{HashedPolydisc{S, T, N}, DAGMCTSPathNode{S, T, N}},
+        loss::Loss,
+        config::DAGMCTSConfig,
+        state::DAGMCTSPathState{S, T, N}
+) where {S, T, N}
+    path, path_key = select_path(root, state, config.exploration_constant)
+    leaf = path[end]
+
+    if !leaf.is_expanded
+        expand_node!(leaf, table, config)
+    end
+
+    if leaf.is_terminal
+        value, loss_value = cached_evaluate_node!(state, leaf, loss, config)
+        backpropagate!(path, path_key, value, state, leaf, loss_value)
+        return value
+    end
+
+    eval_node = rand(leaf.children)
+    push!(path, eval_node)
+    path_key = _extend_path_key(path_key, eval_node)
+
+    value, loss_value = cached_evaluate_node!(state, eval_node, loss, config)
+    backpropagate!(path, path_key, value, state, eval_node, loss_value)
+
+    return value
+end
+
+function _root_path_key(root::DAGMCTSPathNode{S, T, N}) where {S, T, N}
+    return (HashedPolydisc(root.polydisc),)
+end
+
+function _path_child_stats(
+        state::DAGMCTSPathState{S, T, N},
+        root_key::DAGMCTSPathKey{S, T, N},
+        child::DAGMCTSPathNode{S, T, N}
+) where {S, T, N}
+    child_key = _extend_path_key(root_key, child)
+    return get(state.path_stats, child_key, DAGMCTSPathStats())
+end
+
+function select_best_child_dag(
+        root::DAGMCTSPathNode{S, T, N},
+        table::Dict{HashedPolydisc{S, T, N}, DAGMCTSPathNode{S, T, N}},
+        config::DAGMCTSConfig,
+        state::DAGMCTSPathState{S, T, N}
+) where {S, T, N}
+    if isempty(root.children)
+        error("Cannot select from node with no children")
+    end
+
+    root_key = _root_path_key(root)
+
+    if config.selection_mode == VisitCount
+        return argmax(c -> _path_child_stats(state, root_key, c).visits, root.children)
+    elseif config.selection_mode == BestValue
+        visited_children = [child for child in root.children
+                            if _path_child_stats(state, root_key, child).visits > 0]
+        if isempty(visited_children)
+            return first(root.children)
+        end
+        return argmax(c -> average_value(_path_child_stats(state, root_key, c)),
+            visited_children)
+    elseif config.selection_mode == BestLoss
+        if !isnothing(state.min_loss_root_child)
+            return state.min_loss_root_child
+        end
+        return first(root.children)
+    else
+        error("Unknown selection mode: $(config.selection_mode)")
+    end
+end
+
+@doc raw"""
+    dag_mcts_path_search(root, table, loss, config, state)
+
+Run the path-statistics DAG-MCTS update rule and return the selected
+root child.
+"""
+function dag_mcts_path_search(
+        root::DAGMCTSPathNode{S, T, N},
+        table::Dict{HashedPolydisc{S, T, N}, DAGMCTSPathNode{S, T, N}},
+        loss::Loss,
+        config::DAGMCTSConfig,
+        state::DAGMCTSPathState{S, T, N}
+) where {S, T, N}
+    for _ in 1:config.num_simulations
+        if root.is_expanded && root.is_terminal
+            break
+        end
+        dag_mcts_path_simulation!(root, table, loss, config, state)
+    end
+
+    if !root.is_expanded
+        expand_node!(root, table, config)
+    end
+
+    if root.is_terminal || isempty(root.children)
+        cached_evaluate_node!(state, root, loss, config)
+        return root.polydisc, root, true
+    end
+
+    best_child = select_best_child_dag(root, table, config, state)
+    return best_child.polydisc, best_child, best_child.is_terminal
+end
+
 ##################################################
 # DAG-MCTS Optimizer Interface (compatible with OptimSetup)
 ##################################################
@@ -902,6 +1306,48 @@ function dag_mcts_descent(
     return best_polydisc, state, converged
 end
 
+function _reset_path_search_state!(state::DAGMCTSPathState{S, T, N}) where {S, T, N}
+    empty!(state.path_stats)
+    state.path_stats[_root_path_key(state.root)] = DAGMCTSPathStats()
+    state.min_loss_node = nothing
+    state.min_loss = Inf
+    state.min_loss_root_child = nothing
+end
+
+function dag_mcts_descent(
+        loss::Loss,
+        param::ValuationPolydisc{S, T, N},
+        state::DAGMCTSPathState{S, T, N},
+        config::DAGMCTSConfig
+) where {S, T, N}
+    best_polydisc, best_node,
+    converged = dag_mcts_path_search(
+        state.root,
+        state.transposition_table,
+        loss,
+        config,
+        state
+    )
+
+    if config.persist_table
+        new_root = get_or_create_path_node!(state.transposition_table, best_polydisc)
+        state.root = new_root
+        rebuild_table_from_subtree!(state, config)
+    else
+        empty!(state.transposition_table)
+        empty!(state.evaluation_cache)
+        empty!(state.loss_cache)
+        new_root = DAGMCTSPathNode(best_polydisc)
+        state.transposition_table[HashedPolydisc(best_polydisc)] = new_root
+        state.root = new_root
+    end
+
+    _reset_path_search_state!(state)
+    state.step_count += 1
+
+    return best_polydisc, state, converged
+end
+
 @doc raw"""
     rebuild_table_from_subtree!(state::DAGMCTSState{S,T,N}, config::DAGMCTSConfig) where {S,T,N}
 
@@ -948,6 +1394,51 @@ function rebuild_table_from_subtree!(state::DAGMCTSState{S, T, N}, config::DAGMC
     state.transposition_table = new_table
 end
 
+function rebuild_table_from_subtree!(
+        state::DAGMCTSPathState{S, T, N},
+        config::DAGMCTSConfig
+) where {S, T, N}
+    new_table = Dict{HashedPolydisc{S, T, N}, DAGMCTSPathNode{S, T, N}}()
+
+    queue = DAGMCTSPathNode{S, T, N}[state.root]
+    new_table[HashedPolydisc(state.root.polydisc)] = state.root
+
+    while !isempty(queue)
+        curr = popfirst!(queue)
+        if curr.is_expanded
+            for child in curr.children
+                key = HashedPolydisc(child.polydisc)
+                if !haskey(new_table, key)
+                    new_table[key] = child
+                    push!(queue, child)
+                end
+            end
+        end
+    end
+
+    if config.track_parents
+        reachable_ids = Set{UInt}(objectid(node) for node in values(new_table))
+        for node in values(new_table)
+            filter!(p -> objectid(p) in reachable_ids, node.parents)
+        end
+    end
+
+    new_evaluation_cache = Dict{HashedPolydisc{S, T, N}, Float64}()
+    new_loss_cache = Dict{HashedPolydisc{S, T, N}, Float64}()
+    for key in keys(new_table)
+        if haskey(state.evaluation_cache, key)
+            new_evaluation_cache[key] = state.evaluation_cache[key]
+        end
+        if haskey(state.loss_cache, key)
+            new_loss_cache[key] = state.loss_cache[key]
+        end
+    end
+
+    state.transposition_table = new_table
+    state.evaluation_cache = new_evaluation_cache
+    state.loss_cache = new_loss_cache
+end
+
 @doc raw"""
     dag_mcts_descent_init(param::ValuationPolydisc{S,T,N}, loss::Loss, config::DAGMCTSConfig=DAGMCTSConfig()) where {S,T,N}
 
@@ -977,10 +1468,10 @@ for i in 1:100
 end
 ```
 """
-function dag_mcts_descent_init(
+function _dag_mcts_node_descent_init(
         param::ValuationPolydisc{S, T, N},
         loss::Loss,
-        config::DAGMCTSConfig = DAGMCTSConfig()
+        config::DAGMCTSConfig
 ) where {S, T, N}
     # Initialize transposition table with root
     table = Dict{HashedPolydisc{S, T, N}, DAGMCTSNode{S, T, N}}()
@@ -999,6 +1490,55 @@ function dag_mcts_descent_init(
         config,
         false
     )
+end
+
+function _dag_mcts_path_descent_init(
+        param::ValuationPolydisc{S, T, N},
+        loss::Loss,
+        config::DAGMCTSConfig
+) where {S, T, N}
+    table = Dict{HashedPolydisc{S, T, N}, DAGMCTSPathNode{S, T, N}}()
+    root = DAGMCTSPathNode(param)
+    root_key = HashedPolydisc(param)
+    table[root_key] = root
+
+    path_stats = Dict{DAGMCTSPathKey{S, T, N}, DAGMCTSPathStats}()
+    path_stats[(root_key,)] = DAGMCTSPathStats()
+
+    state = DAGMCTSPathState{S, T, N}(
+        root,
+        table,
+        Dict{HashedPolydisc{S, T, N}, Float64}(),
+        Dict{HashedPolydisc{S, T, N}, Float64}(),
+        path_stats,
+        0,
+        nothing,
+        Inf,
+        nothing
+    )
+
+    return OptimSetup(
+        loss,
+        param,
+        (l, p, st, ctx) -> dag_mcts_descent(l, p, st, ctx),
+        state,
+        config,
+        false
+    )
+end
+
+function dag_mcts_descent_init(
+        param::ValuationPolydisc{S, T, N},
+        loss::Loss,
+        config::DAGMCTSConfig = DAGMCTSConfig()
+) where {S, T, N}
+    if config.variant == NodeStatsDAGMCTS
+        return _dag_mcts_node_descent_init(param, loss, config)
+    elseif config.variant == PathStatsDAGMCTS
+        return _dag_mcts_path_descent_init(param, loss, config)
+    else
+        error("Unknown DAG-MCTS variant: $(config.variant)")
+    end
 end
 
 ##################################################
@@ -1050,6 +1590,39 @@ function get_dag_stats(state::DAGMCTSState)
     )
 end
 
+function get_dag_stats(state::DAGMCTSPathState)
+    unique_nodes = length(state.transposition_table)
+    total_visits = sum(stats.visits for stats in values(state.path_stats))
+
+    has_parents = any(n -> !isempty(n.parents), values(state.transposition_table))
+    if has_parents
+        multi_parent = count(n -> length(n.parents) > 1, values(state.transposition_table))
+    else
+        child_parent_count = Dict{UInt, Int}()
+        for node in values(state.transposition_table)
+            if node.is_expanded
+                for child in node.children
+                    cid = objectid(child)
+                    child_parent_count[cid] = get(child_parent_count, cid, 0) + 1
+                end
+            end
+        end
+        multi_parent = count(v -> v > 1, values(child_parent_count))
+    end
+
+    terminal_count = count(n -> n.is_terminal, values(state.transposition_table))
+
+    return (
+        unique_nodes = unique_nodes,
+        total_visits = total_visits,
+        multi_parent_nodes = multi_parent,
+        solved_nodes = terminal_count,
+        terminal_nodes = terminal_count,
+        path_count = length(state.path_stats),
+        cached_evaluations = length(state.evaluation_cache)
+    )
+end
+
 @doc raw"""
     print_dag_stats(state::DAGMCTSState, max_depth::Int=3)
 
@@ -1062,6 +1635,23 @@ function print_dag_stats(state::DAGMCTSState, max_depth::Int = 3)
     println("  Total visits: $(stats.total_visits)")
     println("  Nodes with multiple parents: $(stats.multi_parent_nodes)")
     println("  Solved nodes: $(stats.solved_nodes)")
+    println("  Terminal nodes: $(stats.terminal_nodes)")
+    println("  Step count: $(state.step_count)")
+
+    if stats.multi_parent_nodes > 0
+        println("  Transposition ratio: $(round(stats.multi_parent_nodes / stats.unique_nodes * 100, digits=1))%")
+    end
+end
+
+function print_dag_stats(state::DAGMCTSPathState, max_depth::Int = 3)
+    stats = get_dag_stats(state)
+    println("DAG-MCTS Statistics:")
+    println("  Variant: PathStatsDAGMCTS")
+    println("  Unique nodes in table: $(stats.unique_nodes)")
+    println("  Path statistics entries: $(stats.path_count)")
+    println("  Cached evaluations: $(stats.cached_evaluations)")
+    println("  Total path visits: $(stats.total_visits)")
+    println("  Nodes with multiple parents: $(stats.multi_parent_nodes)")
     println("  Terminal nodes: $(stats.terminal_nodes)")
     println("  Step count: $(state.step_count)")
 
@@ -1148,6 +1738,73 @@ function verify_transposition_table(state::DAGMCTSState)
                 @warn "Solved non-terminal node has unsolved children"
                 return false
             end
+        end
+    end
+
+    return true
+end
+
+function verify_transposition_table(state::DAGMCTSPathState)
+    table = state.transposition_table
+
+    for (hashed_polydisc, node) in table
+        if !isequal(node.polydisc, hashed_polydisc.polydisc)
+            @warn "Node polydisc doesn't match table key"
+            return false
+        end
+
+        if node.is_expanded
+            if node.is_terminal && !isempty(node.children)
+                @warn "Terminal node has children"
+                return false
+            end
+            for child in node.children
+                child_key = HashedPolydisc(child.polydisc)
+                if !haskey(table, child_key)
+                    @warn "Child not in transposition table"
+                    return false
+                end
+                if table[child_key] !== child
+                    @warn "Child in table is different instance"
+                    return false
+                end
+            end
+        end
+
+        if !isempty(node.parents)
+            for parent in node.parents
+                if !(any(child -> child === node, parent.children))
+                    @warn "Parent-child relationship inconsistent"
+                    return false
+                end
+            end
+        end
+    end
+
+    for path_key in keys(state.path_stats)
+        if isempty(path_key)
+            @warn "Empty path key in path statistics"
+            return false
+        end
+        for key in path_key
+            if !haskey(table, key)
+                @warn "Path statistics reference a node outside the transposition table"
+                return false
+            end
+        end
+    end
+
+    for key in keys(state.evaluation_cache)
+        if !haskey(table, key)
+            @warn "Evaluation cache contains a node outside the transposition table"
+            return false
+        end
+    end
+
+    for key in keys(state.loss_cache)
+        if !haskey(table, key)
+            @warn "Loss cache contains a node outside the transposition table"
+            return false
         end
     end
 

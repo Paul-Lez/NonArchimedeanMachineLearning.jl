@@ -11,14 +11,14 @@ using D3Trees
 const _TreeNode{S,
     T,
     N} = Union{
-    MCTSNode{S, T, N}, DAGMCTSNode{S, T, N},
+    MCTSNode{S, T, N}, DAGMCTSNode{S, T, N}, DAGMCTSPathNode{S, T, N},
     DOONode{S, T, N}
 }
 
 const _TreeState{S,
     T,
     N} = Union{
-    MCTSState{S, T, N}, DAGMCTSState{S, T, N},
+    MCTSState{S, T, N}, DAGMCTSState{S, T, N}, DAGMCTSPathState{S, T, N},
     DOOState{S, T, N}
 }
 
@@ -29,12 +29,14 @@ _visits(node::DOONode) = isnothing(node.value) ? 0 : 1
 
 _avg_value(node::MCTSNode) = node.visits > 0 ? node.total_value / node.visits : 0.0
 _avg_value(node::DAGMCTSNode) = node.visits > 0 ? node.total_value / node.visits : 0.0
+_avg_value(node::DAGMCTSPathNode) = node.visits > 0 ? node.total_value / node.visits : 0.0
 _avg_value(node::DOONode) = something(node.value, 0.0)
 
 _node_children(node::_TreeNode) = node.children
 
 _node_type_name(::MCTSNode) = "MCTS"
 _node_type_name(::DAGMCTSNode) = "DAG-MCTS"
+_node_type_name(::DAGMCTSPathNode) = "DAG-MCTS path"
 _node_type_name(::DOONode) = "DOO"
 
 function _has_depth(node::_TreeNode)
@@ -46,6 +48,7 @@ function _depth_val(node::_TreeNode)
 end
 
 _num_parents(node::DAGMCTSNode) = length(node.parents)
+_num_parents(node::DAGMCTSPathNode) = length(node.parents)
 _num_parents(::_TreeNode) = -1  # not applicable
 
 ##################################################

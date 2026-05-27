@@ -27,6 +27,62 @@ using NonArchimedeanMachineLearning
         @test !node.is_expanded
     end
 
+    @testset "DAG-MCTS Variant Selection" begin
+        default_config = DAGMCTSConfig(num_simulations = 5)
+        @test default_config.variant == PathStatsDAGMCTS
+        @test default_config.selection_mode == BestValue
+        @test !default_config.persist_table
+        @test 0.0 < default_config.value_transform(2.0) < 1.0
+
+        node_config = DAGMCTSConfig(num_simulations = 5, variant = NodeStatsDAGMCTS)
+        @test node_config.variant == NodeStatsDAGMCTS
+        @test node_config.selection_mode == VisitCount
+        @test node_config.persist_table
+        @test 0.0 < node_config.value_transform(2.0) < 1.0
+
+        p = ValuationPolydisc([K(1)], [0])
+        loss = Loss(params -> [0.0 for _ in params], vs -> [0.0 for _ in vs])
+
+        path_optim = dag_mcts_descent_init(p, loss, default_config)
+        @test path_optim.state isa DAGMCTSPathState
+        @test path_optim.state.root isa DAGMCTSPathNode
+
+        node_optim = dag_mcts_descent_init(p, loss, node_config)
+        @test node_optim.state isa DAGMCTSState
+        @test node_optim.state.root isa DAGMCTSNode
+    end
+
+    @testset "Path Statistics and Evaluation Cache" begin
+        p = ValuationPolydisc([K(0), K(0)], [0, 0])
+        eval_calls = Ref(0)
+        loss = Loss(
+            params -> begin
+                eval_calls[] += length(params)
+                [0.0 for _ in params]
+            end,
+            vs -> [0.0 for _ in vs]
+        )
+
+        config = DAGMCTSConfig(num_simulations = 12, persist_table = true,
+            track_parents = true)
+        optim = dag_mcts_descent_init(p, loss, config)
+
+        NonArchimedeanMachineLearning.dag_mcts_path_search(
+            optim.state.root,
+            optim.state.transposition_table,
+            loss,
+            config,
+            optim.state
+        )
+
+        @test optim.state isa DAGMCTSPathState
+        @test any(key -> length(key) > 1, keys(optim.state.path_stats))
+        @test eval_calls[] == length(optim.state.evaluation_cache)
+        @test length(optim.state.evaluation_cache) <=
+              length(optim.state.transposition_table)
+        @test verify_transposition_table(optim.state)
+    end
+
     @testset "Transposition Table - Basic Operations" begin
         # Test get_or_create_node!
         # Note: Polydisc equality uses STRICT inequality: v(center_diff) > radius
