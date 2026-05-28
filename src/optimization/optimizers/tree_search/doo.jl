@@ -20,6 +20,10 @@ Key Algorithm:
 Differences from HOO:
 - DOO: b = f(x) + δ(h) (deterministic)
 - HOO: b = μ̂ + √(2ln(n)/N) + ν₁ρʰ (stochastic + smoothness)
+
+In strict mode, this follows a coordinate-wise cell decomposition: 
+a node at depth h is expanded along coordinate h mod n (up to the
+configured starting coordinate), and the optimistic radius is δ(floor(h / n)).
 """
 
 # TODO: Add PriorityQueue from DataStructures.jl for O(log N) leaf selection
@@ -64,14 +68,17 @@ Fields:
                      Should be a decreasing function of depth.
                      NOTE: User will define this based on specific problem structure.
 - `degree::Int`: Degree for child generation (default: 1)
-- `strict::Bool`: If true, expand children along single branch at a time (default: false)
+- `strict::Bool`: If true, use the coordinate-wise cell decomposition (default: false)
 - `value_transform::Function`: Transform loss to value for maximization (default: loss -> -loss)
 
 Theoretical Notes:
 - DOO convergence depends on how well δ(h) bounds the actual cell diameters
 - δ(h) should decrease at rate matching the partition refinement
 - For binary splits: δ(h) = 0.5^h is typical
-- For p-adic polydiscs: δ(h) depends on prime and radius shrinkage
+- For p-adic polydiscs: δ(h) depends on prime and radius shrinkage.
+  In strict mode, use δ(h) by δ(floor(h / n)); for example,
+  δ(h) = p^(-h) * ||(1, ..., 1)|| becomes
+  δ'(h) = p^(-floor(h / n)) * ||(1, ..., 1)||.
 
 Note: DOO does not need an explicit max_depth parameter. The tree search naturally
 terminates when the polydisc `children()` function returns empty at the precision
@@ -101,7 +108,7 @@ State for DOO optimization.
 Fields:
 - `root::DOONode{S,T,N}`: Root of search tree
 - `total_samples::Int`: Total function evaluations performed
-- `next_branch::Int`: Branch index for strict mode
+- `next_branch::Int`: Starting branch index for strict mode
 - `step_count::Int`: Number of optimization steps taken
 - `leaves::Vector{DOONode{S,T,N}}`: Vector of unexpanded leaf nodes
 
@@ -121,6 +128,34 @@ mutable struct DOOState{S, T, N}
 end
 
 """
+    doo_bound_depth(node::DOONode, config::DOOConfig)
+
+Depth argument used in the DOO optimism term.
+
+For the usual simultaneous cell decomposition this is the node depth h. In
+strict mode, the coordinate-wise decomposition has diameter bound
+δ'(h) = δ(floor(h / n)), because every coordinate has been refined at least
+floor(h / n) times after h one-coordinate refinements.
+"""
+function doo_bound_depth(node::DOONode{S, T, N}, config::DOOConfig) where {S, T, N}
+    return config.strict ? node.depth ÷ N : node.depth
+end
+
+"""
+    strict_branch_index(node::DOONode, state::DOOState)
+
+Coordinate to refine for the coordinate-wise strict DOO tree.
+
+The branch is a function of node depth rather than global step count: root
+children use `state.next_branch`, depth-1 nodes use the next coordinate, and so
+on cyclically.
+"""
+function strict_branch_index(node::DOONode{S, T, N},
+        state::DOOState{S, T, N}) where {S, T, N}
+    return mod1(state.next_branch + node.depth, N)
+end
+
+"""
     b_value(node::DOONode, config::DOOConfig)
 
 Compute the b-value (optimistic upper bound) for a node.
@@ -129,7 +164,8 @@ Formula: b(h,j) = value + δ(h)
 
 where:
 - value = value_transform(loss) is the transformed function value at the node
-- δ(h) is the diameter bound at depth h
+- δ(h) is the diameter bound at depth h. In strict mode this uses
+  δ(floor(h / n)).
 
 The b-value represents the best possible value that could be achieved
 within the node's region, assuming the function could vary by at most δ(h).
@@ -140,7 +176,7 @@ function b_value(node::DOONode, config::DOOConfig)
     if node.value === nothing
         return Inf  # Unexplored nodes have infinite optimistic potential
     end
-    return node.value + config.delta(node.depth)
+    return node.value + config.delta(doo_bound_depth(node, config))
 end
 
 """
@@ -198,8 +234,8 @@ function expand_node!(node::DOONode{S, T, N}, loss::Loss, config::DOOConfig,
 
     # Generate children polydiscs
     if config.strict
-        # Expand along one coordinate branch at a time.
-        branch_index = mod1(state.next_branch, dim(node.polydisc))
+        # Expand along the coordinate prescribed by this node's depth.
+        branch_index = strict_branch_index(node, state)
         child_polydiscs = children_along_branch(node.polydisc, branch_index)
     else
         # Full expansion along all branches
@@ -242,7 +278,7 @@ Algorithm:
 2. Remove selected leaf from leaves list
 3. Expand selected leaf (generate and evaluate children)
 4. Add new children to leaves list
-5. Update state (step count, next_branch for strict mode)
+5. Update state (step count)
 6. Return best-valued node's polydisc as new parameter
 
 Returns: `(new_param::ValuationPolydisc, updated_state::DOOState, converged::Bool)`.
@@ -269,11 +305,6 @@ function doo_descent(loss::Loss, param::ValuationPolydisc{S, T, N},
     # Update optimization state
     state.step_count += 1
 
-    # Update branch index for strict mode
-    if config.strict
-        state.next_branch = mod1(state.next_branch + 1, dim(param))
-    end
-
     # Return the best-valued node found so far as the new parameter
     best_node = get_best_node(state)
 
@@ -294,7 +325,7 @@ and returns an OptimSetup configured for DOO optimization.
 Arguments:
 - `param`: Initial parameter polydisc (becomes root of search tree)
 - `loss`: Loss function with eval and grad methods
-- `next_branch`: Initial branch index for strict mode
+- `next_branch`: Starting branch index for strict mode
 - `config`: DOO configuration
 
 Returns: OptimSetup instance ready for optimization via step!()

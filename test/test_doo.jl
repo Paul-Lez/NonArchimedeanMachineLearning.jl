@@ -154,6 +154,29 @@ using Oscar
         @test NonArchimedeanMachineLearning.b_value(unexplored, config) == Inf
     end
 
+    @testset "DOO Strict Mode Uses Coordinate-wise Bound" begin
+        delta = h -> 2.0^(-h)
+        config = DOOConfig(delta = delta, strict = true)
+        param2 = ValuationPolydisc{PadicFieldElem, Int, 2}((K(0), K(0)), (0, 0))
+
+        node0 = DOONode(param2, 0, 0, nothing)
+        node0.value = 1.0
+
+        node1 = DOONode(param2, 1, 0, node0)
+        node1.value = 1.0
+
+        node2 = DOONode(param2, 2, 0, node1)
+        node2.value = 1.0
+
+        node3 = DOONode(param2, 3, 0, node2)
+        node3.value = 1.0
+
+        @test NonArchimedeanMachineLearning.b_value(node0, config) == 2.0
+        @test NonArchimedeanMachineLearning.b_value(node1, config) == 2.0
+        @test NonArchimedeanMachineLearning.b_value(node2, config) == 1.5
+        @test NonArchimedeanMachineLearning.b_value(node3, config) == 1.5
+    end
+
     @testset "DOO Strict Mode" begin
         delta = h -> 2.0^(-h)
         config = DOOConfig(delta = delta, degree = 1, strict = true)
@@ -164,5 +187,28 @@ using Oscar
             @test 1 <= optim.state.next_branch <= NonArchimedeanMachineLearning.dim(param)
         end
         @test get_tree_size(optim.state) > 1
+    end
+
+    @testset "DOO Strict Mode Coordinate Schedule" begin
+        delta = h -> 2.0^(-h)
+        config = DOOConfig(delta = delta, degree = 1, strict = true)
+        param2 = ValuationPolydisc{PadicFieldElem, Int, 2}((K(0), K(0)), (0, 0))
+        flat_loss = Loss(ps -> zeros(length(ps)), ts -> zeros(length(ts)))
+
+        optim = doo_descent_init(param2, flat_loss, 1, config)
+        @test_nowarn step!(optim)
+        @test optim.state.next_branch == 1
+        @test all(child.polydisc.radius == (1, 0) for child in optim.state.root.children)
+
+        @test_nowarn step!(optim)
+        expanded_child = optim.state.root.children[1]
+        @test expanded_child.is_expanded
+        @test all(child.polydisc.radius == (1, 1) for child in expanded_child.children)
+        @test optim.state.next_branch == 1
+
+        offset_optim = doo_descent_init(param2, flat_loss, 2, config)
+        @test_nowarn step!(offset_optim)
+        @test all(child.polydisc.radius == (0, 1)
+            for child in offset_optim.state.root.children)
     end
 end
