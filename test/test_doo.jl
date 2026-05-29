@@ -5,6 +5,7 @@ Test file for DOO (Deterministic Optimistic Optimization) implementation.
 using Test
 using NonArchimedeanMachineLearning
 using Oscar
+using DataStructures: PriorityQueue, peek
 
 @testset "DOO Optimizer Tests" begin
     # Setup: 2-adic field and simple quadratic loss
@@ -36,6 +37,18 @@ using Oscar
         @test isempty(node.children)
         @test node.value === nothing
         @test node.is_expanded == false
+    end
+
+    @testset "DOO State Requires Evaluated Root" begin
+        root = DOONode(param, 0, 0, nothing)
+        @test_throws Exception DOOState{PadicFieldElem, Int, 1}(root)
+
+        root.value = 0.0
+        state = DOOState{PadicFieldElem, Int, 1}(root)
+        @test state.best_node === root
+
+        state.best_node = nothing
+        @test_throws Exception get_best_value(state)
     end
 
     @testset "DOO Config Creation" begin
@@ -87,8 +100,10 @@ using Oscar
 
         # Check initial state
         @test optim.state.root.value !== nothing  # Root should be evaluated
+        @test optim.state.best_node === optim.state.root
         @test optim.state.total_samples == 1  # Only root evaluated
         @test optim.state.step_count == 0
+        @test optim.state.leaves isa PriorityQueue
         @test length(optim.state.leaves) == 1  # Only root is a leaf
         # Non-strict DOO does not use the fixed-subset coordinate schedule.
         @test isempty(optim.state.branch_sets)
@@ -142,13 +157,60 @@ using Oscar
         all_leaves = get_all_leaves(optim.state)
         @test length(all_leaves) >= 1
 
-        best_node = get_best_node(optim.state)
+        best_node = optim.state.best_node
         @test best_node !== nothing
+        @test best_node === optim.state.best_node
         @test best_node.value !== nothing
 
         best_value = get_best_value(optim.state)
         @test best_value !== nothing
         @test best_value < 0  # Since value_transform converts loss to -loss
+    end
+
+    @testset "DOO Cached Best Node" begin
+        delta = h -> 2.0^(-h)
+        config = DOOConfig(delta = delta, degree = 1)
+        optim = doo_descent_init(param, loss, 1, config)
+
+        for _ in 1:5
+            step!(optim)
+        end
+
+        values = Float64[]
+        function collect_values(node)
+            if node.value !== nothing
+                push!(values, node.value)
+            end
+            for child in node.children
+                collect_values(child)
+            end
+        end
+
+        collect_values(optim.state.root)
+        @test optim.state.best_node.value == maximum(values)
+
+        unevaluated = DOONode(param, 1, 0, optim.state.root)
+        @test_throws Exception NonArchimedeanMachineLearning.update_best_node!(
+            optim.state, unevaluated)
+    end
+
+    @testset "DOO Leaf Queue Prioritizes Greatest B-value" begin
+        delta = h -> 2.0^(-h)
+        config = DOOConfig(delta = delta, degree = 1)
+        optim = doo_descent_init(param, loss, 1, config)
+
+        @test_nowarn step!(optim)
+
+        queued_children = collect(keys(optim.state.leaves))
+        @test Set(queued_children) == Set(optim.state.root.children)
+
+        top_leaf = first(peek(optim.state.leaves))
+        top_b = NonArchimedeanMachineLearning.b_value(top_leaf, config)
+        child_b_values = [
+            NonArchimedeanMachineLearning.b_value(child, config) for child in queued_children
+        ]
+
+        @test top_b == maximum(child_b_values)
     end
 
     @testset "DOO B-value Computation" begin

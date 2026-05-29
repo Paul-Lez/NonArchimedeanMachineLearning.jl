@@ -27,9 +27,6 @@ cyclic enumeration of all d-subsets of {1, ..., n}. The optimistic radius uses
 the number of complete per-coordinate refinements guaranteed at that depth.
 """
 
-# TODO: Add PriorityQueue from DataStructures.jl for O(log N) leaf selection
-# Currently using O(N) scan through leaves vector
-
 """
     DOONode{S,T,N}
 
@@ -112,23 +109,29 @@ Fields:
 - `total_samples::Int`: Total function evaluations performed
 - `next_branch::Int`: Starting subset index for strict mode
 - `step_count::Int`: Number of optimization steps taken
-- `leaves::Vector{DOONode{S,T,N}}`: Vector of unexpanded leaf nodes
+- `leaves::PriorityQueue{DOONode{S,T,N}, Tuple{Float64,Int}}`: Unexpanded leaf nodes,
+  prioritized by maximum b-value and deterministic insertion order
 - `branch_sets::Vector{Vector{Int}}`: Precomputed strict-mode degree-d coordinate subsets
-
-Note: leaves vector currently requires O(N) scan to find maximum b-value.
-TODO: Replace with PriorityQueue from DataStructures.jl for O(log N) performance.
+- `leaf_insertion_order::Int`: Monotone counter for breaking leaf-priority ties
+- `best_node::Union{DOONode{S,T,N}, Nothing}`: Best evaluated node seen so far
 """
 mutable struct DOOState{S, T, N}
     root::DOONode{S, T, N}
     total_samples::Int
     next_branch::Int
     step_count::Int
-    leaves::Vector{DOONode{S, T, N}}
+    leaves::PriorityQueue{DOONode{S, T, N}, Tuple{Float64, Int}}
     branch_sets::Vector{Vector{Int}}
+    leaf_insertion_order::Int
+    best_node::Union{DOONode{S, T, N}, Nothing}
 
     function DOOState{S, T, N}(root::DOONode{S, T, N},
             branch_sets::Vector{Vector{Int}} = Vector{Vector{Int}}()) where {S, T, N}
-        new{S, T, N}(root, 0, 1, 0, [root], branch_sets)
+        @req root.value !== nothing "root must be evaluated before constructing DOOState"
+
+        leaves = PriorityQueue{DOONode{S, T, N}, Tuple{Float64, Int}}()
+        enqueue!(leaves, root, (-Inf, 1))
+        new{S, T, N}(root, 0, 1, 0, leaves, branch_sets, 1, root)
     end
 end
 
@@ -199,36 +202,25 @@ function b_value(node::DOONode, config::DOOConfig)
     return node.value + config.delta(doo_bound_depth(node, config))
 end
 
-"""
-    select_best_leaf(state::DOOState, config::DOOConfig)
+function leaf_priority(node::DOONode, config::DOOConfig, insertion_order::Int)
+    # Negating b makes PriorityQueue pop the largest b-value first. The insertion
+    # order preserves the old vector-scan tie-break when b-values are equal.
+    return (-b_value(node, config), insertion_order)
+end
 
-Select the unexpanded leaf with maximum b-value.
+function push_leaf!(state::DOOState{S, T, N}, node::DOONode{S, T, N},
+        config::DOOConfig) where {S, T, N}
+    state.leaf_insertion_order += 1
+    enqueue!(state.leaves, node, leaf_priority(node, config, state.leaf_insertion_order))
+    return node
+end
 
-This implements the selection step of DOO: choose the leaf node that
-has the highest optimistic upper bound on its potential value.
-
-Returns: DOONode with maximum b-value, or nothing if no leaves available
-
-Performance: O(N) where N is number of leaves.
-TODO: Use PriorityQueue for O(log N) selection.
-"""
-function select_best_leaf(state::DOOState{S, T, N}, config::DOOConfig) where {S, T, N}
-    if isempty(state.leaves)
-        return nothing
+function update_best_node!(state::DOOState{S, T, N}, node::DOONode{S, T, N}) where {S, T, N}
+    if node.value > state.best_node.value
+        state.best_node = node
     end
 
-    best_node = nothing
-    best_b = -Inf
-
-    for node in state.leaves
-        b = b_value(node, config)
-        if b > best_b
-            best_b = b
-            best_node = node
-        end
-    end
-
-    return best_node
+    return state.best_node
 end
 
 """
@@ -276,6 +268,7 @@ function expand_node!(node::DOONode{S, T, N}, loss::Loss, config::DOOConfig,
 
         # Transform loss to value (for maximization framework)
         child.value = config.value_transform(child_losses[i])
+        update_best_node!(state, child)
 
         # Add to parent's children
         push!(node.children, child)
@@ -295,27 +288,24 @@ Perform one step of DOO optimization.
 
 Algorithm:
 1. Select leaf with maximum b-value (optimistic upper bound)
-2. Remove selected leaf from leaves list
+2. Remove selected leaf from the leaves priority queue
 3. Expand selected leaf (generate and evaluate children)
 4. Update state (step count)
 5. If it has no children, report convergence
-6. Add new children to leaves list
+6. Add new children to the leaves priority queue
 7. Return best-valued node's polydisc as new parameter
 
 Returns: `(new_param::ValuationPolydisc, updated_state::DOOState, converged::Bool)`.
 """
 function doo_descent(loss::Loss, param::ValuationPolydisc{S, T, N},
         state::DOOState{S, T, N}, config::DOOConfig) where {S, T, N}
-    # Select leaf with maximum b-value
-    best_leaf = select_best_leaf(state, config)
-
-    if best_leaf === nothing
+    if isempty(state.leaves)
         # No unexpanded leaves remain — fully converged
         return (param, state, true)
     end
 
-    # Remove selected leaf from leaves list
-    filter!(n -> n !== best_leaf, state.leaves)
+    # Select and remove leaf with maximum b-value
+    best_leaf = dequeue!(state.leaves)
 
     # Expand the selected leaf
     new_children = expand_node!(best_leaf, loss, config, state)
@@ -324,15 +314,17 @@ function doo_descent(loss::Loss, param::ValuationPolydisc{S, T, N},
     state.step_count += 1
 
     if isempty(new_children)
-        best_node = get_best_node(state)
+        best_node = state.best_node
         return (best_node.polydisc, state, true)
     end
 
-    # Add new children to leaves list
-    append!(state.leaves, new_children)
+    # Add new children to leaves queue
+    for child in new_children
+        push_leaf!(state, child, config)
+    end
 
     # Return the best-valued node found so far as the new parameter
-    best_node = get_best_node(state)
+    best_node = state.best_node
 
     return (best_node.polydisc, state, false)
 end
@@ -400,7 +392,7 @@ end
 """
     get_leaf_count(state::DOOState)
 
-Get number of unexpanded leaf nodes currently in the leaves list.
+Get number of unexpanded leaf nodes currently in the leaves priority queue.
 """
 function get_leaf_count(state::DOOState)
     return length(state.leaves)
@@ -431,37 +423,12 @@ function get_all_leaves(state::DOOState{S, T, N}) where {S, T, N}
 end
 
 """
-    get_best_node(state::DOOState)
-
-Get the node with the best (highest) value evaluated so far.
-
-Since value = value_transform(loss), higher value means lower loss.
-This returns the node corresponding to the best solution found.
-"""
-function get_best_node(state::DOOState{S, T, N}) where {S, T, N}
-    best_node = nothing
-    best_value = -Inf
-
-    function search_best(node::DOONode{S, T, N})
-        if node.value !== nothing && node.value > best_value
-            best_node = node
-            best_value = node.value
-        end
-        for child in node.children
-            search_best(child)
-        end
-    end
-
-    search_best(state.root)
-    return best_node
-end
-
-"""
     get_best_value(state::DOOState)
 
 Get the best value found so far (after value_transform).
 """
 function get_best_value(state::DOOState)
-    node = get_best_node(state)
-    return node === nothing ? nothing : node.value
+    @req state.best_node !== nothing "DOOState has no best node"
+    @req state.best_node.value !== nothing "DOOState best node must be evaluated"
+    return state.best_node.value
 end

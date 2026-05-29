@@ -15,6 +15,7 @@ using Oscar
 using LinearAlgebra
 using Printf
 using Combinatorics
+using DataStructures: PriorityQueue, enqueue!, dequeue!, peek
 
 # Include all source files
 include("basic/valuation.jl")
@@ -103,7 +104,7 @@ export get_tree_size
 # From optimization/optimizers/tree_search/doo.jl
 export DOONode, DOOConfig, DOOState
 export doo_descent, doo_descent_init
-export get_best_node, get_best_value, get_leaf_count, get_all_leaves
+export get_best_value, get_leaf_count, get_all_leaves
 
 # From optimization/optimizers/tree_search/dag_mcts.jl
 export AbstractDAGMCTSNode, AbstractDAGMCTSState
