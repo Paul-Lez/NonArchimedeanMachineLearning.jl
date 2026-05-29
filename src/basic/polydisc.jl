@@ -586,40 +586,61 @@ end
 # TODO: this should also work when the valuation is negative...
 
 @doc raw"""
-    children_along_branch(p::ValuationPolydisc{S,T,N}, branch_index::Int) where {S,T,N}
+    children_along_branches(p::ValuationPolydisc{S,T,N}, branch_indices; skip_saturated=true) where {S,T,N}
 
-Generate all child polydiscs obtained by refining along a single coordinate branch.
+Generate all child polydiscs obtained by refining along a fixed set of coordinate branches.
 
-Produces ``p`` children (where ``p`` is the prime) by increasing the radius in coordinate
-`branch_index` by 1 and varying the center over all residue classes in that coordinate.
+Produces ``p^d`` children, where ``d`` is the number of shrinkable requested branches, by
+increasing the radius in every shrinkable coordinate listed in `branch_indices` by 1 and
+varying the center over all residue classes in those coordinates.
 
 # Arguments
 - `p::ValuationPolydisc{S,T,N}`: The parent polydisc
-- `branch_index::Int`: The coordinate index to refine (must satisfy `1 ≤ branch_index ≤ dim(p)`)
+- `branch_indices`: Coordinate indices to refine. The caller is responsible for
+  passing a nonempty collection of distinct, in-bounds indices.
+- `skip_saturated::Bool=true`: If true, omit requested coordinates already at the
+  precision boundary. If false, return no children whenever any requested coordinate
+  is saturated.
 
 # Returns
-`Vector{ValuationPolydisc{S,T,N}}`: All child polydiscs along this branch (of length `prime(p)`)
+`Vector{ValuationPolydisc{S,T,N}}`: All child polydiscs along the requested branches
 """
-function children_along_branch(
+function children_along_branches(
         p::ValuationPolydisc{S, T, N},
-        branch_index::Int
+        branch_indices;
+        skip_saturated::Bool = true
 ) where {S, T, N}
+    requested_branches = collect(Int, branch_indices)
+
     output = Vector{ValuationPolydisc{S, T, N}}()
     K = base_field(p)
-    Int(Oscar.precision(K)) > p.radius[branch_index] || return output
+    prec = Int(Oscar.precision(K))
+    branches = skip_saturated ?
+               [i for i in requested_branches if prec > p.radius[i]] :
+               requested_branches
+    isempty(branches) && return output
+    skip_saturated || prec > maximum(p.radius[i] for i in branches) || return output
+
+    degree = length(branches)
     P = Int(prime(p))
-    sizehint!(output, P)
-    # a "unit shrink" along a radius is the same as increasing the valuation
-    # measure of the radius by 1
-    new_radius = ntuple(i -> i == branch_index ? p.radius[i] + 1 : p.radius[i], N)
+    sizehint!(output, P^degree)
     prime_as_padic = K(P)
-    # Pre-compute prime power to avoid repeated exponentiation
-    prime_power = prime_as_padic ^ p.radius[branch_index]
-    # We can shrink along various centers so we need to be sure to include them all
-    for residue_class in 0:(P - 1)
+    # Map each coordinate to its slot in branches, or 0 if it is not shrunk.
+    shrink_idx = ntuple(N) do i
+        for (j, c) in enumerate(branches)
+            c == i && return j
+        end
+        return 0
+    end
+    new_radius = ntuple(i -> shrink_idx[i] > 0 ? p.radius[i] + 1 : p.radius[i], N)
+    prime_powers = ntuple(j -> prime_as_padic ^ p.radius[branches[j]], degree)
+    residue_product = Iterators.product(ntuple(_ -> 0:(P - 1), degree)...)
+
+    for radius_changes in residue_product
         new_center = ntuple(N) do i
-            if i == branch_index
-                p.center[i] + residue_class * prime_power
+            si = shrink_idx[i]
+            if si > 0
+                p.center[i] + radius_changes[si] * prime_powers[si]
             else
                 p.center[i]
             end
@@ -630,35 +651,44 @@ function children_along_branch(
 end
 
 @doc raw"""
-    children_along_branch(p::ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N}, branch_index::Int) where {P,Prec,PFE,T,N}
+    children_along_branches(p::ValuationPolydisc{ValuedFieldPoint{P,Prec,PFE},T,N}, branch_indices; skip_saturated=true) where {P,Prec,PFE,T,N}
 
-Specialized version of `children_along_branch()` for `ValuedFieldPoint` that leverages compile-time prime.
-
-This version benefits from having `P` available at compile time, allowing the compiler to
-optimize loops and potentially unroll iterations for small primes.
+Specialized version of `children_along_branches()` for `ValuedFieldPoint` that leverages compile-time prime.
 """
-function children_along_branch(
+function children_along_branches(
         p::ValuationPolydisc{ValuedFieldPoint{P, Prec, PFE}, T, N},
-        branch_index::Int
+        branch_indices;
+        skip_saturated::Bool = true
 ) where {P, Prec, PFE, T, N}
+    requested_branches = collect(Int, branch_indices)
+
     output = Vector{ValuationPolydisc{ValuedFieldPoint{P, Prec, PFE}, T, N}}()
-    # Only produce children if precision >= radius
-    Prec > p.radius[branch_index] || return output
-    # P is compile-time constant, so this loop bound is known at compile time
-    sizehint!(output, P)
-    # a "unit shrink" along a radius is the same as increasing the valuation
-    # measure of the radius by 1
-    new_radius = ntuple(i -> i == branch_index ? p.radius[i] + 1 : p.radius[i], N)
+    branches = skip_saturated ?
+               [i for i in requested_branches if Prec > p.radius[i]] :
+               requested_branches
+    isempty(branches) && return output
+    skip_saturated || Prec > maximum(p.radius[i] for i in branches) || return output
+
+    degree = length(branches)
+    sizehint!(output, P^degree)
     K = Base.parent(p.center[1].elem)
-    # Create prime as ValuedFieldPoint
     prime_as_valued = ValuedFieldPoint{P, Prec, PFE}(K(P))
-    # Pre-compute prime power to avoid repeated exponentiation
-    prime_power = prime_as_valued ^ p.radius[branch_index]
-    # We can shrink along various centers so we need to be sure to include them all
-    for residue_class in 0:(P - 1)
+    # Map each coordinate to its slot in branches, or 0 if it is not shrunk.
+    shrink_idx = ntuple(N) do i
+        for (j, c) in enumerate(branches)
+            c == i && return j
+        end
+        return 0
+    end
+    new_radius = ntuple(i -> shrink_idx[i] > 0 ? p.radius[i] + 1 : p.radius[i], N)
+    prime_powers = ntuple(j -> prime_as_valued ^ p.radius[branches[j]], degree)
+    residue_product = Iterators.product(ntuple(_ -> 0:(P - 1), degree)...)
+
+    for radius_changes in residue_product
         new_center = ntuple(N) do i
-            if i == branch_index
-                p.center[i] + residue_class * prime_power
+            si = shrink_idx[i]
+            if si > 0
+                p.center[i] + radius_changes[si] * prime_powers[si]
             else
                 p.center[i]
             end
@@ -666,6 +696,22 @@ function children_along_branch(
         push!(output, ValuationPolydisc{ValuedFieldPoint{P, Prec, PFE}, T, N}(new_center, new_radius))
     end
     return output
+end
+
+@doc raw"""
+    children_along_branch(p::ValuationPolydisc{S,T,N}, branch_index::Integer; skip_saturated=true) where {S,T,N}
+
+Generate all child polydiscs obtained by refining along a single coordinate branch.
+
+This is a convenience wrapper around `children_along_branches(p, (branch_index,))`.
+"""
+function children_along_branch(
+        p::ValuationPolydisc{S, T, N},
+        branch_index::Integer;
+        skip_saturated::Bool = true
+) where {S, T, N}
+    return children_along_branches(p, (Int(branch_index),);
+        skip_saturated = skip_saturated)
 end
 
 @doc raw"""

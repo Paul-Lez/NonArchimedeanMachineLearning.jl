@@ -51,7 +51,7 @@ export unwrap, lift
 export ValuationPolydisc, AbsPolydisc
 export center, radius, dim, prime
 # Note: join is not exported to avoid conflict with Base.join - use NonArchimedeanMachineLearning.join explicitly
-export dist, children, children_along_branch, concatenate
+export dist, children, children_along_branch, children_along_branches, concatenate
 export canonical_center  # For computing canonical polydisc representation (used by hash)
 
 # From basic/tangent_vector.jl

@@ -55,6 +55,19 @@ using Oscar
         @test config.strict == false
     end
 
+    @testset "DOO Invalid Degree Fails at Initialization" begin
+        delta = h -> 2.0^(-h)
+        param2 = ValuationPolydisc{PadicFieldElem, Int, 2}((K(0), K(0)), (0, 0))
+        flat_loss = Loss(ps -> zeros(length(ps)), ts -> zeros(length(ts)))
+
+        @test_throws Exception doo_descent_init(
+            param2, flat_loss, 1, DOOConfig(delta = delta, degree = 0))
+        @test_throws Exception doo_descent_init(
+            param2, flat_loss, 1, DOOConfig(delta = delta, degree = 3))
+        @test_throws Exception doo_descent_init(
+            param2, flat_loss, 1, DOOConfig(delta = delta, degree = 3, strict = true))
+    end
+
     @testset "DOO Initialization and Basic Descent" begin
         # Define delta function
         delta = h -> 2.0^(-h)
@@ -77,6 +90,8 @@ using Oscar
         @test optim.state.total_samples == 1  # Only root evaluated
         @test optim.state.step_count == 0
         @test length(optim.state.leaves) == 1  # Only root is a leaf
+        # Non-strict DOO does not use the fixed-subset coordinate schedule.
+        @test isempty(optim.state.branch_sets)
 
         # Take a few optimization steps
         initial_loss = eval_loss(optim)
@@ -93,6 +108,18 @@ using Oscar
         # Tree should have grown
         @test get_tree_size(optim.state) > 1
         @test optim.state.total_samples > 1
+    end
+
+    @testset "DOO Converges When Best Leaf Has No Children" begin
+        delta = h -> 2.0^(-h)
+        flat_loss = Loss(ps -> zeros(length(ps)), ts -> zeros(length(ts)))
+        terminal_param = ValuationPolydisc{PadicFieldElem, Int, 1}((K(0),), (prec,))
+
+        optim = doo_descent_init(terminal_param, flat_loss, 1, DOOConfig(delta = delta))
+        @test step!(optim)
+        @test has_converged(optim)
+        @test optim.state.root.is_expanded
+        @test isempty(optim.state.leaves)
     end
 
     @testset "DOO Utility Functions" begin
@@ -177,6 +204,24 @@ using Oscar
         @test NonArchimedeanMachineLearning.b_value(node3, config) == 1.5
     end
 
+    @testset "DOO Strict Mode Uses Degree-d Bound" begin
+        delta = h -> 2.0^(-h)
+        config = DOOConfig(delta = delta, degree = 2, strict = true)
+        param3 = ValuationPolydisc{PadicFieldElem, Int, 3}((K(0), K(0), K(0)), (0, 0, 0))
+
+        nodes = [DOONode(param3, depth, 0, nothing) for depth in 0:6]
+        foreach(node -> node.value = 1.0, nodes)
+
+        @test NonArchimedeanMachineLearning.doo_bound_depth(nodes[1], config) == 0
+        @test NonArchimedeanMachineLearning.doo_bound_depth(nodes[4], config) == 2
+        @test NonArchimedeanMachineLearning.doo_bound_depth(nodes[7], config) == 4
+        @test NonArchimedeanMachineLearning.b_value(nodes[1], config) == 2.0
+        @test NonArchimedeanMachineLearning.b_value(nodes[2], config) == 2.0
+        @test NonArchimedeanMachineLearning.b_value(nodes[3], config) == 2.0
+        @test NonArchimedeanMachineLearning.b_value(nodes[4], config) == 1.25
+        @test NonArchimedeanMachineLearning.b_value(nodes[7], config) == 1.0625
+    end
+
     @testset "DOO Strict Mode" begin
         delta = h -> 2.0^(-h)
         config = DOOConfig(delta = delta, degree = 1, strict = true)
@@ -210,5 +255,37 @@ using Oscar
         @test_nowarn step!(offset_optim)
         @test all(child.polydisc.radius == (0, 1)
             for child in offset_optim.state.root.children)
+    end
+
+    @testset "DOO Degree-d Strict and Non-strict Expansion" begin
+        delta = h -> 2.0^(-h)
+        param3 = ValuationPolydisc{PadicFieldElem, Int, 3}((K(0), K(0), K(0)), (0, 0, 0))
+        flat_loss = Loss(ps -> zeros(length(ps)), ts -> zeros(length(ts)))
+
+        # Strict mode starting at the first pair of radii to shrink: [1, 2].
+        strict_config = DOOConfig(delta = delta, degree = 2, strict = true)
+        strict_optim = doo_descent_init(param3, flat_loss, 1, strict_config)
+        @test_nowarn step!(strict_optim)
+        @test length(strict_optim.state.root.children) == 4
+        @test all(child.polydisc.radius == (1, 1, 0)
+            for child in strict_optim.state.root.children)
+
+        @test strict_optim.state.branch_sets == [[1, 2], [1, 3], [2, 3]]
+        @test NonArchimedeanMachineLearning.strict_branch_indices(
+            strict_optim.state.root.children[1], strict_optim.state) == [1, 3]
+
+        # Starting at the second pair means we shrink radii 1 and 3.
+        offset_optim = doo_descent_init(param3, flat_loss, 2, strict_config)
+        @test_nowarn step!(offset_optim)
+        @test all(child.polydisc.radius == (1, 0, 1)
+            for child in offset_optim.state.root.children)
+
+        # Non-strict mode allows shrinking along any degree-2 coordinate subset.
+        nonstrict_config = DOOConfig(delta = delta, degree = 2, strict = false)
+        nonstrict_optim = doo_descent_init(param3, flat_loss, 1, nonstrict_config)
+        @test_nowarn step!(nonstrict_optim)
+        @test length(nonstrict_optim.state.root.children) == 12
+        @test Set(child.polydisc.radius for child in nonstrict_optim.state.root.children) ==
+              Set([(1, 1, 0), (1, 0, 1), (0, 1, 1)])
     end
 end

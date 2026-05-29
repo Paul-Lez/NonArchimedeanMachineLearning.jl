@@ -97,12 +97,56 @@ using NonArchimedeanMachineLearning
         L = PadicField(2, prec)
         gauss = ValuationPolydisc([L(0), L(0)], [2, 2])
         ch_branch = children_along_branch(gauss, 1)
+        ch_branch_from_subset = children_along_branches(gauss, [1])
         @test ch_branch isa Vector
+        @test ch_branch == ch_branch_from_subset
         @test length(ch_branch) == 2  # NonArchimedeanMachineLearning.prime(gauss) = 2
         # All children should have increased radius in first coordinate
         @test all(c -> NonArchimedeanMachineLearning.radius(c)[1] == 3, ch_branch)
         # Second coordinate radius should be unchanged
         @test all(c -> NonArchimedeanMachineLearning.radius(c)[2] == 2, ch_branch)
+    end
+
+    @testset "Polydisc Children Along Branches" begin
+        L = PadicField(2, prec)
+        parent = ValuationPolydisc{PadicFieldElem, Int, 3}((L(0), L(0), L(0)), (1, 1, 1))
+
+        # Refine a fixed pair of coordinates and enumerate all residue classes there.
+        ch_branches = children_along_branches(parent, [1, 3])
+        @test ch_branches isa Vector
+        @test length(ch_branches) == 4
+        @test all(c -> c isa ValuationPolydisc, ch_branches)
+        @test all(c -> c.radius == (2, 1, 2), ch_branches)
+
+        expected_centers = [(L(a), L(0), L(b)) for a in (0, 2) for b in (0, 2)]
+        @test all(ec -> any(c -> c.center == ec, ch_branches), expected_centers)
+
+        # The vector constructor auto-wraps centers, exercising the ValuedFieldPoint path.
+        wrapped_parent = ValuationPolydisc([L(0), L(0), L(0)], [1, 1, 1])
+        wrapped_children = children_along_branches(wrapped_parent, (2, 3))
+        @test length(wrapped_children) == 4
+        @test all(c -> c.radius == (1, 2, 2), wrapped_children)
+        @test all(c -> all(x -> x isa ValuedFieldPoint, c.center), wrapped_children)
+
+        expected_wrapped_centers = [(L(0), L(a), L(b)) for a in (0, 2) for b in (0, 2)]
+        @test all(ec -> any(c -> NonArchimedeanMachineLearning.unwrap(c.center) == ec,
+                wrapped_children), expected_wrapped_centers)
+
+        # By default saturated requested coordinates are skipped, so the other
+        # requested coordinate can still be refined.
+        terminal = ValuationPolydisc{PadicFieldElem, Int, 3}((L(0), L(0), L(0)), (1, prec, 1))
+        partial_children = children_along_branches(terminal, [1, 2])
+        @test length(partial_children) == 2
+        @test all(c -> c.radius == (2, prec, 1), partial_children)
+        # Opting out of skipping saturated coordinates restores all-or-nothing behavior.
+        @test isempty(children_along_branches(terminal, [1, 2]; skip_saturated = false))
+        @test isempty(children_along_branches(terminal, [2]))
+
+        # Saturated-coordinate skipping also works for wrapped centers.
+        wrapped_terminal = ValuationPolydisc([L(0), L(0), L(0)], [1, prec, 1])
+        wrapped_partial_children = children_along_branches(wrapped_terminal, [2, 3])
+        @test length(wrapped_partial_children) == 2
+        @test all(c -> c.radius == (1, prec, 2), wrapped_partial_children)
     end
 
     @testset "Polydisc Equality" begin
