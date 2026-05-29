@@ -460,8 +460,6 @@ function dist(b1::ValuationPolydisc{S, T, N}, b2::ValuationPolydisc{
                 for i in Base.eachindex(b1)])
 end
 
-# TODO: this should also work when the valuation is negative...
-
 @doc raw"""
     children(p::ValuationPolydisc{S,T,N}, degree=1) where {S,T,N}
 
