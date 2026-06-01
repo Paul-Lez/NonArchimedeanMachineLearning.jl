@@ -129,5 +129,8 @@ export plot_tree_with_loss, plot_tree_simple
 
 # From visualization/search_tree_viz.jl
 export visualize_search_tree
+export SearchTreeConeLayout, build_fixed_search_tree, build_fixed_search_dag
+export cone_search_tree_layout, plot_search_tree_cone, plot_search_tree_cone_interactive
+export save_search_tree_cone_interactive_html, serve_search_tree_cone_interactive
 
 end # module NonArchimedeanMachineLearning

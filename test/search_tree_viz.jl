@@ -59,6 +59,58 @@ end
             @test endswith(truncated, "…")
             @test NonArchimedeanMachineLearning._truncate_padic(long; maxlen=20) == long
         end
+
+        @testset "visit color scale" begin
+            root_disc = ValuationPolydisc([K(0), K(0)], [0, 0])
+            root = build_fixed_search_dag(root_disc; max_depth = 1)
+            _, nodes, _ = NonArchimedeanMachineLearning._flatten_search_tree(root; max_depth = 1)
+
+            nodes[1].visits = 10
+            nodes[2].visits = 0
+            nodes[3].visits = 5
+
+            colors = NonArchimedeanMachineLearning._visit_colors(nodes;
+                low_visit_color = "#add8e6",
+                high_visit_color = "#ff0000",
+                visit_color_max = 10,
+                visit_color_scale = :linear,
+                visit_color_scheme = :gradient)
+            @test colors[1] == "#ff0000"
+            @test colors[2] == "#add8e6"
+            @test colors[3] == "#d66c73"
+
+            rainbow = NonArchimedeanMachineLearning._visit_colors(nodes;
+                visit_color_max = 10,
+                visit_color_scale = :linear,
+                visit_color_scheme = :rainbow)
+            @test rainbow[1] == "#ff0000"
+            @test rainbow[2] != colors[2]
+            @test length(unique(rainbow[1:3])) == 3
+
+            @test NonArchimedeanMachineLearning._visit_color_fraction(9, 9; scale = :linear) == 1.0
+            @test NonArchimedeanMachineLearning._visit_color_fraction(0, 9; scale = :linear) == 0.0
+            @test NonArchimedeanMachineLearning._visit_color_fraction(25, 100; scale = :sqrt) == 0.5
+            @test NonArchimedeanMachineLearning._visit_color_fraction(9, 99; scale = :sqrt) >
+                  NonArchimedeanMachineLearning._visit_color_fraction(9, 99; scale = :linear)
+            @test NonArchimedeanMachineLearning._visit_color_fraction(9, 99; scale = :log) >
+                  NonArchimedeanMachineLearning._visit_color_fraction(9, 99; scale = :sqrt)
+            @test NonArchimedeanMachineLearning._visit_color_fraction(2, 8; scale = (v, m) -> v / m) == 0.25
+            @test NonArchimedeanMachineLearning._rgb_to_hex(
+                NonArchimedeanMachineLearning._normalize_rgb(:lightblue)) == "#add8e6"
+        end
+
+        @testset "crossing reduction ordering" begin
+            # Nodes 2 and 4 share child 5; the barycenter sweep should move
+            # them next to each other in the first non-root layer.
+            children_vec = [[2, 3, 4], [5], [6], [5], Int[], Int[]]
+            depths = [0, 1, 1, 1, 2, 2]
+            layers = NonArchimedeanMachineLearning._crossing_reduced_layers(
+                children_vec, depths; iterations = 2)
+            layer = layers[2]
+            pos2 = findfirst(==(2), layer)
+            pos4 = findfirst(==(4), layer)
+            @test abs(pos2 - pos4) == 1
+        end
     end
 
     # -------------------------------------------------------------------
@@ -99,6 +151,47 @@ end
             _, nodes_limited, _ = NonArchimedeanMachineLearning._flatten_search_tree(root; max_nodes=3)
             @test length(nodes_limited) <= 3
         end
+    end
+
+    # -------------------------------------------------------------------
+    @testset "Cone search tree layout" begin
+        root_disc = ValuationPolydisc([K(0), K(0)], [0, 0])
+        root = build_fixed_search_tree(root_disc; max_depth = 2, degree = 1)
+        children_vec, nodes_vec, depths = NonArchimedeanMachineLearning._flatten_search_tree(root; max_depth = 2)
+
+        @test root isa MCTSNode
+        @test length(root.children) == 4
+        @test length(nodes_vec) == 21  # 1 + 4 + 16 for p=2, N=2, degree=1
+        @test maximum(depths) == 2
+        @test all(length(cs) == 4 for cs in children_vec[2:5])
+
+        layout = cone_search_tree_layout(root; max_depth = 2, level_height = 1.5, radial_scale = 0.25)
+        @test layout isa SearchTreeConeLayout
+        @test length(layout.nodes) == length(nodes_vec)
+        @test length(layout.positions) == length(nodes_vec)
+        @test layout.positions[1] == (0.0, 0.0, 0.0)
+        @test all(layout.positions[i][3] == -1.5 * layout.depths[i] for i in eachindex(layout.positions))
+
+        depth_two_radii = [hypot(layout.positions[i][1], layout.positions[i][2])
+                           for i in eachindex(layout.positions) if layout.depths[i] == 2]
+        @test all(isapprox(r, 1.0; atol = 1e-12) for r in depth_two_radii)
+
+        dag_root = build_fixed_search_dag(root_disc; max_depth = 2, degree = 1)
+        dag_children, dag_nodes, dag_depths = NonArchimedeanMachineLearning._flatten_search_tree(dag_root; max_depth = 2)
+        @test dag_root isa DAGMCTSNode
+        @test length(dag_nodes) == 17  # 1 + 4 + 12 unique Berkovich polydiscs
+        @test length(unique((NonArchimedeanMachineLearning.radius(n.polydisc),
+            canonical_center(n.polydisc)) for n in dag_nodes)) == length(dag_nodes)
+        @test count(d -> d == 2, dag_depths) == 12
+        @test count(n -> length(n.parents) > 1, dag_nodes) == 4
+        @test sum(length, dag_children) == 20  # all tree edges are retained
+        dag_nodes[1].visits = 1
+        @test NonArchimedeanMachineLearning._should_draw_node(dag_nodes[1], true)
+        @test !NonArchimedeanMachineLearning._should_draw_node(dag_nodes[2], true)
+        @test NonArchimedeanMachineLearning._should_draw_node(dag_nodes[2], false)
+
+        disc_layout = cone_search_tree_layout(root_disc; max_depth = 1)
+        @test length(disc_layout.nodes) == 5
     end
 
     # -------------------------------------------------------------------
