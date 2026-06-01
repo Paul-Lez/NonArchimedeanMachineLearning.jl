@@ -66,6 +66,13 @@ using DataStructures: PriorityQueue, peek
         @test config.delta(2) == 0.25
         @test config.degree == 1
         @test config.strict == false
+        @test config.store_tree == false
+
+        tree_config = DOOConfig(
+            delta = delta,
+            store_tree = true
+        )
+        @test tree_config.store_tree
     end
 
     @testset "DOO Invalid Degree Fails at Initialization" begin
@@ -120,9 +127,38 @@ using DataStructures: PriorityQueue, peek
         # Loss should improve
         @test final_loss < initial_loss
 
-        # Tree should have grown
-        @test get_tree_size(optim.state) > 1
+        # Optimization should not need retained parent/children links.
         @test optim.state.total_samples > 1
+        @test isempty(optim.state.root.children)
+        @test get_leaf_count(optim.state) > 0
+    end
+
+    @testset "DOO Tree Storage" begin
+        delta = h -> 2.0^(-h)
+        flat_loss = Loss(ps -> zeros(length(ps)), ts -> zeros(length(ts)))
+        param2 = ValuationPolydisc{PadicFieldElem, Int, 2}((K(0), K(0)), (0, 0))
+
+        default_optim = doo_descent_init(param2, flat_loss, 1, DOOConfig(delta = delta))
+        @test_nowarn step!(default_optim)
+        @test_nowarn step!(default_optim)
+        @test isempty(default_optim.state.root.children)
+        @test all(leaf.parent === nothing for leaf in keys(default_optim.state.leaves))
+        @test_throws Exception get_tree_size(default_optim.state)
+        @test_throws Exception get_all_leaves(default_optim.state)
+
+        stored_config = DOOConfig(delta = delta, store_tree = true)
+        stored_optim = doo_descent_init(param2, flat_loss, 1, stored_config)
+        @test_nowarn step!(stored_optim)
+        @test_nowarn step!(stored_optim)
+        function has_stored_tree(node)
+            for child in node.children
+                child.parent === node || return false
+                has_stored_tree(child) || return false
+            end
+            return true
+        end
+        @test !isempty(stored_optim.state.root.children)
+        @test has_stored_tree(stored_optim.state.root)
     end
 
     @testset "DOO Converges When Best Leaf Has No Children" begin
@@ -139,7 +175,7 @@ using DataStructures: PriorityQueue, peek
 
     @testset "DOO Utility Functions" begin
         delta = h -> 2.0^(-h)
-        config = DOOConfig(delta = delta, degree = 1)
+        config = DOOConfig(delta = delta, degree = 1, store_tree = true)
         optim = doo_descent_init(param, loss, 1, config)
 
         # Run a few steps
@@ -169,7 +205,7 @@ using DataStructures: PriorityQueue, peek
 
     @testset "DOO Cached Best Node" begin
         delta = h -> 2.0^(-h)
-        config = DOOConfig(delta = delta, degree = 1)
+        config = DOOConfig(delta = delta, degree = 1, store_tree = true)
         optim = doo_descent_init(param, loss, 1, config)
 
         for _ in 1:5
@@ -202,7 +238,7 @@ using DataStructures: PriorityQueue, peek
         @test_nowarn step!(optim)
 
         queued_children = collect(keys(optim.state.leaves))
-        @test Set(queued_children) == Set(optim.state.root.children)
+        @test !isempty(queued_children)
 
         top_leaf = first(peek(optim.state.leaves))
         top_b = NonArchimedeanMachineLearning.b_value(top_leaf, config)
@@ -286,7 +322,7 @@ using DataStructures: PriorityQueue, peek
 
     @testset "DOO Strict Mode" begin
         delta = h -> 2.0^(-h)
-        config = DOOConfig(delta = delta, degree = 1, strict = true)
+        config = DOOConfig(delta = delta, degree = 1, strict = true, store_tree = true)
         optim = doo_descent_init(param, loss, 1, config)
 
         for _ in 1:3
@@ -298,7 +334,7 @@ using DataStructures: PriorityQueue, peek
 
     @testset "DOO Strict Mode Coordinate Schedule" begin
         delta = h -> 2.0^(-h)
-        config = DOOConfig(delta = delta, degree = 1, strict = true)
+        config = DOOConfig(delta = delta, degree = 1, strict = true, store_tree = true)
         param2 = ValuationPolydisc{PadicFieldElem, Int, 2}((K(0), K(0)), (0, 0))
         flat_loss = Loss(ps -> zeros(length(ps)), ts -> zeros(length(ts)))
 
@@ -325,7 +361,7 @@ using DataStructures: PriorityQueue, peek
         flat_loss = Loss(ps -> zeros(length(ps)), ts -> zeros(length(ts)))
 
         # Strict mode starting at the first pair of radii to shrink: [1, 2].
-        strict_config = DOOConfig(delta = delta, degree = 2, strict = true)
+        strict_config = DOOConfig(delta = delta, degree = 2, strict = true, store_tree = true)
         strict_optim = doo_descent_init(param3, flat_loss, 1, strict_config)
         @test_nowarn step!(strict_optim)
         @test length(strict_optim.state.root.children) == 4
@@ -343,7 +379,7 @@ using DataStructures: PriorityQueue, peek
             for child in offset_optim.state.root.children)
 
         # Non-strict mode allows shrinking along any degree-2 coordinate subset.
-        nonstrict_config = DOOConfig(delta = delta, degree = 2, strict = false)
+        nonstrict_config = DOOConfig(delta = delta, degree = 2, strict = false, store_tree = true)
         nonstrict_optim = doo_descent_init(param3, flat_loss, 1, nonstrict_config)
         @test_nowarn step!(nonstrict_optim)
         @test length(nonstrict_optim.state.root.children) == 12

@@ -36,7 +36,7 @@ Fields:
 - `polydisc::ValuationPolydisc{S,T,N}`: Region represented by this node
 - `depth::Int`: Depth in tree (root has depth 0)
 - `position::Int`: Position index among siblings
-- `parent::Union{DOONode{S,T,N}, Nothing}`: Parent node reference
+- `parent::Union{DOONode{S,T,N}, Nothing}`: Optional parent node reference
 - `children::Vector{DOONode{S,T,N}}`: Expanded children
 - `value::Union{Float64, Nothing}`: Evaluated function value (after value_transform)
 - `is_expanded::Bool`: Whether node has been expanded
@@ -67,6 +67,10 @@ Fields:
                      NOTE: User will define this based on specific problem structure.
 - `degree::Int`: Number of coordinates refined by each expansion (default: 1)
 - `strict::Bool`: If true, use the coordinate-wise cell decomposition (default: false)
+- `store_tree::Bool`: If true, store the expanded search tree via parent and
+  children links (default: false). By default DOO keeps only the leaf priority
+  queue, the best node, and the root, leaving `DOONode.parent === nothing`
+  and `DOONode.children` empty for generated nodes to reduce memory usage.
 - `value_transform::Function`: Transform loss to value for maximization (default: loss -> -loss)
 
 Theoretical Notes:
@@ -82,20 +86,28 @@ Theoretical Notes:
 Note: DOO does not need an explicit max_depth parameter. The tree search naturally
 terminates when the polydisc `children()` function returns empty at the precision
 boundary of the p-adic field.
+
+Tree Storage:
+- `store_tree=false` is the default and recommended mode for normal optimization.
+- Set `store_tree=true` only when inspecting the full tree, visualizing the DOO
+  search tree, or using tree-structure utilities such as `get_tree_size` and
+  `get_all_leaves`.
 """
 struct DOOConfig
     delta::Function
     degree::Int
     strict::Bool
+    store_tree::Bool
     value_transform::Function
 
     function DOOConfig(;
             delta::Function,
             degree::Int = 1,
             strict::Bool = false,
+            store_tree::Bool = false,
             value_transform::Function = loss -> -loss
     )
-        new(delta, degree, strict, value_transform)
+        new(delta, degree, strict, store_tree, value_transform)
     end
 end
 
@@ -113,6 +125,7 @@ Fields:
   prioritized by maximum b-value and deterministic insertion order
 - `branch_sets::Vector{Vector{Int}}`: Precomputed strict-mode degree-d coordinate subsets
 - `leaf_insertion_order::Int`: Monotone counter for breaking leaf-priority ties
+- `store_tree::Bool`: Whether expanded parent/children links are retained
 - `best_node::Union{DOONode{S,T,N}, Nothing}`: Best evaluated node seen so far
 """
 mutable struct DOOState{S, T, N}
@@ -123,15 +136,17 @@ mutable struct DOOState{S, T, N}
     leaves::PriorityQueue{DOONode{S, T, N}, Tuple{Float64, Int}}
     branch_sets::Vector{Vector{Int}}
     leaf_insertion_order::Int
+    store_tree::Bool
     best_node::Union{DOONode{S, T, N}, Nothing}
 
     function DOOState{S, T, N}(root::DOONode{S, T, N},
-            branch_sets::Vector{Vector{Int}} = Vector{Vector{Int}}()) where {S, T, N}
+            branch_sets::Vector{Vector{Int}} = Vector{Vector{Int}}(),
+            store_tree::Bool = false) where {S, T, N}
         @req root.value !== nothing "root must be evaluated before constructing DOOState"
 
         leaves = PriorityQueue{DOONode{S, T, N}, Tuple{Float64, Int}}()
         enqueue!(leaves, root, (-Inf, 1))
-        new{S, T, N}(root, 0, 1, 0, leaves, branch_sets, 1, root)
+        new{S, T, N}(root, 0, 1, 0, leaves, branch_sets, 1, store_tree, root)
     end
 end
 
@@ -233,7 +248,7 @@ Algorithm:
 2. Create child nodes
 3. Evaluate loss on the children
 4. Transform loss to value
-5. Update parent's children list
+5. If `config.store_tree`, attach child nodes to the retained tree
 6. Increment sample counter
 
 Returns: Vector of newly created child nodes (empty if node cannot be expanded)
@@ -264,14 +279,16 @@ function expand_node!(node::DOONode{S, T, N}, loss::Loss, config::DOOConfig,
     children_nodes = DOONode{S, T, N}[]
     for (i, child_disc) in enumerate(child_polydiscs)
         # Create child node
-        child = DOONode(child_disc, node.depth + 1, i, node)
+        parent = config.store_tree ? node : nothing
+        child = DOONode(child_disc, node.depth + 1, i, parent)
 
         # Transform loss to value (for maximization framework)
         child.value = config.value_transform(child_losses[i])
         update_best_node!(state, child)
 
-        # Add to parent's children
-        push!(node.children, child)
+        if config.store_tree
+            push!(node.children, child)
+        end
         push!(children_nodes, child)
     end
 
@@ -360,7 +377,7 @@ function doo_descent_init(param::ValuationPolydisc{S, T, N}, loss::Loss,
 
     # Create initial state with root as only leaf
     branch_sets = config.strict ? strict_branch_sets(Val(N), config.degree) : Vector{Vector{Int}}()
-    state = DOOState{S, T, N}(root, branch_sets)
+    state = DOOState{S, T, N}(root, branch_sets, config.store_tree)
     state.next_branch = next_branch
     state.total_samples = 1
 
@@ -377,8 +394,11 @@ end
     get_tree_size(state::DOOState)
 
 Get total number of nodes in the DOO tree (including root and all descendants).
+Requires `DOOConfig(store_tree=true)`.
 """
 function get_tree_size(state::DOOState{S, T, N}) where {S, T, N}
+    @req state.store_tree "DOO tree was not retained; set DOOConfig(store_tree=true)"
+
     function count_nodes(node::DOONode{S, T, N})
         count = 1
         for child in node.children
@@ -402,10 +422,13 @@ end
     get_all_leaves(state::DOOState)
 
 Get all leaf nodes (expanded or not) in the tree by traversing from root.
+Requires `DOOConfig(store_tree=true)`.
 
 This differs from state.leaves which only tracks unexpanded leaves.
 """
 function get_all_leaves(state::DOOState{S, T, N}) where {S, T, N}
+    @req state.store_tree "DOO tree was not retained; set DOOConfig(store_tree=true)"
+
     leaves = DOONode{S, T, N}[]
 
     function collect_leaves(node::DOONode{S, T, N})
