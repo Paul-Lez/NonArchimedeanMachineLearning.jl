@@ -40,7 +40,6 @@ end
 
 Create the simple negation transform: `loss → -loss`.
 
-This is the classic transform used in early MCTS implementations.
 Unbounded output range.
 """
 function negation_transform()
@@ -53,7 +52,7 @@ end
 Create the inverse transform: `loss → 1 / (loss + epsilon)`.
 
 # Keyword Arguments
-- `epsilon::Float64=1e-10`: Small constant to avoid division by zero.
+- `epsilon::Float64=1e-10`: Small constant to loss being unbounded .
 """
 function inverse_transform(; epsilon::Float64 = 1e-10)
     return loss -> 1.0 / (loss + epsilon)

@@ -169,11 +169,7 @@ Configuration parameters for the DAG-MCTS optimizer.
 # Design Decision (recorded for future experimentation)
 The `persist_table` option allows experimenting with:
 - persist_table=true: Reuse learned information across steps (may grow large)
-- persist_table=false: Fresh search each step (like standard MCTS)
-
-# TODO: Add support for the following features from standard MCTS:
-# - strict mode for single-branch descent
-# - max_children limit
+- persist_table=false: Fresh search each step
 """
 struct DAGMCTSConfig
     num_simulations::Int
@@ -654,9 +650,9 @@ end
 
 Backpropagate a value through all nodes in the explicit path.
 
-This is the "Stack Method" for DAG backpropagation - we iterate through
+This is the Path-wise approach for DAG backpropagation - we iterate through
 the specific path taken during this traversal rather than following
-parent pointers (which would be ambiguous in a DAG).
+parent pointers (this is ambiguous in a DAG!).
 
 # Arguments
 - `path`: Vector of nodes from root to leaf representing this traversal's path
@@ -739,7 +735,7 @@ Check if a DAG node should be marked as solved.
 A node is solved when expanded AND all children are solved.
 (DAG-MCTS always generates all children, so `is_expanded` implies fully expanded.)
 
-Sets `proven_value` to the max of children's `proven_values` (single-agent optimization).
+Sets `proven_value` to the max of children's `proven_values`.
 
 Returns `true` if the node was newly marked as solved.
 """
@@ -870,6 +866,7 @@ function dag_mcts_simulation!(
             eval_node = rand(unvisited)
         else
             unsolved = [c for c in leaf.children if !c.is_solved]
+            # The first branch should never occur here, so we should remove it at some point.
             eval_node = isempty(unsolved) ? rand(leaf.children) : rand(unsolved)
         end
         push!(path, eval_node)
@@ -946,7 +943,7 @@ function trace_to_root_child(
 
     # Trace upward from target using parent pointers
     # Use BFS over parents to handle the DAG structure
-    # visited tracks nodes by identity to avoid cycles
+    # visited tracks nodes by identity to avoid cycles (Note: do we actually need to do this?)
     visited = Set{UInt}()
     queue = DAGMCTSNode{S, T, N}[target]
     push!(visited, objectid(target))

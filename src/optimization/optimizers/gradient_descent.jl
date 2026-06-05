@@ -23,7 +23,6 @@ function gradient_param(
         val::ValuationPolydisc{S, T, N1},
         v::ValuationTangent{S, T, N2}
 ) where {S, T, N1, N2}
-    # TODO: implement concatenation of tangent vectors
     new_base = concatenate(val, v.point)
     new_direction = concatenate(val, v.direction)
     new_v = ValuationTangent(new_base, new_direction, [zeros(T, dim(val)); v.magnitude])
