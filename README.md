@@ -76,32 +76,6 @@ See [demos/](demos/) for complete runnable scripts.
 
 Full documentation is available at **[paul-lez.github.io/NonArchimedeanMachineLearning.jl/dev/](https://Paul-Lez.github.io/NonArchimedeanMachineLearning.jl/dev/)**.
 
-## Repository structure
-
-```
-src/
-├── basic/              Core algebraic structures
-│   ├── valuation.jl        Valuations and absolute values
-│   ├── polydisc.jl         Polydiscs and their operations
-│   ├── tangent_vector.jl   Tangent vectors on polydisc spaces
-│   ├── functions.jl        Compositional function algebra
-│   └── valued_point.jl     Valued field point wrapper
-├── optimization/       Optimization framework
-│   ├── model.jl            Abstract model interface
-│   ├── optim_setup.jl      Core optimizer API (step!, has_converged, ...)
-│   ├── loss.jl             Standard losses (MSE, MPE)
-│   └── optimizers/
-│       ├── greedy_descent.jl
-│       ├── gradient_descent.jl
-│       ├── random_descent.jl
-│       └── tree_search/    MCTS, DOO, DAG-MCTS
-├── statistics/         Frechet means, least squares
-└── visualization/      Loss landscape plots, search tree rendering
-
-test/                   Test suite
-docs/                   Documenter.jl source
-```
-
 ## Citing
 If this package was useful for your research, please consider adding the following citation (preprint to be uploaded to the arXiv very soon)
 ```
