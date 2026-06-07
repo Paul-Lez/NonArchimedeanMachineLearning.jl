@@ -304,9 +304,9 @@ end
 end
 
 
-# Comprehensive evaluator tests.
+# Evaluator coverage tests.
 
-@testset "Comprehensive polynomial function evaluation" begin
+@testset "Polynomial function evaluation" begin
     NAML = NonArchimedeanMachineLearning
 
     @testset "Basic polynomial evaluation - simple linear polynomials" begin
@@ -586,7 +586,7 @@ end
         end
     end
 
-    @testset "Batch evaluation vs regular evaluation - LinearPolynomial comprehensive" begin
+    @testset "Batch evaluation vs regular evaluation - LinearPolynomial cases" begin
         prec = 20
         K = PadicField(2, prec)
 
@@ -651,7 +651,7 @@ end
         poly = LinearPolynomial([K(2), K(4)], K(1))
         batch_eval = batch_evaluate_init(poly)
 
-        # Test with various radius combinations
+        # Test several radius combinations
         radius_combinations = [
             [0, 0],
             [1, 0],

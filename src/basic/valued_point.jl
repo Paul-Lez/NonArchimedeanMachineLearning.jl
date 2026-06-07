@@ -180,7 +180,7 @@ end
  Mixed-Type Operations (PadicFieldElem ↔ ValuedFieldPoint)
 =============================================================================#
 
-# These are essential for Oscar's polynomial evaluation: when evaluating
+# Required for Oscar's polynomial evaluation: when evaluating
 # MPoly{PadicFieldElem} at ValuedFieldPoint values, coefficients (PadicFieldElem)
 # must interact with substituted values (ValuedFieldPoint).
 

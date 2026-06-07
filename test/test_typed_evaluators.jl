@@ -1,4 +1,4 @@
-## Test the new typed evaluator interface
+## Test the typed evaluator interface
 
 using Test
 using Oscar
@@ -31,7 +31,7 @@ using NonArchimedeanMachineLearning
         radius = [0, 0]
         p = ValuationPolydisc(center, radius)
 
-        # NEW INTERFACE: typed evaluator
+        # Typed evaluator
         eval_typed = batch_evaluate_init(
             poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2})
         result = eval_typed(p)
@@ -56,7 +56,7 @@ using NonArchimedeanMachineLearning
         radius = [0, 0]
         p = ValuationPolydisc(center, radius)
 
-        # NEW INTERFACE: typed evaluator (adapter handles type conversion)
+        # Typed evaluator; adapter handles type conversion
         eval_typed = batch_evaluate_init(
             c, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2})
         result = eval_typed(p)
@@ -80,7 +80,7 @@ using NonArchimedeanMachineLearning
         radius = [0, 0]
         p = ValuationPolydisc(center, radius)
 
-        # NEW INTERFACE: typed evaluator
+        # Typed evaluator
         eval_typed = batch_evaluate_init(
             poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2})
         result = eval_typed(p)
@@ -106,7 +106,7 @@ using NonArchimedeanMachineLearning
         radius = [0, 0]
         p = ValuationPolydisc(center, radius)
 
-        # NEW INTERFACE: typed evaluator
+        # Typed evaluator
         eval_typed = batch_evaluate_init(
             sum_poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2})
         result = eval_typed(p)

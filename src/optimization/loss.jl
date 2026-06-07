@@ -21,10 +21,6 @@ Creates a `Loss` structure with batch evaluation and gradient functions for MSE 
 
 # Returns
 `Loss`: Loss structure with closures for batch evaluation and gradient computation
-
-# Notes
-Both the evaluation and gradient functions operate on batches of parameters and tangent vectors,
-allowing efficient parallel computation. Uses typed evaluators for improved performance.
 """
 function MSE_loss_init(model::AbstractModel{S},
         data::Vector{Tuple{ValuationPolydisc{S, T, N}, U}}) where {S, T, N, U}
@@ -55,7 +51,7 @@ end
 Initialize a Mean Squared Error (MSE) loss function with field-valued inputs.
 
 Creates a `Loss` structure for data where inputs are elements of the base field (not polydiscs).
-This variant uses model specialization and batch evaluation for computational efficiency.
+This variant specializes the model at each input and then uses batch evaluation.
 
 Computes: ``\mathcal{L}(\theta) = \frac{1}{n} \sum_{i=1}^n (f(x_i; \theta) - y_i)^2``
 
@@ -66,9 +62,6 @@ Computes: ``\mathcal{L}(\theta) = \frac{1}{n} \sum_{i=1}^n (f(x_i; \theta) - y_i
 # Returns
 `Loss`: Loss structure with closures for batch evaluation and gradient computation
 
-# Implementation Notes
-This overload specializes the model at each data point by substituting the field-valued inputs,
-then uses typed evaluators for both evaluation and gradient computation.
 """
 function MSE_loss_init(model::AbstractModel{S}, data::Vector{Tuple{S, U}}) where {S, U}
     # Specialize the model at each data point
@@ -151,9 +144,6 @@ Generalizes MSE by using the ``\ell^p`` norm instead of ``\ell^2``. Computes:
 # Returns
 `Loss`: Loss structure with closures for batch evaluation and gradient computation
 
-# Notes
-For MSE (Euclidean loss), use ``p = 2``. The gradient computation uses the power rule.
-Uses typed evaluators for improved performance.
 """
 function MPE_loss_init(
         model::AbstractModel{S}, data::Vector{Tuple{ValuationPolydisc{S, T, N}, U}},
@@ -187,7 +177,7 @@ end
 Initialize a Mean p-Power Error (MPE) loss function with field-valued inputs.
 
 Generalizes MSE using the ``\ell^p`` norm with field-valued (not polydisc-valued) inputs.
-Uses model specialization and typed evaluators for computational efficiency.
+Specializes the model at each input and then uses typed evaluators.
 
 Computes: ``\mathcal{L}(\theta) = \frac{1}{n} \sum_{i=1}^n |f(x_i; \theta) - y_i|^p``
 
@@ -198,10 +188,6 @@ Computes: ``\mathcal{L}(\theta) = \frac{1}{n} \sum_{i=1}^n |f(x_i; \theta) - y_i
 
 # Returns
 `Loss`: Loss structure with closures for batch evaluation and gradient computation
-
-# Implementation Notes
-This overload specializes the model at each data point, making it more efficient for
-field-valued inputs than the polydisc variant. Uses typed evaluators for improved performance.
 """
 function MPE_loss_init(model::AbstractModel{S}, data::Vector{Tuple{S, U}}, p::Int) where {
         S, U}
@@ -237,7 +223,7 @@ end
 Initialize a Mean p-Power Error (MPE) loss function with vector-valued inputs.
 
 Generalizes MPE for data where inputs are vectors of field elements (representing
-multivariate data points). Uses model specialization and typed evaluators for efficiency.
+multivariate data points). Specializes the model at each input and then uses typed evaluators.
 
 Computes: ``\mathcal{L}(\theta) = \frac{1}{n} \sum_{i=1}^n |f(\mathbf{x}_i; \theta) - y_i|^p``
 
@@ -248,10 +234,6 @@ Computes: ``\mathcal{L}(\theta) = \frac{1}{n} \sum_{i=1}^n |f(\mathbf{x}_i; \the
 
 # Returns
 `Loss`: Loss structure with closures for batch evaluation and gradient computation
-
-# Implementation Notes
-This overload handles multivariate data where each input is a vector of field elements.
-The model is specialized at each data point vector and uses typed evaluators for improved performance.
 """
 function MPE_loss_init(
         model::AbstractModel{S}, data::Vector{Tuple{
@@ -288,7 +270,6 @@ end
 #
 # When users define models with type S but data is auto-wrapped to ValuedFieldPoint{P,Prec,S},
 # these methods eagerly lift the evaluator to ValuedFieldPoint at creation time.
-# No runtime adapters needed — conversion happens once, not on every evaluation.
 
 function MPE_loss_init(model::AbstractModel{S},
         data::Vector{Tuple{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}, U}},

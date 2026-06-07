@@ -414,7 +414,7 @@ function evaluate(poly::LinearPolynomial{S}, p::ValuationPolydisc{S, T, N}) wher
 end
 
 #=============================================================================
- Typed Evaluators - Refactor 2: Replace closures with callable structs
+ Typed Evaluators
 =============================================================================#
 
 @doc raw"""
@@ -422,25 +422,19 @@ end
 
 Abstract base type for typed function evaluators.
 
-Separates mathematical function definition (PolydiscFunction) from efficient
-computation (PolydiscFunctionEvaluator). Encodes full type information S, T, N
-at compile time for optimization.
+Separates the mathematical function definition (`PolydiscFunction`) from the
+callable evaluator. The evaluator type records `S`, `T`, and `N`.
 
 # Type Parameters
 - `S`: Coefficient type (e.g., ValuedFieldPoint{P,Prec,PadicFieldElem})
 - `T`: Radius type (typically Int)
 - `N`: Dimension of polydisc space
 
-# Design Philosophy
-- **PolydiscFunction{S}**: "What is the function?" (mathematical definition)
-- **PolydiscFunctionEvaluator{S,T,N}**: "How do we efficiently evaluate it?" (computation)
-
-# Usage
-Evaluators are callable structs created via `batch_evaluate_init`:
+# Example
 ```julia
 f = LinearPolynomial([K(1), K(2)], K(0))
 eval = batch_evaluate_init(f, ValuationPolydisc{S,T,N})
-result = eval(polydisc)  # Fully typed, no closures
+result = eval(polydisc)
 ```
 """
 abstract type PolydiscFunctionEvaluator{S, T, N} end
@@ -586,7 +580,7 @@ function (eval::MPolyEvaluator{S, T, N, P})(p::ValuationPolydisc{
 end
 
 #=============================================================================
- New batch_evaluate_init Interface - Takes Type, Returns Typed Evaluator
+ Typed batch_evaluate_init Interface
 =============================================================================#
 
 @doc raw"""
@@ -594,8 +588,8 @@ end
 
 Create a typed evaluator for efficient batch evaluation.
 
-**NEW INTERFACE**: Takes a polydisc type parameter and returns a fully-typed callable struct
-instead of an untyped closure. This enables compile-time specialization.
+The polydisc type supplies `S`, `T`, and `N`, so the returned callable carries
+the concrete evaluator type instead of closing over an untyped function.
 
 # Arguments
 - `f::PolydiscFunction{S}`: The function to evaluate
@@ -608,14 +602,8 @@ instead of an untyped closure. This enables compile-time specialization.
 ```julia
 f = LinearPolynomial([K(1), K(2)], K(0))
 eval = batch_evaluate_init(f, ValuationPolydisc{ValuedFieldPoint{2,20,PadicFieldElem},Int,2})
-result = eval(some_polydisc)  # Fully specialized
+result = eval(some_polydisc)
 ```
-
-# Design Benefits
-- **Type stability**: S, T, N known at compile time
-- **No closures**: Evaluators are concrete structs, not function objects
-- **Inlining**: Julia can inline evaluator calls
-- **Specialization**: Full method specialization on all type parameters
 """
 function batch_evaluate_init(f::PolydiscFunction{S}, ::Type{ValuationPolydisc{
         S, T, N}}) where {S, T, N}

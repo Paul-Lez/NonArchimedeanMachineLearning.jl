@@ -248,7 +248,7 @@ using Oscar  # For PadicField
         @test hash(p3) == hash(p4)
     end
 
-    # Test 9: Comprehensive branch coverage for canonical_center
+    # Test 9: Branch coverage for canonical_center
     @testset "Branch coverage: c.v >= r" begin
 
         # Case 1: c.v > r (strictly greater)
@@ -280,7 +280,7 @@ using Oscar  # For PadicField
 
     @testset "Branch coverage: c.v < r" begin
 
-        # Case 1: c is a unit (v=0), various radii
+        # Case 1: c is a unit (v=0), several radii
         p1 = ValuationPolydisc([K(1)], [1])  # v(1)=0, r=1, so 0 < 1
         c1 = canonical_center(p1)
         @test c1 == (1,)  # 1 mod 2^1 = 1
@@ -318,7 +318,7 @@ using Oscar  # For PadicField
         @test hash(p1) != hash(p4)
     end
 
-    @testset "Negative radius comprehensive" begin
+    @testset "Negative radius cases" begin
 
         # All polydiscs with same negative radius should be equal
         test_centers = [K(0), K(1), K(2), K(3), K(7), K(15), K(32), K(100)]

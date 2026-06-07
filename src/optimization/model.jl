@@ -9,8 +9,8 @@ parameters.
 A model structure that captures the underlying function and parameter/variable mapping.
 
 Represents a model without specified parameter values. Encodes which variables in the
-function are data variables (inputs) versus parameters (to be optimized). This separation
-allows the loss and optimization machinery to work correctly.
+function are data variables (inputs) versus parameters (to be optimized). Loss
+constructors use this mapping to interleave data and parameter polydiscs.
 
 # Fields
 - `fun::PolydiscFunction{S}`: The underlying function (e.g., sum of absolute polynomials)
@@ -43,7 +43,7 @@ end
 A complete model with specified parameter values.
 
 Combines an abstract model (function and parameter mapping) with concrete current parameter
-values. The structure is mutable to allow parameters to be updated during optimization.
+values. The structure is mutable so optimizers can update `param`.
 
 # Fields
 - `fun::AbstractModel{FS}`: The abstract model encoding the function structure and parameter layout
@@ -254,8 +254,7 @@ end
 Specialize a model by substituting data variable values.
 
 Removes data variables from the model by substituting given values, returning a function
-that depends only on parameters. This is used for computational efficiency when the data
-is fixed.
+that depends only on parameters.
 
 # Arguments
 - `m::AbstractModel{S}`: The abstract model
@@ -264,7 +263,7 @@ is fixed.
 # Returns
 `PolydiscFunction{S}`: A specialized polydisc function depending only on parameters
 
-# Implementation Notes
+# Implementation
 Dispatches to type-specific implementations based on the function type
 (`AbsolutePolynomialSum` or `LinearAbsolutePolynomialSum`).
 
@@ -356,9 +355,6 @@ end
 
 Specialize an AbsolutePolynomialSum by substituting data variable values.
 
-Creates a new polynomial ring with only parameter variables and applies polynomial ring
-homomorphisms to substitute data values into each polynomial.
-
 # Arguments
 - `f::AbsolutePolynomialSum{S}`: The polynomial sum to specialize
 - `param_info`: Boolean vector indicating variable types
@@ -366,10 +362,6 @@ homomorphisms to substitute data values into each polynomial.
 
 # Returns
 `AbsolutePolynomialSum{S}`: A polynomial sum depending only on parameters
-
-# Implementation Details
-Uses ring homomorphisms to correctly substitute values while maintaining the polynomial
-structure in the new parameter-only ring.
 """
 function specialise(
         f::AbsolutePolynomialSum{S},
@@ -492,7 +484,7 @@ end
 Specialize a model at multiple data points and combine the results.
 
 Specializes the model at each data point separately, then combines all specialized
-polynomials into a single function. This is useful for constructing batch loss functions.
+polynomials into a single function for batch losses.
 
 # Arguments
 - `m::AbstractModel{S}`: The abstract model
@@ -500,10 +492,6 @@ polynomials into a single function. This is useful for constructing batch loss f
 
 # Returns
 `PolydiscFunction{S}`: A combined polydisc function with all specializations
-
-# Implementation Notes
-Concatenates polynomial vectors from each specialization. Supports
-`AbsolutePolynomialSum` and `LinearAbsolutePolynomialSum` types.
 """
 function specialise(m::AbstractModel{S}, data::Vector{Vector{S}})::PolydiscFunction{S} where {S}
     # Specialize the model at each data point
@@ -540,9 +528,6 @@ the underlying function.
 # Returns
 The evaluated function value (typically a `Float64` for absolute polynomial sums)
 
-# Notes
-Current implementation is specific to absolute polynomial sums. Will need updates
-for more general polydisc functions.
 """
 function evaluate(m::AbstractModel, val, param)
     var = set_abstract_model_variable(m, val, param)
@@ -553,8 +538,6 @@ end
     evaluate(m::Model, val)
 
 Evaluate a model at given data using the model's stored parameters.
-
-Convenience wrapper that uses the model's current parameter values.
 
 # Arguments
 - `m::Model`: The model (containing stored parameters)
@@ -584,10 +567,6 @@ The returned function accepts two arguments: data and parameters (as vectors of 
 # Returns
 `Function`: A closure `(data::ValuationPolydisc, param::ValuationPolydisc) -> Float64`
 that can be applied to evaluate the model
-
-# Notes
-This function creates an evaluation closure that is optimized for batch operations.
-It interleaves data and parameter values according to the model's variable layout.
 """
 function batch_evaluate_init(m::AbstractModel{S}) where {S}
     # Get the batch evaluation function for the underlying polydisc function
@@ -619,10 +598,6 @@ stored parameter values. The returned function accepts a single argument: data (
 # Returns
 `Function`: A closure `(data::ValuationPolydisc) -> Float64` that evaluates the model
 at the given data using the stored parameters
-
-# Notes
-This is a convenience wrapper around `batch_evaluate_init(::AbstractModel)` that captures
-the model's current parameters in the closure.
 """
 function batch_evaluate_init(m::Model{FS, PS, T, N}) where {FS, PS, T, N}
     # Get the batch evaluation function for the abstract model
@@ -640,7 +615,7 @@ function batch_evaluate_init(m::Model{FS, PS, T, N}) where {FS, PS, T, N}
 end
 
 #=============================================================================
- Typed Model Evaluator - Refactor 2
+ Typed Model Evaluator
 =============================================================================#
 
 @doc raw"""
@@ -648,8 +623,8 @@ end
 
 Typed evaluator for AbstractModel.
 
-Combines the model structure with a typed function evaluator for efficient
-computation with full compile-time type information.
+Combines the model structure with a typed function evaluator for the interleaved
+data and parameter variables.
 
 # Type Parameters
 - `FS`: Function coefficient type
@@ -673,7 +648,7 @@ end
 
 Create a typed evaluator for an AbstractModel.
 
-**NEW TYPED INTERFACE**: Returns a ModelEvaluator struct instead of a closure.
+Returns a `ModelEvaluator` struct instead of a closure.
 
 # Arguments
 - `m::AbstractModel{S}`: The abstract model

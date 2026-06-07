@@ -39,9 +39,6 @@ end
 @doc raw"""
     ValuationPolydisc(center::Vector{PadicFieldElem}, radius::Vector{T}) where T
 
-Convenience constructor that automatically wraps `PadicFieldElem` into `ValuedFieldPoint`
-for compile-time optimization.
-
 This constructor extracts the prime and precision from the field and creates a
 `ValuationPolydisc{ValuedFieldPoint{P,Prec,PadicFieldElem},T,N}` where `P` and `Prec`
 are type parameters available at compile time.
@@ -213,18 +210,12 @@ Two polydiscs D(a, r) and D(b, s) represent the same Berkovich point if and only
 1. They have the same radius: r = s
 2. Their centers are "close enough": v(a - b) >= r
 
-This is the correct condition for Berkovich equality in non-Archimedean geometry.
-
 # Arguments
 - `p::ValuationPolydisc`: First polydisc
 - `q::ValuationPolydisc`: Second polydisc
 
 # Returns
 `Bool`: `true` if the polydiscs represent the same Berkovich point, `false` otherwise
-
-# Mathematical Note
-The condition v(a-b) >= r (not > r) is crucial: if v(a-b) = r exactly, then
-D(a, r) and D(b, r) are the same disc by the ultrametric property.
 """
 function Base.:(==)(p::ValuationPolydisc{S, T, N}, q::ValuationPolydisc{
         S, T, N}) where {S, T, N}
@@ -323,9 +314,9 @@ end
 
 Compute a hash value for a polydisc for use in hash-based collections.
 
-Uses a canonical representation based on radius and center mod p^radius to ensure
-that equivalent polydiscs (same radius, centers differing by high-valuation elements)
-hash to the same value. This is essential for transposition table lookups in DAG-MCTS.
+Uses a canonical representation based on radius and center mod p^radius, so
+equivalent polydiscs (same radius, centers differing by high-valuation elements)
+hash to the same value. This is important in DAG-MCTS for transposition table lookups.
 
 # Arguments
 - `m::ValuationPolydisc`: The polydisc to hash

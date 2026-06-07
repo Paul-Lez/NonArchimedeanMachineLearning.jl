@@ -79,7 +79,7 @@ end
 Enum for MCTS child selection strategy after simulations complete.
 
 # Values
-- `VisitCount`: Select child with highest visit count (standard MCTS, robust)
+- `VisitCount`: Select child with highest visit count (standard MCTS)
 - `BestValue`: Select child leading to best average value in tree (greedy MCTS)
 - `BestLoss`: Select child leading to leaf with minimum raw loss (greedy, ignores visit averaging)
 """
@@ -116,7 +116,7 @@ end
 @doc raw"""
     MCTSConfig(; kwargs...)
 
-Create an MCTS configuration with sensible defaults.
+Create an MCTS configuration with default settings.
 
 # Keyword Arguments
 - `num_simulations::Int=100`: Number of simulations per step
@@ -582,7 +582,7 @@ end
 Select the best child of root according to the configured selection mode.
 
 # Selection Modes
-- `VisitCount`: Returns child with highest visit count (standard MCTS, robust)
+- `VisitCount`: Returns child with highest visit count (standard MCTS)
 - `BestValue`: Finds node with best average value in tree, returns root's child leading to it (greedy)
 - `BestLoss`: Finds leaf with minimum raw loss, returns root's child leading to it
 

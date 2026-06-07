@@ -1,8 +1,8 @@
 # NonArchimedeanMachineLearning.jl
 
-*Non-Archimedean Machine Learning in Julia.*
+*Non-Archimedean optimization in Julia.*
 
-Welcome to the documentation for NonArchimedeanMachineLearning.jl. This library provides data structures and algorithms for machine learning over p-adic numbers and polydisc spaces.
+NonArchimedeanMachineLearning.jl provides data structures and algorithms for optimization over p-adic numbers and polydisc spaces.
 
 ## Overview
 
@@ -11,4 +11,4 @@ The `src` codebase is structured into the following categories:
 - **Optimization:** Machine learning models, loss functions, and optimization algorithms (Gradient/Greedy Descent and Tree Search methods).
 - **Visualization:** Loss landscape sampling and search tree plotting.
 
-Use the sidebar to explore the API reference for each category.
+The sidebar links to the API reference for each category.

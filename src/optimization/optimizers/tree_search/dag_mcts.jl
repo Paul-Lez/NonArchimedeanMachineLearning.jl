@@ -185,7 +185,7 @@ end
 @doc raw"""
     DAGMCTSConfig(; kwargs...)
 
-Create a DAG-MCTS configuration with sensible defaults.
+Create a DAG-MCTS configuration with default settings.
 
 # Keyword Arguments
 - `num_simulations::Int=100`: Number of simulations per step
@@ -975,7 +975,7 @@ end
 Select the best child of root according to the configured selection mode.
 
 # Selection Modes
-- `VisitCount`: Returns child with highest visit count (standard MCTS, robust)
+- `VisitCount`: Returns child with highest visit count (standard MCTS)
 - `BestValue`: Finds node with best average value in DAG, returns root's child leading to it (greedy)
 - `BestLoss`: Finds leaf with minimum raw loss evaluation, returns root's child leading to it
 
