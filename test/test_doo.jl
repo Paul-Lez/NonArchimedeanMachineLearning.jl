@@ -5,7 +5,7 @@ Test file for DOO (Deterministic Optimistic Optimization) implementation.
 using Test
 using NonArchimedeanMachineLearning
 using Oscar
-using DataStructures: PriorityQueue, peek
+using DataStructures: PriorityQueue
 
 @testset "DOO Optimizer Tests" begin
     # Setup: 2-adic field and simple quadratic loss
@@ -204,7 +204,7 @@ using DataStructures: PriorityQueue, peek
         queued_children = collect(keys(optim.state.leaves))
         @test Set(queued_children) == Set(optim.state.root.children)
 
-        top_leaf = first(peek(optim.state.leaves))
+        top_leaf = first(optim.state.leaves).first
         top_b = NonArchimedeanMachineLearning.b_value(top_leaf, config)
         child_b_values = [
             NonArchimedeanMachineLearning.b_value(child, config) for child in queued_children

@@ -15,7 +15,7 @@ using Oscar
 using LinearAlgebra
 using Printf
 using Combinatorics
-using DataStructures: PriorityQueue, enqueue!, dequeue!, peek
+using DataStructures: PriorityQueue
 
 # Include all source files
 include("basic/valuation.jl")

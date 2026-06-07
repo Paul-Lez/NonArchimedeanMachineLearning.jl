@@ -436,9 +436,8 @@ end
 @doc raw"""
     lift(x::ValuedFieldPoint{P,Prec,S})
 
-Scalar lift for `ValuedFieldPoint` (delegates to underlying element).
-Provided for consistency with Oscar's lift interface.
+Scalar lift for `ValuedFieldPoint` to the integer ring ZZ.
 """
 function lift(x::ValuedFieldPoint{P, Prec, S}) where {P, Prec, S}
-    return Oscar.lift(x.elem)
+    return Oscar.lift(ZZ, x.elem)
 end

@@ -187,7 +187,7 @@ using NonArchimedeanMachineLearning
 
         @test NonArchimedeanMachineLearning.lift(ZZ, x) == Oscar.lift(ZZ, K(5))
         @test NonArchimedeanMachineLearning.lift(ZZ, K(5)) == Oscar.lift(ZZ, K(5))
-        @test NonArchimedeanMachineLearning.lift(x) == Oscar.lift(K(5))
+        @test NonArchimedeanMachineLearning.lift(x) == Oscar.lift(ZZ, K(5))
     end
 
     @testset "Type Stability" begin

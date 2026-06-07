@@ -130,7 +130,7 @@ mutable struct DOOState{S, T, N}
         @req root.value !== nothing "root must be evaluated before constructing DOOState"
 
         leaves = PriorityQueue{DOONode{S, T, N}, Tuple{Float64, Int}}()
-        enqueue!(leaves, root, (-Inf, 1))
+        push!(leaves, root => (-Inf, 1))
         new{S, T, N}(root, 0, 1, 0, leaves, branch_sets, 1, root)
     end
 end
@@ -211,7 +211,7 @@ end
 function push_leaf!(state::DOOState{S, T, N}, node::DOONode{S, T, N},
         config::DOOConfig) where {S, T, N}
     state.leaf_insertion_order += 1
-    enqueue!(state.leaves, node, leaf_priority(node, config, state.leaf_insertion_order))
+    push!(state.leaves, node => leaf_priority(node, config, state.leaf_insertion_order))
     return node
 end
 
@@ -305,7 +305,7 @@ function doo_descent(loss::Loss, param::ValuationPolydisc{S, T, N},
     end
 
     # Select and remove leaf with maximum b-value
-    best_leaf = dequeue!(state.leaves)
+    best_leaf = popfirst!(state.leaves).first
 
     # Expand the selected leaf
     new_children = expand_node!(best_leaf, loss, config, state)
