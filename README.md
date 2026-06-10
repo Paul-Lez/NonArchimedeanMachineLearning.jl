@@ -3,6 +3,7 @@
 [![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://Paul-Lez.github.io/NonArchimedeanMachineLearning.jl/dev/)
 [![Build Status](https://github.com/Paul-Lez/NonArchimedeanMachineLearning.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Paul-Lez/NonArchimedeanMachineLearning.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Codecov](https://codecov.io/gh/Paul-Lez/NonArchimedeanMachineLearning.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/Paul-Lez/NonArchimedeanMachineLearning.jl)
+[![arXiv](https://img.shields.io/badge/arXiv-2606.07782-b31b1b.svg)](https://arxiv.org/abs/2606.07782)
 
 NonArchimedeanMachineLearning is a Julia package for optimization over non-Archimedean fields. It provides tools to define objective functions on p-adic polydiscs and minimize them using a range of optimizers, from greedy descent to tree-search methods (MCTS, DOO, plus other experimental implementations).
 
@@ -83,5 +84,6 @@ If this package was useful for your research, please consider adding the followi
   title={Non-Archimedean Polydisc Spaces and Applications to Optimisation},
   author={Lezeau, Paul and Fam, Yiannis and Monod, Anthea and Ren, Yue},
   year={2026}
+  url = {https://arxiv.org/abs/2606.07782},
 }
 ```
