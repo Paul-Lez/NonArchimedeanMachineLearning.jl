@@ -108,9 +108,10 @@ export get_best_value, get_leaf_count, get_all_leaves
 
 # From optimization/optimizers/tree_search/dag_mcts.jl
 export AbstractDAGMCTSNode, AbstractDAGMCTSState
-export DAGMCTSNode, DAGMCTSPathNode, DAGMCTSPathStats
+export DAGMCTSNode, DAGMCTSPathNode, DAGMCTSPathStats, DAGMCTSEdgeStats
 export DAGMCTSConfig, DAGMCTSState, DAGMCTSPathState
-export DAGMCTSVariant, PathStatsDAGMCTS, NodeStatsDAGMCTS
+export DAGMCTSVariant, PathStatsDAGMCTS, NodeStatsDAGMCTS, UCT1DAGMCTS, UCT2DAGMCTS,
+       UCTMaxDAGMCTS
 export dag_mcts_descent, dag_mcts_descent_init
 export get_dag_stats, print_dag_stats, verify_transposition_table
 

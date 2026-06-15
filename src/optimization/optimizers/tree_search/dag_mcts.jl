@@ -21,8 +21,43 @@ Selects the internal DAG-MCTS algorithm.
   a transposition cache.
 - `NodeStatsDAGMCTS`: Search statistics are stored
   directly on shared DAG nodes.
+- `UCT1DAGMCTS`: Child selection follows UCT1 from Childs, Brodeur, and
+  Kocsis: each shared position stores local move statistics ``Q(s,a)`` and
+  ``N(s,a)``.
+- `UCT2DAGMCTS`: Child selection follows UCT2 from Childs, Brodeur, and
+  Kocsis: exploitation uses the shared child-node value ``Q(g(s,a))`` while
+  the exploration term still uses the local move count ``N(s,a)``.
+- `UCTMaxDAGMCTS`: Child selection is like node-stat DAG-MCTS, but the
+  exploitation term uses the maximum value observed for the child instead of
+  its average value.
 """
-@enum DAGMCTSVariant PathStatsDAGMCTS NodeStatsDAGMCTS
+@enum DAGMCTSVariant PathStatsDAGMCTS NodeStatsDAGMCTS UCT1DAGMCTS UCT2DAGMCTS UCTMaxDAGMCTS
+
+@doc raw"""
+    DAGMCTSEdgeStats
+
+Local move statistics for an action from a shared DAG node.
+
+These are the paper's ``N_{s,a}`` and accumulated value used to compute
+``Q_{s,a}``. They are kept separate from child node statistics because UCT2
+uses local move visits in the exploration term even when the child node has
+additional visits through transpositions.
+"""
+mutable struct DAGMCTSEdgeStats
+    visits::Int
+    total_value::Float64
+    max_value::Float64
+end
+
+DAGMCTSEdgeStats() = DAGMCTSEdgeStats(0, 0.0, -Inf)
+DAGMCTSEdgeStats(visits::Int, total_value::Float64) =
+    DAGMCTSEdgeStats(visits, total_value, visits > 0 ? total_value / visits : -Inf)
+
+average_value(stats::DAGMCTSEdgeStats) =
+    stats.visits > 0 ? stats.total_value / stats.visits : 0.0
+
+max_value(stats::DAGMCTSEdgeStats) =
+    stats.visits > 0 ? stats.max_value : 0.0
 
 @doc raw"""
     DAGMCTSNode{S,T,N}
@@ -36,8 +71,11 @@ polydisc state can be reached via different action sequences.
 - `polydisc::ValuationPolydisc{S,T,N}`: The polydisc at this node
 - `parents::Vector{DAGMCTSNode{S,T,N}}`: All parent nodes (can be multiple in a DAG)
 - `children::Vector{DAGMCTSNode{S,T,N}}`: Child nodes indexed by action (1-based)
+- `edge_stats::Vector{DAGMCTSEdgeStats}`: Per-action ``N(s,a)``/``Q(s,a)``
+  statistics, parallel to `children`
 - `visits::Int`: Total visit count N(s) aggregated from all paths
 - `total_value::Float64`: Sum of all values Q(s) backpropagated through this node
+- `max_value::Float64`: Maximum value backpropagated through this shared node
 - `is_expanded::Bool`: Whether this node's children have been generated
 - `is_terminal::Bool`: True if expansion produces no children (precision limit reached)
 - `is_solved::Bool`: True if terminal, or expanded with all children solved
@@ -53,8 +91,10 @@ mutable struct DAGMCTSNode{S, T, N} <: AbstractDAGMCTSNode{S, T, N}
     polydisc::ValuationPolydisc{S, T, N}
     parents::Vector{DAGMCTSNode{S, T, N}}
     children::Vector{DAGMCTSNode{S, T, N}}
+    edge_stats::Vector{DAGMCTSEdgeStats}
     visits::Int
     total_value::Float64
+    max_value::Float64
     is_expanded::Bool
     is_terminal::Bool          # true if expansion produces no children (precision limit reached)
     is_solved::Bool            # true if terminal, or expanded with all children solved
@@ -72,13 +112,43 @@ function DAGMCTSNode(polydisc::ValuationPolydisc{S, T, N}) where {S, T, N}
         polydisc,
         DAGMCTSNode{S, T, N}[],
         DAGMCTSNode{S, T, N}[],
+        DAGMCTSEdgeStats[],
         0,
         0.0,
+        -Inf,
         false,
         false,   # is_terminal
         false,   # is_solved
         NaN,     # proven_value
         0        # unsolved_children_count
+    )
+end
+
+function DAGMCTSNode{S, T, N}(
+        polydisc::ValuationPolydisc{S, T, N},
+        parents::Vector{DAGMCTSNode{S, T, N}},
+        children::Vector{DAGMCTSNode{S, T, N}},
+        visits::Int,
+        total_value::Float64,
+        is_expanded::Bool,
+        is_terminal::Bool,
+        is_solved::Bool,
+        proven_value::Float64,
+        unsolved_children_count::Int
+) where {S, T, N}
+    return DAGMCTSNode{S, T, N}(
+        polydisc,
+        parents,
+        children,
+        [DAGMCTSEdgeStats() for _ in eachindex(children)],
+        visits,
+        total_value,
+        visits > 0 ? total_value / visits : -Inf,
+        is_expanded,
+        is_terminal,
+        is_solved,
+        proven_value,
+        unsolved_children_count
     )
 end
 
@@ -90,6 +160,10 @@ Returns 0.0 if node has not been visited.
 """
 function average_value(node::DAGMCTSNode)
     return node.visits > 0 ? node.total_value / node.visits : 0.0
+end
+
+function max_value(node::DAGMCTSNode)
+    return node.visits > 0 ? node.max_value : 0.0
 end
 
 @doc raw"""
@@ -200,6 +274,8 @@ Create a DAG-MCTS configuration with default settings.
   and `VisitCount` for the node-stat variant.
 - `track_parents::Bool=false`: Whether to track parent pointers (needed for debug verification; off by default for performance)
 - `variant::DAGMCTSVariant=PathStatsDAGMCTS`: Select the dag-mcts implementation.
+  Use `UCT1DAGMCTS`, `UCT2DAGMCTS`, or `UCTMaxDAGMCTS` for transposition-aware
+  node-stat variants.
 """
 function DAGMCTSConfig(;
         num_simulations::Int = 100,
@@ -211,7 +287,9 @@ function DAGMCTSConfig(;
         track_parents::Bool = false,
         variant::DAGMCTSVariant = PathStatsDAGMCTS
 )
-    resolved_persist_table = isnothing(persist_table) ? variant == NodeStatsDAGMCTS :
+    node_state_variant = variant in (NodeStatsDAGMCTS, UCT1DAGMCTS, UCT2DAGMCTS,
+        UCTMaxDAGMCTS)
+    resolved_persist_table = isnothing(persist_table) ? node_state_variant :
                              persist_table
     resolved_selection_mode = isnothing(selection_mode) ?
                               (variant == PathStatsDAGMCTS ? BestValue : VisitCount) :
@@ -403,21 +481,109 @@ function uct_score(node::DAGMCTSNode, parent_visits::Int, exploration_constant::
         return Inf  # Unvisited nodes have infinite priority
     end
     exploitation = average_value(node)
-    exploration = exploration_constant * sqrt(log(parent_visits) / node.visits)
+    exploration = exploration_constant * sqrt(log(max(parent_visits, 1)) / node.visits)
     return exploitation + exploration
 end
 
 @doc raw"""
-    select_child(node::DAGMCTSNode, exploration_constant::Float64)
+    uct1_score(edge_stats::DAGMCTSEdgeStats, parent_visits::Int, exploration_constant::Float64)
+
+Compute the UCT1 score from Childs, Brodeur, and Kocsis:
+
+```math
+Q(s,a) + c \sqrt{\log N(s) / N(s,a)}.
+```
+
+Unvisited actions are assigned `Inf`.
+"""
+function uct1_score(
+        edge_stats::DAGMCTSEdgeStats,
+        parent_visits::Int,
+        exploration_constant::Float64
+)
+    if edge_stats.visits == 0
+        return Inf
+    end
+    exploitation = average_value(edge_stats)
+    exploration = exploration_constant * sqrt(log(max(parent_visits, 1)) / edge_stats.visits)
+    return exploitation + exploration
+end
+
+@doc raw"""
+    uct2_score(child::DAGMCTSNode, edge_stats::DAGMCTSEdgeStats, parent_visits::Int, exploration_constant::Float64)
+
+Compute the UCT2 score from Childs, Brodeur, and Kocsis:
+
+```math
+Q(g(s,a)) + c \sqrt{\log N(s) / N(s,a)}.
+```
+
+The exploitation term uses the shared child node's value estimate, while the
+exploration term uses the local action count. Unvisited actions are assigned
+`Inf`.
+"""
+function uct2_score(
+        child::DAGMCTSNode,
+        edge_stats::DAGMCTSEdgeStats,
+        parent_visits::Int,
+        exploration_constant::Float64
+)
+    if edge_stats.visits == 0
+        return Inf
+    end
+    exploitation = average_value(child)
+    exploration = exploration_constant * sqrt(log(max(parent_visits, 1)) / edge_stats.visits)
+    return exploitation + exploration
+end
+
+@doc raw"""
+    uctmax_score(node::DAGMCTSNode, parent_visits::Int, exploration_constant::Float64)
+
+Compute a UCT score whose exploitation term is the maximum value observed for
+the child node rather than the average value:
+
+```math
+\max Q(s) + c \sqrt{\log N(parent) / N(s)}.
+```
+
+Unvisited nodes are assigned `Inf`.
+"""
+function uctmax_score(node::DAGMCTSNode, parent_visits::Int,
+        exploration_constant::Float64)
+    if node.visits == 0
+        return Inf
+    end
+    exploitation = max_value(node)
+    exploration = exploration_constant * sqrt(log(max(parent_visits, 1)) / node.visits)
+    return exploitation + exploration
+end
+
+function _ensure_edge_stats!(node::DAGMCTSNode)
+    if length(node.edge_stats) < length(node.children)
+        append!(node.edge_stats,
+            (DAGMCTSEdgeStats() for _ in 1:(length(node.children) - length(node.edge_stats))))
+    elseif length(node.edge_stats) > length(node.children)
+        resize!(node.edge_stats, length(node.children))
+    end
+    return node.edge_stats
+end
+
+@doc raw"""
+    select_child(node::DAGMCTSNode, exploration_constant::Float64, variant::DAGMCTSVariant=NodeStatsDAGMCTS)
 
 Select the child with the highest UCT score.
 
 # Returns
 Tuple of (action_index, child_node) for the best child
 """
-function select_child(node::DAGMCTSNode, exploration_constant::Float64)
+function select_child(
+        node::DAGMCTSNode,
+        exploration_constant::Float64,
+        variant::DAGMCTSVariant = NodeStatsDAGMCTS
+)
     @assert !isempty(node.children) "Cannot select from node with no children"
 
+    edge_stats = _ensure_edge_stats!(node)
     best_score = -Inf
     best_action = nothing
     best_child = nothing
@@ -426,6 +592,12 @@ function select_child(node::DAGMCTSNode, exploration_constant::Float64)
         if child.is_solved
             # Solved children use proven_value directly (no exploration bonus)
             score = child.proven_value
+        elseif variant == UCT1DAGMCTS
+            score = uct1_score(edge_stats[action], node.visits, exploration_constant)
+        elseif variant == UCT2DAGMCTS
+            score = uct2_score(child, edge_stats[action], node.visits, exploration_constant)
+        elseif variant == UCTMaxDAGMCTS
+            score = uctmax_score(child, node.visits, exploration_constant)
         else
             score = uct_score(child, node.visits, exploration_constant)
         end
@@ -529,10 +701,12 @@ function expand_node!(
     # When track_parents=false, pass nothing as parent to skip parent vector push
     n_children = length(child_polydiscs)
     resize!(node.children, n_children)
+    resize!(node.edge_stats, n_children)
     parent_for_link = config.track_parents ? node : nothing
     for (i, child_polydisc) in enumerate(child_polydiscs)
         child_node = get_or_create_node!(table, child_polydisc, parent_for_link)
         node.children[i] = child_node
+        node.edge_stats[i] = DAGMCTSEdgeStats()
     end
 
     node.is_expanded = true
@@ -593,12 +767,16 @@ don't have single parent pointers.
 # Returns
 `Vector{DAGMCTSNode}`: The path from root to leaf (inclusive)
 """
-function select_path(root::DAGMCTSNode, exploration_constant::Float64)
+function select_path(
+        root::DAGMCTSNode,
+        exploration_constant::Float64,
+        variant::DAGMCTSVariant = NodeStatsDAGMCTS
+)
     path = [root]
     node = root
 
     while node.is_expanded && !isempty(node.children) && node.visits > 0 && !node.is_solved
-        _, child = select_child(node, exploration_constant)
+        _, child = select_child(node, exploration_constant, variant)
         push!(path, child)
         node = child
     end
@@ -688,9 +866,23 @@ function backpropagate!(path::Vector{<:DAGMCTSNode}, value::Float64, state::DAGM
         eval_node::DAGMCTSNode = path[end], loss_value::Float64 = NaN)
     # The root is path[1]; the root child is path[2] if path has length >= 2
     root_child = length(path) >= 2 ? path[2] : nothing
+    for i in 1:(length(path) - 1)
+        parent = path[i]
+        child = path[i + 1]
+        action = findfirst(c -> c === child, parent.children)
+        if !isnothing(action)
+            _ensure_edge_stats!(parent)
+            stats = parent.edge_stats[action]
+            stats.visits += 1
+            stats.total_value += value
+            stats.max_value = max(stats.max_value, value)
+        end
+    end
+
     for (i, node) in enumerate(path)
         node.visits += 1
         node.total_value += value
+        node.max_value = max(node.max_value, value)
         # Update running best-node tracker (skip root: we need a node strictly
         # below root so that select_best_child_dag can identify which root child
         # lies above it)
@@ -845,7 +1037,7 @@ function dag_mcts_simulation!(
         state::DAGMCTSState{S, T, N}
 ) where {S, T, N}
     # Phase 1: Selection - traverse using UCT, maintaining path stack
-    path = select_path(root, config.exploration_constant)
+    path = select_path(root, config.exploration_constant, config.variant)
     leaf = path[end]
 
     # If we reached a solved node, use its proven value directly
@@ -1019,7 +1211,22 @@ function select_best_child_dag(
     end
 
     if config.selection_mode == VisitCount
-        # Standard MCTS: select most visited child
+        # Standard MCTS: select most visited child. UCT1/UCT2 use local
+        # action counts N(root,a), not the child's global transposition visits.
+        if config.variant in (UCT1DAGMCTS, UCT2DAGMCTS)
+            _ensure_edge_stats!(root)
+            best_action = 1
+            best_visits = root.edge_stats[1].visits
+            for action in 2:length(root.edge_stats)
+                visits = root.edge_stats[action].visits
+                if visits > best_visits
+                    best_action = action
+                    best_visits = visits
+                end
+            end
+            return root.children[best_action]
+        end
+
         best_child = nothing
         best_visits = -1
         for child in root.children
@@ -1650,7 +1857,7 @@ function dag_mcts_descent_init(
         loss::Loss,
         config::DAGMCTSConfig = DAGMCTSConfig()
 ) where {S, T, N}
-    if config.variant == NodeStatsDAGMCTS
+    if config.variant in (NodeStatsDAGMCTS, UCT1DAGMCTS, UCT2DAGMCTS, UCTMaxDAGMCTS)
         return _dag_mcts_node_descent_init(param, loss, config)
     elseif config.variant == PathStatsDAGMCTS
         return _dag_mcts_path_descent_init(param, loss, config)
@@ -1805,6 +2012,10 @@ function verify_transposition_table(state::DAGMCTSState)
 
         # Check children are in table
         if node.is_expanded
+            if length(node.edge_stats) != length(node.children)
+                @warn "edge_stats length does not match children length"
+                return false
+            end
             for child in node.children
                 child_key = HashedPolydisc(child.polydisc)
                 if !haskey(table, child_key)

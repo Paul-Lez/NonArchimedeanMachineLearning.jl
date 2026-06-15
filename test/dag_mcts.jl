@@ -10,6 +10,7 @@
 using Test
 using Oscar
 using NonArchimedeanMachineLearning
+using Random
 
 @testset "DAG-MCTS" begin
     prec = 20
@@ -22,8 +23,10 @@ using NonArchimedeanMachineLearning
         @test node.polydisc == p
         @test isempty(node.parents)
         @test isempty(node.children)
+        @test isempty(node.edge_stats)
         @test node.visits == 0
         @test node.total_value == 0.0
+        @test node.max_value == -Inf
         @test !node.is_expanded
     end
 
@@ -40,6 +43,21 @@ using NonArchimedeanMachineLearning
         @test node_config.persist_table
         @test 0.0 < node_config.value_transform(2.0) < 1.0
 
+        uct1_config = DAGMCTSConfig(num_simulations = 5, variant = UCT1DAGMCTS)
+        @test uct1_config.variant == UCT1DAGMCTS
+        @test uct1_config.selection_mode == VisitCount
+        @test uct1_config.persist_table
+
+        uct2_config = DAGMCTSConfig(num_simulations = 5, variant = UCT2DAGMCTS)
+        @test uct2_config.variant == UCT2DAGMCTS
+        @test uct2_config.selection_mode == VisitCount
+        @test uct2_config.persist_table
+
+        uctmax_config = DAGMCTSConfig(num_simulations = 5, variant = UCTMaxDAGMCTS)
+        @test uctmax_config.variant == UCTMaxDAGMCTS
+        @test uctmax_config.selection_mode == VisitCount
+        @test uctmax_config.persist_table
+
         p = ValuationPolydisc([K(1)], [0])
         loss = Loss(params -> [0.0 for _ in params], vs -> [0.0 for _ in vs])
 
@@ -50,6 +68,18 @@ using NonArchimedeanMachineLearning
         node_optim = dag_mcts_descent_init(p, loss, node_config)
         @test node_optim.state isa DAGMCTSState
         @test node_optim.state.root isa DAGMCTSNode
+
+        uct1_optim = dag_mcts_descent_init(p, loss, uct1_config)
+        @test uct1_optim.state isa DAGMCTSState
+        @test uct1_optim.state.root isa DAGMCTSNode
+
+        uct2_optim = dag_mcts_descent_init(p, loss, uct2_config)
+        @test uct2_optim.state isa DAGMCTSState
+        @test uct2_optim.state.root isa DAGMCTSNode
+
+        uctmax_optim = dag_mcts_descent_init(p, loss, uctmax_config)
+        @test uctmax_optim.state isa DAGMCTSState
+        @test uctmax_optim.state.root isa DAGMCTSNode
     end
 
     @testset "Path Statistics and Evaluation Cache" begin
@@ -179,16 +209,102 @@ using NonArchimedeanMachineLearning
 
         # Unvisited node should have Inf score
         @test NonArchimedeanMachineLearning.uct_score(node, 10, sqrt(2.0)) == Inf
+        @test NonArchimedeanMachineLearning.uctmax_score(node, 10, sqrt(2.0)) == Inf
 
         # Visited node should have finite score
         node.visits = 5
         node.total_value = 2.5  # average = 0.5
+        node.max_value = 0.9
         parent_visits = 100
         c = sqrt(2.0)
 
         score = NonArchimedeanMachineLearning.uct_score(node, parent_visits, c)
         expected = 0.5 + c * sqrt(log(parent_visits) / 5)
         @test abs(score - expected) < 1e-10
+
+        max_score = NonArchimedeanMachineLearning.uctmax_score(node, parent_visits, c)
+        max_expected = 0.9 + c * sqrt(log(parent_visits) / 5)
+        @test abs(max_score - max_expected) < 1e-10
+
+        edge_stats = DAGMCTSEdgeStats()
+        @test NonArchimedeanMachineLearning.uct1_score(edge_stats, parent_visits, c) == Inf
+        @test NonArchimedeanMachineLearning.uct2_score(node, edge_stats, parent_visits, c) == Inf
+
+        edge_stats.visits = 5
+        edge_stats.total_value = 2.0  # local Q(s,a) = 0.4
+        node.visits = 10
+        node.total_value = 7.0        # shared Q(g(s,a)) = 0.7
+
+        uct1 = NonArchimedeanMachineLearning.uct1_score(edge_stats, parent_visits, c)
+        uct1_expected = 0.4 + c * sqrt(log(parent_visits) / 5)
+        @test abs(uct1 - uct1_expected) < 1e-10
+
+        uct2 = NonArchimedeanMachineLearning.uct2_score(node, edge_stats, parent_visits, c)
+        uct2_expected = 0.7 + c * sqrt(log(parent_visits) / 5)
+        @test abs(uct2 - uct2_expected) < 1e-10
+    end
+
+    @testset "UCT1 and UCT2 Selection Use Paper Statistics" begin
+        parent = DAGMCTSNode(ValuationPolydisc([K(0)], [0]))
+        child1 = DAGMCTSNode(ValuationPolydisc([K(0)], [1]))
+        child2 = DAGMCTSNode(ValuationPolydisc([K(1)], [1]))
+
+        parent.children = [child1, child2]
+        parent.edge_stats = [DAGMCTSEdgeStats(10, 2.0), DAGMCTSEdgeStats(10, 8.0)]
+        parent.visits = 20
+
+        child1.visits = 10
+        child1.total_value = 9.0
+        child2.visits = 10
+        child2.total_value = 1.0
+
+        uct1_action, uct1_child = NonArchimedeanMachineLearning.select_child(
+            parent, sqrt(2.0), UCT1DAGMCTS)
+        @test uct1_action == 2
+        @test uct1_child === child2
+
+        uct2_action, uct2_child = NonArchimedeanMachineLearning.select_child(
+            parent, sqrt(2.0), UCT2DAGMCTS)
+        @test uct2_action == 1
+        @test uct2_child === child1
+
+        parent.edge_stats = [DAGMCTSEdgeStats(2, 1.8), DAGMCTSEdgeStats(5, 1.0)]
+        child1.visits = 100
+        child2.visits = 1
+        table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}}()
+        state = DAGMCTSState{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}(parent, table, 0, nothing, -Inf, nothing, 0, nothing, Inf, nothing)
+        config = DAGMCTSConfig(variant = UCT2DAGMCTS, selection_mode = VisitCount)
+
+        best_child = NonArchimedeanMachineLearning.select_best_child_dag(
+            parent, table, config, state)
+        @test best_child === child2
+    end
+
+    @testset "UCTMax Selection Uses Maximum Value" begin
+        parent = DAGMCTSNode(ValuationPolydisc([K(0)], [0]))
+        child1 = DAGMCTSNode(ValuationPolydisc([K(0)], [1]))
+        child2 = DAGMCTSNode(ValuationPolydisc([K(1)], [1]))
+
+        parent.children = [child1, child2]
+        parent.edge_stats = [DAGMCTSEdgeStats(10, 2.0), DAGMCTSEdgeStats(10, 8.0)]
+        parent.visits = 20
+
+        child1.visits = 10
+        child1.total_value = 2.0
+        child1.max_value = 0.95
+        child2.visits = 10
+        child2.total_value = 8.0
+        child2.max_value = 0.85
+
+        node_action, node_child = NonArchimedeanMachineLearning.select_child(
+            parent, sqrt(2.0), NodeStatsDAGMCTS)
+        @test node_action == 2
+        @test node_child === child2
+
+        max_action, max_child = NonArchimedeanMachineLearning.select_child(
+            parent, sqrt(2.0), UCTMaxDAGMCTS)
+        @test max_action == 1
+        @test max_child === child1
     end
 
     @testset "Node Expansion with Transposition Detection" begin
@@ -237,6 +353,7 @@ using NonArchimedeanMachineLearning
         for node in path
             @test node.visits == 1
             @test node.total_value == value
+            @test node.max_value == value
         end
 
         # Second backpropagation
@@ -244,6 +361,7 @@ using NonArchimedeanMachineLearning
         for node in path
             @test node.visits == 2
             @test node.total_value == 1.0  # 0.75 + 0.25
+            @test node.max_value == 0.75
         end
 
         # Best node should be tracked (best_value is the max average ever seen,
@@ -251,6 +369,77 @@ using NonArchimedeanMachineLearning
         # averages to 0.5 which doesn't exceed the tracked best)
         @test !isnothing(dummy_state.best_node)
         @test dummy_state.best_value == 0.75
+    end
+
+    @testset "Backpropagation Updates Local Move Statistics" begin
+        p1 = ValuationPolydisc([K(0)], [0])
+        p2 = ValuationPolydisc([K(0)], [1])
+        p3 = ValuationPolydisc([K(0)], [2])
+
+        node1 = DAGMCTSNode(p1)
+        node2 = DAGMCTSNode(p2)
+        node3 = DAGMCTSNode(p3)
+
+        node1.children = [node2]
+        node1.edge_stats = [DAGMCTSEdgeStats()]
+        node2.children = [node3]
+        node2.edge_stats = [DAGMCTSEdgeStats()]
+
+        table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}}()
+        dummy_state = DAGMCTSState{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1}(node1, table, 0, nothing, -Inf, nothing, 0, nothing, Inf, nothing)
+
+        NonArchimedeanMachineLearning.backpropagate!([node1, node2, node3], 0.6, dummy_state)
+
+        @test node1.edge_stats[1].visits == 1
+        @test node1.edge_stats[1].total_value == 0.6
+        @test node1.edge_stats[1].max_value == 0.6
+        @test node2.edge_stats[1].visits == 1
+        @test node2.edge_stats[1].total_value == 0.6
+        @test node2.edge_stats[1].max_value == 0.6
+    end
+
+    @testset "UCT Variants Run Through Optimizer" begin
+        p = ValuationPolydisc([K(0), K(0)], [0, 0])
+        radius_loss = Loss(
+            params -> [-sum(Float64, NonArchimedeanMachineLearning.radius(param))
+                       for param in params],
+            tangents -> zeros(length(tangents))
+        )
+
+        for variant in (UCT1DAGMCTS, UCT2DAGMCTS, UCTMaxDAGMCTS)
+            Random.seed!(2026)
+            config = DAGMCTSConfig(
+                num_simulations = 30,
+                degree = 1,
+                value_transform = negation_transform(),
+                persist_table = true,
+                track_parents = true,
+                variant = variant
+            )
+            optim = dag_mcts_descent_init(p, radius_loss, config)
+            initial_loss = eval_loss(optim)
+
+            NonArchimedeanMachineLearning.dag_mcts_search(
+                optim.state.root,
+                optim.state.transposition_table,
+                radius_loss,
+                config,
+                optim.state
+            )
+
+            @test optim.state.root.is_expanded
+            @test length(optim.state.root.edge_stats) == length(optim.state.root.children)
+            @test sum(stats.visits for stats in optim.state.root.edge_stats) > 0
+            @test verify_transposition_table(optim.state)
+
+            Random.seed!(2026)
+            for _ in 1:3
+                step!(optim)
+            end
+
+            @test eval_loss(optim) <= initial_loss
+            @test verify_transposition_table(optim.state)
+        end
     end
 
     @testset "DAG-MCTS Integration with OptimSetup" begin
