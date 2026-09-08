@@ -37,31 +37,13 @@ end
     f_as_linear = LinearPolynomial([K(3), K(0)], K(0))
     f_as_linear = LinearAbsolutePolynomialSum([f_as_linear])
 
-    @testset "Polynomial Creation" begin
-
-        # Absolute polynomial sum: |f| + |g| = |3x| + |2y|
-        fun = AbsolutePolynomialSum([f, g])
-
-        @test fun isa AbsolutePolynomialSum
-        @test length(fun.polys) == 2
-    end
-
     @testset "Polynomial Evaluation" begin
         @test NonArchimedeanMachineLearning.evaluate(f_fun, p1) == 1 / 3
         @test NonArchimedeanMachineLearning.evaluate(f_as_linear, p1) == 1 / 3
         @test NonArchimedeanMachineLearning.evaluate(g_fun, p2) == 1
 
-    end 
-
-    @testset "Directional Derivative" begin
-        f = 3 * x
-        # Create tangent vector (direction polydisc coincides with p1)
-        v = NonArchimedeanMachineLearning.basis_vector(p1, p1, 1)
-
-        # Test: Directional derivative
-        dd = directional_derivative(f, v)
-        @test dd isa Number || dd isa Vector  # Result should be numeric
     end
+
 end
 
 @testset "PolydiscFunction algebra and internal evaluators" begin
@@ -303,496 +285,61 @@ end
     end
 end
 
-
-# Evaluator coverage tests.
-
-@testset "Polynomial function evaluation" begin
+@testset "Polynomial evaluation and batch adapters" begin
     NAML = NonArchimedeanMachineLearning
+    K = PadicField(2, 20)
+    R, (x, y) = polynomial_ring(K, ["x", "y"])
 
-    @testset "Basic polynomial evaluation - simple linear polynomials" begin
-        # Set up: 2-adic field with reasonable precision
-        prec = 20
-        K = PadicField(2, prec)
-
-        # Create polynomial ring with multivariate polynomials (need at least 2 variables for MPoly)
-        R, (x, y) = polynomial_ring(K, ["x", "y"])
-
-        # Test 1: Constant polynomial
-        # f(x,y) = 2
-        # Evaluated over the entire 2-adic field (radius 0 = v(x-c) >= 0)
-        f = R(2)
-        p = _raw_polydisc([K(0), K(0)], [0, 0])  # Center 0, radius 0 (entire field)
-
-        val = NAML.evaluate(f, p)
-        # f = 2, so |f|_2 = 1/2 (since v(2) = 1 in 2-adic)
-        @test val ≈ 0.5
-
-        # Test 2: Linear monomial
-        # f(x,y) = x, evaluated at center (1, 0), radius (0, 0) (entire field around (1,0))
-        f = x
-        p = _raw_polydisc([K(1), K(0)], [0, 0])
-        val = NAML.evaluate(f, p)
-        # Expanding around (1,0): f = (x-1) + 1, max term is 1, so |f|_2 = 1
-        @test val ≈ 1.0
-
-        # Test 3: Coefficient multiplied monomial
-        # f(x,y) = 4x = 2^2 * x, radius 0 (entire field around (1,0))
-        f = 4 * x
-        p = _raw_polydisc([K(1), K(0)], [0, 0])
-        val = NAML.evaluate(f, p)
-        # Expanding: f = 4(x-1) + 4 = 4(x-1) + 4, max is |4|_2 = 1/4
-        @test val ≈ 0.25
-    end
-
-    @testset "Linear polynomial evaluation consistency" begin
-        prec = 20
-        K = PadicField(2, prec)
-
-        # Test: Compare LinearPolynomial evaluation with manual computation
-        # For linear poly: a1*x1 + a2*x2 + ... + b
-        # Evaluation at polydisc: max(|a1|*p^(-r1), |a2|*p^(-r2), ..., |b + a1*c1 + a2*c2 + ...|)
-        # where radius r_i means |x_i - c_i|_p <= p^(-r_i)
-
-        a1 = K(1)
-        a2 = K(2)  # Use 2 for cleaner 2-adic valuation
-        b = K(1)
-
-        poly = LinearPolynomial([a1, a2], b)
-
-        # Create a polydisc at origin with radius 0 (entire field)
-        center = [K(0), K(0)]
-        radius = [0, 0]  # v(xi - ci) >= 0 (entire field around origin)
-        p = _raw_polydisc(center, radius)
-
-        val = NAML.evaluate(poly, p)
-
-        # Manual computation:
-        # |a1| * 2^(-r1) = |1|_2 * 2^(0) = 1 * 1 = 1
-        # |a2| * 2^(-r2) = |2|_2 * 2^(0) = 1/2 * 1 = 1/2
-        # |b + a1*c1 + a2*c2| = |1 + 0 + 0| = 1
-        # max(1, 1/2, 1) = 1
-
-        @test val ≈ 1.0
-
-        # Test 2: With radius [1, 0] - stricter constraint on first coordinate
-        # radius = 1 means v(x1 - c1) >= 1, so |x1 - 0|_2 <= 2^(-1) = 1/2
-        radius = [1, 0]
-        p = _raw_polydisc(center, radius)
-        val = NAML.evaluate(poly, p)
-
-        # Manual computation:
-        # |a1| * 2^(-r1) = 1 * 2^(-1) = 0.5
-        # |a2| * 2^(-r2) = 1/2 * 2^(0) = 1/2
-        # |b + a1*c1 + a2*c2| = |1| = 1
-        # max(0.5, 1/2, 1) = 1 (dominated by constant term)
-
-        @test val ≈ 1.0
-    end
-
-    @testset "AbsolutePolynomialSum vs LinearAbsolutePolynomialSum consistency" begin
-        prec = 20
-        K = PadicField(2, prec)
-
-        # Create polynomial ring
-        R, (x, y) = polynomial_ring(K, ["x", "y"])
-
-        # Define simple linear polynomials
-        f1 = 2 * x + y + 1
-        f2 = x + 3
-
-        # Create AbsolutePolynomialSum
-        abs_poly_sum = AbsolutePolynomialSum([f1, f2])
-
-        # Create corresponding LinearPolynomialSum
-        lin_poly1 = LinearPolynomial([K(2), K(1)], K(1))
-        lin_poly2 = LinearPolynomial([K(1), K(0)], K(3))
-        lin_poly_sum = LinearAbsolutePolynomialSum([lin_poly1, lin_poly2])
-
-        # Test at multiple points
-        test_points = [
-            _raw_polydisc([K(0), K(0)], [0, 0]),
-            _raw_polydisc([K(1), K(1)], [0, 0]),
-            _raw_polydisc([K(2), K(3)], [1, 1])
-        ]
-
-        for p in test_points
-            val_abs = NAML.evaluate(abs_poly_sum, p)
-            val_lin = NAML.evaluate(lin_poly_sum, p)
-
-            # These should be approximately equal
-            @test val_abs ≈ val_lin atol = 1e-10
+    @testset "Disc norms include coefficients, radii, and shifted centers" begin
+        # Constant, monomial, shrinking radii, and mixed terms after translation.
+        for (f, cs, rs, expected) in [
+                (R(2), [0, 0], [0, 0], 1 / 2),
+                (x, [1, 0], [0, 0], 1.0),
+                (4x, [0, 0], [0, 0], 1 / 4),
+                (4x, [0, 0], [2, 0], 1 / 16),
+                (x * y, [0, 0], [1, 2], 1 / 8),
+                ((x + 1) * (y + 1), [0, 0], [0, 0], 1.0)]
+            pd = _raw_polydisc(K.(cs), rs)
+            @test NAML.evaluate(f, pd) == expected
         end
     end
 
-    @testset "Single polynomial evaluation consistency" begin
-        prec = 20
-        K = PadicField(2, prec)
-        R, (x, y) = polynomial_ring(K, ["x", "y"])
-
-        # Test: NAML.evaluate(f, p) should match NAML.evaluate(AbsolutePolynomialSum([f], p))
-        # Using multivariate polynomials
-        polynomials = [
-            x,           # Monomial
-            2 * x,         # Coefficient * monomial
-            x + 1,       # Polynomial with constant
-            x * y + 1     # Multivariate
-        ]
-
-        test_points = [
-            _raw_polydisc([K(0), K(0)], [0, 0]),
-            _raw_polydisc([K(1), K(1)], [0, 0]),
-            _raw_polydisc([K(1), K(1)], [1, 1]),
-            _raw_polydisc([K(2), K(1)], [0, 0])
-        ]
-
-        for f in polynomials
-            for p in test_points
-                val_single = NAML.evaluate(f, p)
-                val_sum = NAML.evaluate(AbsolutePolynomialSum([f]), p)
-
-                @test val_single ≈ val_sum
-            end
+    @testset "Linear representations and batch evaluators agree on distinct norms" begin
+        f = 3x + 2y + 5
+        linear = LinearPolynomial([K(3), K(2)], K(5))
+        batch = batch_evaluate_init(linear)
+        # Unit ball, cancellation at the center, constant dominance, and unequal radii.
+        for (cs, rs, expected) in [([0, 0], [0, 0], 1.0),
+                ([1, 0], [2, 2], 1 / 4), ([0, 0], [2, 2], 1.0),
+                ([1, 0], [4, 1], 1 / 4)]
+            pd = _raw_polydisc(K.(cs), rs)
+            @test NAML.evaluate(f, pd) == expected
+            @test NAML.evaluate(linear, pd) == expected
+            @test batch(pd) == expected
         end
     end
 
-    @testset "MultiVariate polynomial evaluation" begin
-        prec = 20
-        K = PadicField(2, prec)
-        R, (x, y) = polynomial_ring(K, ["x", "y"])
-
-        # Test: x*y
-        f = x * y
-        abs_sum = AbsolutePolynomialSum([f])
-
-        # Point: (1, 1) with radius (0, 0)
-        p = _raw_polydisc([K(1), K(1)], [0, 0])
-
-        val = NAML.evaluate(abs_sum, p)
-        # |1*1| = 1
-        @test val ≈ 1.0
-
-        # Test: (x+1)*(y+1) = xy + x + y + 1, evaluated at (0,0)
-        f2 = (x + 1) * (y + 1)
-        abs_sum2 = AbsolutePolynomialSum([f2])
-        p2 = _raw_polydisc([K(0), K(0)], [0, 0])
-
-        val2 = NAML.evaluate(abs_sum2, p2)
-        # Expansion: f2 = x*y + x + y + 1
-        # At (0,0): terms are 0, 0, 0, 1, so max absolute value is 1
-        @test val2 ≈ 1.0
-    end
-
-    @testset "Polynomial sum evaluation" begin
-        prec = 20
-        K = PadicField(2, prec)
-        R, (x, y) = polynomial_ring(K, ["x", "y"])
-
-        # Create sum: |f| + |g|
-        f = x + 1
-        g = y + 2
-
-        fun = AbsolutePolynomialSum([f, g])
-
-        p = _raw_polydisc([K(0), K(0)], [0, 0])
-
-        # Evaluate the sum
-        val_sum = NAML.evaluate(fun, p)
-
-        # Compute components separately
-        val_f = NAML.evaluate(f, p)
-        val_g = NAML.evaluate(g, p)
-
-        # Should equal sum of components
-        @test val_sum ≈ val_f + val_g
-    end
-
-    @testset "Linear polynomial sum evaluation" begin
-        prec = 20
-        K = PadicField(2, prec)
-
-        # Create linear polynomials
-        poly1 = LinearPolynomial([K(1)], K(1))
-        poly2 = LinearPolynomial([K(2)], K(3))
-
-        fun = LinearAbsolutePolynomialSum([poly1, poly2])
-
-        p = _raw_polydisc([K(1)], [0])
-
-        # Evaluate the sum
-        val_sum = NAML.evaluate(fun, p)
-
-        # Compute components separately
-        val_p1 = NAML.evaluate(poly1, p)
-        val_p2 = NAML.evaluate(poly2, p)
-
-        # Should equal sum of components
-        @test val_sum ≈ val_p1 + val_p2
-    end
-
-    @testset "Evaluation at different radii" begin
-        prec = 20
-        K = PadicField(2, prec)
-        R, (x, y) = polynomial_ring(K, ["x", "y"])
-
-        # Polynomial: f(x,y) = 4x (coefficient with valuation 2)
-        f = 4 * x
-        abs_sum = AbsolutePolynomialSum([f])
-
-        # Test evaluation over polydiscs with different radii
-        # Radius interpretation: radius r_i means v(x_i - center_i) >= r_i
-        # i.e., we're evaluating the function over a ball of "valuation size" r_i
-        p_r0 = _raw_polydisc([K(0), K(0)], [0, 0])  # v(x) >= 0, v(y) >= 0 (entire field)
-        p_r1 = _raw_polydisc([K(0), K(0)], [1, 0])  # v(x) >= 1 (stricter), v(y) >= 0
-        p_r2 = _raw_polydisc([K(0), K(0)], [2, 0])  # v(x) >= 2 (even stricter), v(y) >= 0
-
-        val_r0 = NAML.evaluate(abs_sum, p_r0)
-        val_r1 = NAML.evaluate(abs_sum, p_r1)
-        val_r2 = NAML.evaluate(abs_sum, p_r2)
-
-        @test val_r0 ≈ 0.25
-        @test val_r1 ≈ 0.125
-        @test val_r2 ≈ 0.0625
-    end
-
-    @testset "Consistency: MPoly evaluate vs LinearPolynomial for linear functions" begin
-        prec = 20
-        K = PadicField(2, prec)
-        R, (x, y) = polynomial_ring(K, ["x", "y"])
-
-        # Create a linear polynomial in both representations
-        # f(x,y) = 3x + 2y + 5
-
-        # As MultiVariate polynomial
-        f_mv = 3 * x + 2 * y + 5
-
-        # As LinearPolynomial
-        f_lin = LinearPolynomial([K(3), K(2)], K(5))
-
-        # Test points
-        test_points = [
-            ([K(0), K(0)], [0, 0]),
-            ([K(1), K(1)], [0, 0]),
-            ([K(2), K(3)], [1, 2]),
-            ([K(1), K(1)], [0, 1])
-        ]
-
-        for (center, radius) in test_points
-            p = _raw_polydisc(center, radius)
-
-            val_mv = NAML.evaluate(f_mv, p)
-            val_lin = NAML.evaluate(f_lin, p)
-
-            @test val_mv ≈ val_lin atol = 1e-10
+    @testset "Linear batch evaluation across dimensions" begin
+        for n in (1, 3)
+            linear = LinearPolynomial(fill(K(1), n), K(0))
+            pd = _raw_polydisc(fill(K(0), n), collect(1:n))
+            @test batch_evaluate_init(linear)(pd) == 1 / 2
         end
     end
 
-    @testset "Batch evaluation vs regular evaluation - LinearPolynomial cases" begin
-        prec = 20
-        K = PadicField(2, prec)
-
-        # Create several linear polynomials with different dimensions.
-        test_polynomials = [
-            LinearPolynomial([K(1)], K(1)),                    # x + 1
-            LinearPolynomial([K(1), K(1)], K(1)),              # x + y + 1
-            LinearPolynomial([K(1), K(1), K(1)], K(1))        # x + y + z + 1
-        ]
-
-        for poly in test_polynomials
-            batch_eval = batch_evaluate_init(poly)
-            @test batch_eval isa Function
-
-            # Generate test points of appropriate dimension
-            dim = length(poly.coefficients)
-            test_points = [
-                _raw_polydisc([K(0) for i in 1:dim], [0 for _ in 1:dim]),
-                _raw_polydisc([K(1) for i in 1:dim], [0 for _ in 1:dim])
-            ]
-
-            for p in test_points
-                val_batch = batch_eval(p)
-                val_regular = NAML.evaluate(poly, p)
-
-                # They should be equal (or very close due to floating point)
-                @test val_batch ≈ val_regular atol = 1e-10
-            end
+    @testset "Sums add norms, including through batch adapters" begin
+        pd = _raw_polydisc([K(0), K(0)], [1, 2])
+        abs_sum = AbsolutePolynomialSum([x, 2y])
+        lin_sum = LinearAbsolutePolynomialSum([
+            LinearPolynomial([K(1), K(0)], K(0)),
+            LinearPolynomial([K(0), K(2)], K(0))])
+        for f in (abs_sum, lin_sum)
+            @test NAML.evaluate(f, pd) == 5 / 8
+            @test batch_evaluate_init(f)(pd) == 5 / 8
         end
-    end
 
-    @testset "Batch evaluation precision - comparing computation methods" begin
-        # This test verifies that batch_evaluate_init uses valuation arithmetic
-        # correctly by comparing with standard evaluation
-        prec = 20
-        K = PadicField(2, prec)
-
-        # Create a polynomial where we can manually compute the result
-        # f(x, y) = 4x + 2y + 1
-        # At point (1, 1) with radius (0, 0):
-        # constant_term = 1 + 4*1 + 2*1 = 7
-        # valuation terms: v(4) = 2, v(2) = 1, v(7) = 0
-        # max(|4|*2^(0), |2|*2^(0), |7|) = max(1/4, 1/2, 1) = 1
-        # In batch eval: min(2, 1, 0) in exponent = 0, so 2^0 = 1
-
-        poly = LinearPolynomial([K(4), K(2)], K(1))
-        batch_eval = batch_evaluate_init(poly)
-
-        p = _raw_polydisc([K(1), K(1)], [0, 0])
-
-        val_batch = batch_eval(p)
-        val_regular = NAML.evaluate(poly, p)
-
-        @test val_batch ≈ val_regular
-        @test val_batch ≈ 1.0
-    end
-
-    @testset "Batch evaluation with varying radii" begin
-        prec = 20
-        K = PadicField(2, prec)
-
-        poly = LinearPolynomial([K(2), K(4)], K(1))
-        batch_eval = batch_evaluate_init(poly)
-
-        # Test several radius combinations
-        radius_combinations = [
-            [0, 0],
-            [1, 0],
-            [0, 1],
-            [1, 1],
-            [2, 1],
-            [1, 2]
-        ]
-
-        for radius in radius_combinations
-            p = _raw_polydisc([K(1), K(1)], radius)
-            val_batch = batch_eval(p)
-            val_regular = NAML.evaluate(poly, p)
-            @test val_batch ≈ val_regular
-        end
-    end
-
-    @testset "Batch evaluation consistency across different centers" begin
-        prec = 20
-        K = PadicField(2, prec)
-
-        poly = LinearPolynomial([K(1), K(3)], K(2))
-        batch_eval = batch_evaluate_init(poly)
-
-        # Test with different center values
-        center_combinations = [
-            [K(0), K(0)],
-            [K(1), K(1)],
-            [K(2), K(0)],
-            [K(0), K(2)],
-            [K(1), K(2)]
-        ]
-
-        for center in center_combinations
-            p = _raw_polydisc(center, [0, 0])
-            val_batch = batch_eval(p)
-            val_regular = NAML.evaluate(poly, p)
-            @test val_batch ≈ val_regular
-        end
-    end
-
-    @testset "Batch evaluation numerical stability" begin
-        # Test that batch evaluation doesn't introduce numerical errors
-        # even with small p-adic values
-        prec = 20
-        K = PadicField(2, prec)
-
-        poly = LinearPolynomial([K(1), K(1), K(1)], K(0))
-        batch_eval = batch_evaluate_init(poly)
-
-        # Test multiple points
-        for i in 1:10
-            p = _raw_polydisc([K(i) for _ in 1:3], [0, 0, 0])
-            val_batch = batch_eval(p)
-            val_regular = NAML.evaluate(poly, p)
-
-            # Should be exactly equal or within floating point tolerance
-            @test val_batch ≈ val_regular atol = 1e-12
-        end
-    end
-
-    @testset "Batch evaluation for AbsolutePolynomialSum (MPoly)" begin
-        # Test the new batch_evaluate_init for AbsolutePolynomialSum
-        prec = 20
-        K = PadicField(2, prec)
-        R, (x, y) = polynomial_ring(K, ["x", "y"])
-
-        # Create a simple sum of polynomials
-        f1 = x + 1
-        f2 = y + 2
-        abs_sum = AbsolutePolynomialSum([f1, f2])
-
-        # Create batch evaluator
-        batch_eval = batch_evaluate_init(abs_sum)
-
-        # Test at multiple points
-        test_points = [
-            _raw_polydisc([K(0), K(0)], [0, 0]),
-            _raw_polydisc([K(1), K(1)], [0, 0]),
-            _raw_polydisc([K(0), K(1)], [1, 0])
-        ]
-
-        for p in test_points
-            val_batch = batch_eval(p)
-            val_regular = NAML.evaluate(abs_sum, p)
-            @test val_batch ≈ val_regular atol = 1e-10
-        end
-    end
-
-    @testset "Batch evaluation for MPoly (wrapper)" begin
-        # Test batch_evaluate_init wrapper for individual MPoly polynomials
-        prec = 20
-        K = PadicField(2, prec)
-        R, (x, y) = polynomial_ring(K, ["x", "y"])
-
-        # Create individual multivariate polynomials
-        polynomials = [
-            x,
-            2 * x + y,
-            x * y + 1,
-            3 * x + 2 * y + 5
-        ]
-
-        test_points = [
-            _raw_polydisc([K(0), K(0)], [0, 0]),
-            _raw_polydisc([K(1), K(1)], [0, 0]),
-            _raw_polydisc([K(2), K(3)], [1, 1])
-        ]
-
-        for f in polynomials
-            batch_eval = batch_evaluate_init(f)
-
-            for p in test_points
-                val_batch = batch_eval(p)
-                val_regular = NAML.evaluate(f, p)
-                @test val_batch ≈ val_regular atol = 1e-10
-            end
-        end
-    end
-
-    @testset "Batch evaluation of complex LinearAbsolutePolynomialSum" begin
-        # Test batch evaluation on a more complex sum of linear polynomials
-        prec = 20
-        K = PadicField(2, prec)
-
-        # Create several linear polynomials with different structures
-        polys = [
-            LinearPolynomial([K(1), K(2)], K(1)),
-            LinearPolynomial([K(3), K(1)], K(0)),
-            LinearPolynomial([K(1), K(1)], K(2))
-        ]
-        lin_sum = LinearAbsolutePolynomialSum(polys)
-
-        batch_eval = batch_evaluate_init(lin_sum)
-
-        # Test at several points
-        for i in 1:5
-            p = _raw_polydisc([K(i), K(i)], [0, 0])
-            val_batch = batch_eval(p)
-            val_regular = NAML.evaluate(lin_sum, p)
-            @test val_batch ≈ val_regular atol = 1e-10
-        end
+        # Keep one test per thin wrapper instead of a polynomial × point matrix.
+        @test NAML.evaluate(AbsolutePolynomialSum([x * y]), pd) == 1 / 8
+        @test batch_evaluate_init(x * y)(pd) == 1 / 8
     end
 end

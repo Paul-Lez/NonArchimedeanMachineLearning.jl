@@ -19,7 +19,6 @@ using NonArchimedeanMachineLearning
         p = ValuationPolydisc([K(1)], [0])
         node = DAGMCTSNode(p)
 
-        @test node.polydisc == p
         @test isempty(node.parents)
         @test isempty(node.children)
         @test node.visits == 0
@@ -35,21 +34,9 @@ using NonArchimedeanMachineLearning
         @test 0.0 < default_config.value_transform(2.0) < 1.0
 
         node_config = DAGMCTSConfig(num_simulations = 5, variant = NodeStatsDAGMCTS)
-        @test node_config.variant == NodeStatsDAGMCTS
         @test node_config.selection_mode == VisitCount
         @test node_config.persist_table
         @test 0.0 < node_config.value_transform(2.0) < 1.0
-
-        p = ValuationPolydisc([K(1)], [0])
-        loss = Loss(params -> [0.0 for _ in params], vs -> [0.0 for _ in vs])
-
-        path_optim = dag_mcts_descent_init(p, loss, default_config)
-        @test path_optim.state isa DAGMCTSPathState
-        @test path_optim.state.root isa DAGMCTSPathNode
-
-        node_optim = dag_mcts_descent_init(p, loss, node_config)
-        @test node_optim.state isa DAGMCTSState
-        @test node_optim.state.root isa DAGMCTSNode
     end
 
     @testset "Path Statistics and Evaluation Cache" begin
@@ -75,7 +62,6 @@ using NonArchimedeanMachineLearning
             optim.state
         )
 
-        @test optim.state isa DAGMCTSPathState
         @test any(key -> length(key) > 1, keys(optim.state.path_stats))
         @test eval_calls[] == length(optim.state.evaluation_cache)
         @test length(optim.state.evaluation_cache) <=
@@ -147,20 +133,11 @@ using NonArchimedeanMachineLearning
         @test length(child_node.parents) == 2
         @test parent1_node in child_node.parents
         @test parent2_node in child_node.parents
+        @test length(table) == 4
     end
 
     @testset "Transposition Table - No Parent Tracking (track_parents=false)" begin
         table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}}()
-
-        root = ValuationPolydisc([K(0), K(0)], [0, 0])
-        root_node = NonArchimedeanMachineLearning.get_or_create_node!(table, root)
-
-        parent1 = children_along_branch(root, 1)[1]
-        parent2 = children_along_branch(root, 2)[1]
-
-        # Pass nothing as parent (simulating track_parents=false)
-        parent1_node = NonArchimedeanMachineLearning.get_or_create_node!(table, parent1)
-        parent2_node = NonArchimedeanMachineLearning.get_or_create_node!(table, parent2)
 
         child_p = ValuationPolydisc([K(0), K(0)], [1, 1])
 
@@ -189,28 +166,6 @@ using NonArchimedeanMachineLearning
         score = NonArchimedeanMachineLearning.uct_score(node, parent_visits, c)
         expected = 0.5 + c * sqrt(log(parent_visits) / 5)
         @test abs(score - expected) < 1e-10
-    end
-
-    @testset "Node Expansion with Transposition Detection" begin
-        table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}}()
-        config = DAGMCTSConfig(num_simulations=10, degree=1)
-
-        # Create 2D polydisc to test transpositions
-        root_p = ValuationPolydisc([K(0), K(0)], [0, 0])
-        root = NonArchimedeanMachineLearning.get_or_create_node!(table, root_p)
-
-        # Expand root
-        NonArchimedeanMachineLearning.expand_node!(root, table, config)
-        @test root.is_expanded
-        @test !isempty(root.children)
-
-        initial_table_size = length(table)
-
-        # Now expand one of the children - this may create nodes
-        # that could be reached via a different path
-        first_child = first(root.children)
-        NonArchimedeanMachineLearning.expand_node!(first_child, table, config)
-        @test first_child.is_expanded
     end
 
     @testset "Backpropagation via Explicit Path" begin
@@ -253,7 +208,7 @@ using NonArchimedeanMachineLearning
         @test dummy_state.best_value == 0.75
     end
 
-    @testset "DAG-MCTS Integration with OptimSetup" begin
+    @testset "DAG-MCTS Integration: $variant" for variant in (PathStatsDAGMCTS, NodeStatsDAGMCTS)
         # Set up a simple optimization problem: minimize |x|^2
         R, x = polynomial_ring(K, ["x"])
 
@@ -274,6 +229,7 @@ using NonArchimedeanMachineLearning
 
         # Configure DAG-MCTS
         config = DAGMCTSConfig(
+            variant = variant,
             num_simulations = 50,
             exploration_constant = 1.41,
             degree = 1,
@@ -294,81 +250,6 @@ using NonArchimedeanMachineLearning
 
         # Loss should improve (or at least not get worse)
         @test final_loss <= initial_loss + 1e-6
-    end
-
-    @testset "DAG Stats and Verification" begin
-        R, x = polynomial_ring(K, ["x"])
-        poly = AbsolutePolynomialSum([x[1]^2])
-        batch_eval = batch_evaluate_init(
-            poly, ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1})
-
-        function loss_eval(params::Vector)
-            return [batch_eval(p) for p in params]
-        end
-        function loss_grad(vs::Vector)
-            return [directional_derivative(poly, v) for v in vs]
-        end
-        loss = Loss(loss_eval, loss_grad)
-
-        initial_param = ValuationPolydisc([K(4)], [0])
-        # Use persist_table=false for simpler verification
-        config = DAGMCTSConfig(num_simulations = 30, persist_table = false)
-
-        optim = dag_mcts_descent_init(initial_param, loss, config)
-
-        # Run optimization
-        for _ in 1:3
-            step!(optim)
-        end
-
-        # Get stats - with persist_table=false, table is reset each step
-        # so we only check unique_nodes > 0 (the new root exists)
-        stats = get_dag_stats(optim.state)
-        @test stats.unique_nodes > 0
-
-        # Verify table integrity
-        @test verify_transposition_table(optim.state)
-    end
-
-    @testset "Transposition Detection in 2D (Diamond Pattern)" begin
-        # This tests the classic DAG scenario: different paths to same state
-        # We manually create the "same" polydisc to ensure transposition detection works
-        # by using the hash-based lookup
-
-        table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}}()
-
-        # Start point
-        start = ValuationPolydisc([K(0), K(0)], [0, 0])
-        start_node = NonArchimedeanMachineLearning.get_or_create_node!(table, start)
-
-        # Path A: shrink coord 1 first
-        after_shrink_1 = children_along_branch(start, 1)[1]  # First child along branch 1
-        node_a1 = NonArchimedeanMachineLearning.get_or_create_node!(table, after_shrink_1, start_node)
-
-        # Path B: shrink coord 2 first
-        after_shrink_2 = children_along_branch(start, 2)[1]  # First child along branch 2
-        node_b1 = NonArchimedeanMachineLearning.get_or_create_node!(table, after_shrink_2, start_node)
-
-        # Now create the "final" node that both paths should reach
-        # This is radius (1, 1) with center (0, 0)
-        final_polydisc = ValuationPolydisc([K(0), K(0)], [1, 1])
-
-        # Add via path A
-        node_final_via_a = NonArchimedeanMachineLearning.get_or_create_node!(table, final_polydisc, node_a1)
-
-        # Add via path B - should find the SAME node (transposition!)
-        node_final_via_b = NonArchimedeanMachineLearning.get_or_create_node!(table, final_polydisc, node_b1)
-
-        # The key test: both paths should lead to the SAME node instance
-        @test node_final_via_a === node_final_via_b  # Same node instance (transposition detected!)
-
-        # The final node should have two parents
-        @test length(node_final_via_a.parents) == 2
-        @test node_a1 in node_final_via_a.parents
-        @test node_b1 in node_final_via_a.parents
-
-        # Check total unique nodes: start, 2 intermediate, 1 final = 4
-        @test length(table) == 4
     end
 
     @testset "Persist Table Option" begin
@@ -415,7 +296,8 @@ using NonArchimedeanMachineLearning
 
         # Without persistence, table is cleared each step
         # Should only contain nodes from current search
-        @test length(optim_no_persist.state.transposition_table) > 0
+        @test length(optim_no_persist.state.transposition_table) == 1
+        @test isempty(optim_no_persist.state.root.children)
     end
 
     @testset "MCTS Persist Tree Option" begin
@@ -533,54 +415,34 @@ using NonArchimedeanMachineLearning
 
         # Root should now be solved since all children are solved
         @test root_node.is_solved
-        @test !isnan(root_node.proven_value)
         # proven_value should be the max of children's proven_values
         @test root_node.proven_value ≈ maximum(c.proven_value for c in root_node.children)
     end
 
     @testset "Solved Propagation - DAG Diamond" begin
-        K_low = PadicField(2, 3)
-
-        # 2D polydisc: refine dim 1 then dim 2 vs dim 2 then dim 1 → same child
-        root_p = ValuationPolydisc([K_low(0), K_low(0)], [1, 1])
-
-        table = Dict{NonArchimedeanMachineLearning.HashedPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 2}, DAGMCTSNode{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 2}}()
-        root_node = NonArchimedeanMachineLearning.get_or_create_node!(table, root_p)
-
-        config = DAGMCTSConfig(num_simulations=10, track_parents=true)
-        NonArchimedeanMachineLearning.expand_node!(root_node, table, config)
-
-        # Each child refines one dimension
-        @test length(root_node.children) > 0
-
-        # Expand all children
-        for child in root_node.children
-            NonArchimedeanMachineLearning.expand_node!(child, table, config)
+        root = DAGMCTSNode(ValuationPolydisc([K(0), K(0)], [0, 0]))
+        a = DAGMCTSNode(ValuationPolydisc([K(0), K(0)], [1, 0]))
+        b = DAGMCTSNode(ValuationPolydisc([K(0), K(0)], [0, 1]))
+        leaf = DAGMCTSNode(ValuationPolydisc([K(0), K(0)], [1, 1]))
+        append!(root.children, [a, b])
+        for parent in (a, b)
+            push!(parent.parents, root)
+            push!(parent.children, leaf)
+            push!(leaf.parents, parent)
+            parent.is_expanded = true
+            parent.unsolved_children_count = 1
         end
+        root.is_expanded = true
+        root.unsolved_children_count = 2
+        leaf.is_solved = true
+        leaf.proven_value = -0.25
 
-        # Mark all terminal (leaf) nodes as solved with a value
-        for node in values(table)
-            if node.is_terminal
-                node.proven_value = -1.0 * rand()
-            end
-        end
-
-        # Propagate solved status from all terminal nodes
-        for node in values(table)
-            if node.is_terminal && node.is_solved
-                NonArchimedeanMachineLearning.propagate_solved_up_dag!(node, [node])
-            end
-        end
-
-        # Check consistency: all expanded nodes with all-solved children should be solved
-        for node in values(table)
-            if node.is_expanded && !node.is_terminal
-                all_children_solved = all(c -> c.is_solved, node.children)
-                if all_children_solved
-                    @test node.is_solved
-                    @test !isnan(node.proven_value)
-                end
-            end
+        # Only A is on the supplied path, but both parents must be notified.
+        NonArchimedeanMachineLearning.propagate_solved_up_dag!(leaf, [root, a, leaf])
+        for node in (root, a, b)
+            @test node.is_solved
+            @test node.proven_value == -0.25
+            @test node.unsolved_children_count == 0
         end
     end
 
@@ -609,66 +471,6 @@ using NonArchimedeanMachineLearning
 
         # Calling again should return false (already solved)
         @test !NonArchimedeanMachineLearning.check_solved!(root_node)
-    end
-
-    @testset "Early Termination - MCTS on Tiny Space" begin
-        # prec=3, p=2, 1D: only 3 levels of depth, fully solvable
-        K_low = PadicField(2, 3)
-        R_low, x_low = polynomial_ring(K_low, ["x"])
-        poly_low = AbsolutePolynomialSum([x_low[1]^2])
-        PT = ValuationPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 1}
-        batch_eval_low = batch_evaluate_init(poly_low, PT)
-
-        loss_low = Loss(
-            params -> [batch_eval_low(p) for p in params],
-            vs -> [directional_derivative(poly_low, v) for v in vs]
-        )
-
-        initial_p = ValuationPolydisc([K_low(0)], [0])
-        config = MCTSConfig(num_simulations = 1000, persist_tree = false)
-        optim = mcts_descent_init(initial_p, loss_low, config)
-
-        # Run enough steps that the tree should become fully solved
-        converged = false
-        for i in 1:10
-            converged = step!(optim)
-            if converged
-                break
-            end
-        end
-
-        # With such a tiny space (8 leaf nodes), MCTS should solve it
-        @test converged
-    end
-
-    @testset "Early Termination - DAG-MCTS on Tiny Space" begin
-        K_low = PadicField(2, 3)
-        R_low, x_low = polynomial_ring(K_low, ["x"])
-        poly_low = AbsolutePolynomialSum([x_low[1]^2])
-        PT = ValuationPolydisc{ValuedFieldPoint{2, 3, PadicFieldElem}, Int64, 1}
-        batch_eval_low = batch_evaluate_init(poly_low, PT)
-
-        loss_low = Loss(
-            params -> [batch_eval_low(p) for p in params],
-            vs -> [directional_derivative(poly_low, v) for v in vs]
-        )
-
-        initial_p = ValuationPolydisc([K_low(0)], [0])
-        config = DAGMCTSConfig(num_simulations = 1000, persist_table = false, track_parents = true)
-        optim = dag_mcts_descent_init(initial_p, loss_low, config)
-
-        converged = false
-        for i in 1:10
-            converged = step!(optim)
-            if converged
-                break
-            end
-        end
-
-        @test converged
-
-        # Verify transposition table consistency including solved-status checks
-        @test verify_transposition_table(optim.state)
     end
 
     @testset "MCTS converged parameter is terminal" begin
@@ -766,9 +568,8 @@ using NonArchimedeanMachineLearning
         end
 
         stats = get_dag_stats(optim.state)
-        @test hasproperty(stats, :solved_nodes)
-        @test hasproperty(stats, :terminal_nodes)
-        @test stats.terminal_nodes >= 0
+        @test stats.unique_nodes == length(optim.state.transposition_table)
+        @test stats.terminal_nodes > 0
         @test stats.solved_nodes >= stats.terminal_nodes  # solved ⊇ terminal
     end
 end

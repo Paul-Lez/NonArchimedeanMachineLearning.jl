@@ -63,41 +63,28 @@ end
 
     # -------------------------------------------------------------------
     @testset "_flatten_search_tree" begin
-        loss = _make_loss(K)
-        param = ValuationPolydisc([K(4)], [0])
+        root = MCTSNode(ValuationPolydisc([K(0)], [0]))
+        a = MCTSNode(ValuationPolydisc([K(0)], [1]), root)
+        b = MCTSNode(ValuationPolydisc([K(1)], [1]), root)
+        leaf = MCTSNode(ValuationPolydisc([K(0)], [2]), a)
+        append!(root.children, [a, b])
+        push!(a.children, leaf)
 
-        config = MCTSConfig(num_simulations = 30, persist_tree = false)
-        optim = mcts_descent_init(param, loss, config)
-        for _ in 1:3
-            step!(optim)
-        end
-
-        root = optim.state.root
-
-        @testset "basic BFS" begin
-            children_vec, nodes_vec, depths = NonArchimedeanMachineLearning._flatten_search_tree(root; max_depth=10)
-            @test length(nodes_vec) >= 1
-            @test nodes_vec[1] === root
-            @test depths[1] == 0
-            # Every child index should be a valid index into nodes_vec
-            for (i, cs) in enumerate(children_vec)
-                for c in cs
-                    @test 1 <= c <= length(nodes_vec)
-                end
-            end
-        end
+        edges, nodes, depths = NonArchimedeanMachineLearning._flatten_search_tree(root)
+        @test nodes == [root, a, b, leaf]
+        @test edges == [[2, 3], [4], Int[], Int[]]
+        @test depths == [0, 1, 1, 2]
 
         @testset "max_depth limit" begin
-            _, nodes_shallow, depths_shallow = NonArchimedeanMachineLearning._flatten_search_tree(root; max_depth=1)
-            _, nodes_deep,    depths_deep    = NonArchimedeanMachineLearning._flatten_search_tree(root; max_depth=5)
-            @test maximum(depths_shallow; init=0) <= 1
-            # deeper search includes at least as many nodes
-            @test length(nodes_deep) >= length(nodes_shallow)
+            edges, nodes, depths = NonArchimedeanMachineLearning._flatten_search_tree(root; max_depth = 1)
+            @test nodes == [root, a, b]
+            @test edges == [[2, 3], Int[], Int[]]
+            @test depths == [0, 1, 1]
         end
 
         @testset "max_nodes limit" begin
-            _, nodes_limited, _ = NonArchimedeanMachineLearning._flatten_search_tree(root; max_nodes=3)
-            @test length(nodes_limited) <= 3
+            _, nodes, _ = NonArchimedeanMachineLearning._flatten_search_tree(root; max_nodes = 2)
+            @test nodes == [root, a]
         end
     end
 
@@ -109,22 +96,16 @@ end
         p_b = children_along_branch(p_root, 2)[1]
         p_child = ValuationPolydisc([K(0), K(0)], [1, 1])
 
-        config = DAGMCTSConfig(num_simulations = 5, persist_table = false)
-        loss = begin
-            R, (x, y) = polynomial_ring(K, ["x", "y"])
-            poly = AbsolutePolynomialSum([x^2 + y^2])
-            VP = ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 2}
-            be = batch_evaluate_init(poly, VP)
-            Loss(ps -> [be(p) for p in ps], vs -> [directional_derivative(poly, v)
-                                                   for v in vs])
-        end
-        optim = dag_mcts_descent_init(p_root, loss, config)
-        step!(optim)
+        root = DAGMCTSNode(p_root)
+        a, b, child = DAGMCTSNode(p_a), DAGMCTSNode(p_b), DAGMCTSNode(p_child)
+        append!(root.children, [a, b])
+        push!(a.children, child)
+        push!(b.children, child)
 
-        # Verify flatten does not duplicate nodes already seen (objectid deduplicated)
-        children_vec, nodes_vec, _ = NonArchimedeanMachineLearning._flatten_search_tree(optim.state.root; max_depth=10)
-        seen_ids = Set(objectid(n) for n in nodes_vec)
-        @test length(seen_ids) == length(nodes_vec)
+        edges, nodes, depths = NonArchimedeanMachineLearning._flatten_search_tree(root)
+        @test nodes == [root, a, b, child]
+        @test edges == [[2, 3], [4], [4], Int[]]
+        @test depths == [0, 1, 1, 2]
     end
 
     # -------------------------------------------------------------------
@@ -145,7 +126,6 @@ end
             t3 = visualize_search_tree(optim)
 
             for t in (t1, t2, t3)
-                @test t isa D3Tree
                 @test length(t.children) >= 1
                 @test length(t.text) == length(t.children)
                 @test length(t.tooltip) == length(t.children)
@@ -161,10 +141,8 @@ end
             step!(optim)
 
             t = visualize_search_tree(optim)
-            @test t isa D3Tree
             @test length(t.children) >= 1
         end
-
     end
 
     # -------------------------------------------------------------------
@@ -176,7 +154,6 @@ end
         step!(optim)
 
         t = visualize_search_tree(optim; max_depth = 3, init_expand = 2)
-        n = length(t.children)
 
         @testset "label format" begin
             # Root node (index 1) text should either be "n=0" or "n=<visits>\nv=<value>"
@@ -202,8 +179,8 @@ end
         end
 
         @testset "keyword args forwarded to D3Tree" begin
-            t_titled = visualize_search_tree(optim; title = "TestTitle", svg_height = 600)
-            @test t_titled isa D3Tree
+            t_titled = visualize_search_tree(optim; title = "TestTitle")
+            @test t_titled.title == "TestTitle"
         end
     end
 end

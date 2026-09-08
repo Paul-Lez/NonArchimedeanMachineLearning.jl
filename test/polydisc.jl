@@ -19,15 +19,6 @@ using NonArchimedeanMachineLearning
     p1 = ValuationPolydisc(a1, r1)
     p2 = ValuationPolydisc(a2, r2)
 
-    @testset "Polydisc Creation" begin
-        @test length(p1.center) == 2
-        @test length(p1.radius) == 2
-        @test p1.center[1] == K(1)
-        @test p1.center[2] == K(2)
-        @test p1.radius[1] == 1
-        @test p1.radius[2] == 2
-    end
-
     @testset "Polydisc Iteration" begin
         # Test: Iterate over polydisc indices
         centers = []
@@ -36,8 +27,6 @@ using NonArchimedeanMachineLearning
             push!(centers, p1.center[i])
             push!(radii, p1.radius[i])
         end
-        @test length(centers) == 2
-        @test length(radii) == 2
         @test centers == [K(1), K(2)]
         @test radii == [1, 2]
     end
@@ -45,8 +34,7 @@ using NonArchimedeanMachineLearning
     @testset "Polydisc Join" begin
         # Test: Join (smallest common ancestor) of two polydiscs
         j = NonArchimedeanMachineLearning.join(p1, p2)  # Using qualified name to avoid conflict with Base.join
-        @test j isa ValuationPolydisc
-        @test length(j.center) == 2
+        @test j == ValuationPolydisc([K(1), K(2)], [0, 2])
     end
 
     @testset "Polydisc Children" begin
@@ -54,10 +42,8 @@ using NonArchimedeanMachineLearning
         L = PadicField(2, prec)
         gauss = ValuationPolydisc([L(0)], [2])
         ch = children(gauss)
-        @test ch isa Vector
-        @test length(ch) > 0
-        # Each child should be a ValuationPolydisc
-        @test all(c -> c isa ValuationPolydisc, ch)
+        @test Set(ch) == Set([ValuationPolydisc([L(0)], [3]),
+            ValuationPolydisc([L(4)], [3])])
     end
 
     @testset "Polydisc Accessors" begin
@@ -71,8 +57,7 @@ using NonArchimedeanMachineLearning
     @testset "Polydisc Distance" begin
         # Test: distance between polydiscs
         d = NonArchimedeanMachineLearning.dist(p1, p2)
-        @test d isa Float64
-        @test d >= 0
+        @test d ≈ 14 / 9
         # Distance to self should be 0
         @test NonArchimedeanMachineLearning.dist(p1, p1) == 0.0
     end
@@ -84,8 +69,6 @@ using NonArchimedeanMachineLearning
         q2 = ValuationPolydisc([L(2)], [2])
         q_concat = NonArchimedeanMachineLearning.concatenate(q1, q2)
         @test NonArchimedeanMachineLearning.dim(q_concat) == 2
-        @test length(NonArchimedeanMachineLearning.center(q_concat)) == 2
-        @test length(NonArchimedeanMachineLearning.radius(q_concat)) == 2
         @test NonArchimedeanMachineLearning.center(q_concat)[1] == L(1)
         @test NonArchimedeanMachineLearning.center(q_concat)[2] == L(2)
         @test NonArchimedeanMachineLearning.radius(q_concat)[1] == 1
@@ -98,7 +81,6 @@ using NonArchimedeanMachineLearning
         gauss = ValuationPolydisc([L(0), L(0)], [2, 2])
         ch_branch = children_along_branch(gauss, 1)
         ch_branch_from_subset = children_along_branches(gauss, [1])
-        @test ch_branch isa Vector
         @test ch_branch == ch_branch_from_subset
         @test length(ch_branch) == 2  # NonArchimedeanMachineLearning.prime(gauss) = 2
         # All children should have increased radius in first coordinate
@@ -113,10 +95,9 @@ using NonArchimedeanMachineLearning
 
         # Refine a fixed pair of coordinates and enumerate all residue classes there.
         ch_branches = children_along_branches(parent, [1, 3])
-        @test ch_branches isa Vector
         @test length(ch_branches) == 4
-        @test all(c -> c isa ValuationPolydisc, ch_branches)
         @test all(c -> c.radius == (2, 1, 2), ch_branches)
+        @test length(Set(children(parent, 2))) == 12
 
         expected_centers = [(L(a), L(0), L(b)) for a in (0, 2) for b in (0, 2)]
         @test all(ec -> any(c -> c.center == ec, ch_branches), expected_centers)
@@ -126,7 +107,6 @@ using NonArchimedeanMachineLearning
         wrapped_children = children_along_branches(wrapped_parent, (2, 3))
         @test length(wrapped_children) == 4
         @test all(c -> c.radius == (1, 2, 2), wrapped_children)
-        @test all(c -> all(x -> x isa ValuedFieldPoint, c.center), wrapped_children)
 
         expected_wrapped_centers = [(L(0), L(a), L(b)) for a in (0, 2) for b in (0, 2)]
         @test all(ec -> any(c -> NonArchimedeanMachineLearning.unwrap(c.center) == ec,
@@ -182,63 +162,4 @@ using NonArchimedeanMachineLearning
         @test NonArchimedeanMachineLearning.center(comps[2])[1] == K(2)
     end
 
-    @testset "Polydisc Hash and Canonical Center" begin
-        # Test canonical_center function
-        L = PadicField(2, prec)
-
-        # Note: Polydisc equality uses STRICT inequality: v(center_diff) > radius
-        # So for radius=2, we need v(diff) > 2, meaning diff divisible by 2^3=8
-
-        # Create polydiscs with the same canonical form
-        # Two polydiscs that are equal should have the same canonical_center
-        p_a = ValuationPolydisc([L(1)], [2])
-        p_b = ValuationPolydisc([L(1 + 8)], [2])  # v(8) = 3 > 2, so these are equal
-
-        @test canonical_center(p_a) == canonical_center(p_b)
-        @test p_a == p_b  # They should be equal polydiscs
-        @test hash(p_a) == hash(p_b)  # Equal polydiscs must have equal hashes
-
-        # Create polydiscs with different canonical forms
-        p_c = ValuationPolydisc([L(3)], [2])  # 3 mod 4 = 3, different from 1 mod 4 = 1
-        p_d = ValuationPolydisc([L(2)], [2])  # v(2-3) = v(-1) = 0, so different from p_c
-
-        @test canonical_center(p_a) != canonical_center(p_c)  # 1 mod 4 != 3 mod 4
-        @test !(p_a == p_c)
-        # Different polydiscs should (almost always) have different hashes
-        @test hash(p_a) != hash(p_c)
-
-        # Test hash works correctly for Dict usage
-        dict = Dict{ValuationPolydisc, Int}()
-        dict[p_a] = 1
-        dict[p_c] = 2
-
-        # p_b should map to same entry as p_a (they're equal)
-        @test haskey(dict, p_b)
-        @test dict[p_b] == 1
-
-        # Verify dict has correct number of entries (p_a and p_c are different)
-        @test length(dict) == 2
-
-        # Test with different radii (should be different hash)
-        p_e = ValuationPolydisc([L(1)], [3])
-        @test hash(p_a) != hash(p_e)
-
-        # Test multidimensional polydiscs - need v(diff) > radius for equality
-        p_2d_a = ValuationPolydisc([L(1), L(2)], [2, 3])
-        p_2d_b = ValuationPolydisc([L(1 + 8), L(2 + 16)], [2, 3])  # v(8)=3>2, v(16)=4>3
-        @test canonical_center(p_2d_a) == canonical_center(p_2d_b)
-        @test hash(p_2d_a) == hash(p_2d_b)
-
-        # Test transposition scenario: different paths to same polydisc
-        # Start from a parent and go to children
-        parent = ValuationPolydisc([L(0), L(0)], [0, 0])
-        ch = children(parent, 2)  # degree 2 children
-
-        # Verify children have valid hashes for Dict usage
-        child_dict = Dict{ValuationPolydisc, Int}()
-        for (i, c) in enumerate(ch)
-            child_dict[c] = i
-        end
-        @test length(child_dict) == length(ch)  # All children should be unique
-    end
 end

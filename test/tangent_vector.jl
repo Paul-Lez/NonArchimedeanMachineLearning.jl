@@ -21,34 +21,22 @@ using NonArchimedeanMachineLearning
     @testset "Tangent Vector Creation" begin
         # Create tangent vectors
         v1 = ValuationTangent(p1, dir1, [1.0, 1.0])
-        @test v1 isa ValuationTangent
-        @test v1.point == p1
-        @test v1.direction == dir1
-        @test v1.magnitude == [1.0, 1.0]
-
         v2 = NonArchimedeanMachineLearning.zero(v1)  # Zero vector in same space
-        @test v2 isa ValuationTangent
         @test v2.magnitude == [0.0, 0.0]
 
-        v3 = NonArchimedeanMachineLearning.basis_vector(v1, 1)  # Basis vector
-        @test v3 isa ValuationTangent
+        v3 = NonArchimedeanMachineLearning.basis_vector(v1, 1)
+        @test v3.magnitude == [1.0, 0.0]
     end
 
     @testset "Tangent Vector Addition" begin
         v1 = ValuationTangent(p1, dir1, [1.0, 1.0])
         v2 = NonArchimedeanMachineLearning.zero(v1)
-        v3 = NonArchimedeanMachineLearning.basis_vector(v1, 1)
 
         # Test: Tangent vector addition
         result1 = v1 + v2
-        @test result1 isa ValuationTangent
         @test result1.magnitude == v1.magnitude  # Adding zero doesn't change
 
         result2 = v1 + v1
-        @test result2 isa ValuationTangent
         @test result2.magnitude == [2.0, 2.0]  # Doubled
-
-        result3 = v2 + v3
-        @test result3 isa ValuationTangent
     end
 end

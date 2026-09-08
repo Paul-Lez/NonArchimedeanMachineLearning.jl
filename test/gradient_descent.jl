@@ -15,21 +15,9 @@ using NonArchimedeanMachineLearning
     r1 = Vector{Int}([0])
     p1 = ValuationPolydisc(a1, r1)
     p2 = ValuationPolydisc(K, Vector{PadicFieldElem}(), Vector{Int}())
-    data = [(p2, 1)]
 
     # Create polynomial ring
     R, (x,) = polynomial_ring(K, ["x"])
-
-    @testset "Model Creation" begin
-        # Define a simple model: |x| where x is a parameter
-        fun = AbsolutePolynomialSum([x])
-        abs_model = AbstractModel(fun, [false])  # x is a parameter
-        model = Model(abs_model, p1)
-
-        @test abs_model isa AbstractModel
-        @test model isa Model
-        @test abs_model.param_info == [false]
-    end
 
     @testset "Optimization Process" begin
         fun = AbsolutePolynomialSum([x])
@@ -42,11 +30,8 @@ using NonArchimedeanMachineLearning
             (vs::Vector) -> [gradient_param(abs_model, p2, v) for v in vs]
         )
 
-        @test loss isa Loss
-
         # Initialize gradient descent optimizer
         optim = gradient_descent_init(model.param, loss, 1, (false, 1))
-        @test optim isa OptimSetup
 
         initial_loss = eval_loss(optim)
 
@@ -56,8 +41,6 @@ using NonArchimedeanMachineLearning
             step!(optim)
         end
 
-        # Verify optimization ran
-        @test optim.param isa ValuationPolydisc
         final_loss = eval_loss(optim)
         # Loss should decrease or stay the same
         @test final_loss <= initial_loss

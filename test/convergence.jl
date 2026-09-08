@@ -32,13 +32,6 @@ using NonArchimedeanMachineLearning
         @test has_converged(optim) == true
     end
 
-    @testset "step! returns converged flag" begin
-        optim = greedy_descent_init(param0, loss, 1, (false, 1))
-        # First step should not converge (precision 3, starting radius 0)
-        converged = step!(optim)
-        @test converged isa Bool
-    end
-
     @testset "Greedy descent convergence at precision boundary" begin
         optim = greedy_descent_init(param0, loss, 1, (false, 1))
         converged = false
@@ -61,7 +54,6 @@ using NonArchimedeanMachineLearning
         optim = greedy_descent_init(param0, loss, 1, (false, 1))
         steps = optimize!(optim, 100)
         @test has_converged(optim) == true
-        @test steps < 100
         @test steps <= prec + 1
     end
 
