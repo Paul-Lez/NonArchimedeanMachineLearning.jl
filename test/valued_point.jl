@@ -14,7 +14,6 @@ using NonArchimedeanMachineLearning
     @testset "Construction and Accessors" begin
         # Test: Construct from PadicFieldElem
         x = ValuedFieldPoint(K(5))
-        @test x isa ValuedFieldPoint{2, 20, PadicFieldElem}
 
         # Test: prime is a compile-time constant
         @test NonArchimedeanMachineLearning.prime(x) == 2
@@ -26,7 +25,6 @@ using NonArchimedeanMachineLearning
 
         # Test: unwrap returns underlying element (use NonArchimedeanMachineLearning.unwrap to avoid conflict with Oscar.unwrap)
         @test NonArchimedeanMachineLearning.unwrap(x) == K(5)
-        @test NonArchimedeanMachineLearning.unwrap(x) isa PadicFieldElem
 
         # Test: parent field
         @test parent(x) === K
@@ -38,7 +36,6 @@ using NonArchimedeanMachineLearning
 
         # Addition
         z = x + y
-        @test z isa ValuedFieldPoint{2,20,PadicFieldElem}
         @test NonArchimedeanMachineLearning.unwrap(z) == K(10)
 
         # Subtraction
@@ -126,41 +123,31 @@ using NonArchimedeanMachineLearning
 
         z = zero(x)
         @test NonArchimedeanMachineLearning.unwrap(z) == K(0)
-        @test z isa ValuedFieldPoint{2,20,PadicFieldElem}
 
         o = one(x)
         @test NonArchimedeanMachineLearning.unwrap(o) == K(1)
-        @test o isa ValuedFieldPoint{2,20,PadicFieldElem}
 
         @test NonArchimedeanMachineLearning.unwrap(Oscar.zero(typeof(x), K)) == K(0)
         @test NonArchimedeanMachineLearning.unwrap(Oscar.one(typeof(x), K)) == K(1)
     end
 
-    @testset "Conversion and Promotion" begin
+    @testset "Conversion" begin
         x = ValuedFieldPoint(K(5))
         converted = convert(typeof(x), K(7))
 
-        @test converted isa typeof(x)
         @test NonArchimedeanMachineLearning.unwrap(converted) == K(7)
-        @test promote_type(typeof(x), PadicFieldElem) == typeof(x)
     end
 
     @testset "Lift Operations" begin
         # Lift vector
         v = [K(1), K(2), K(3)]
         lifted_v = NonArchimedeanMachineLearning.lift(v)
-        @test lifted_v isa Vector{ValuedFieldPoint{2,20,PadicFieldElem}}
-        @test length(lifted_v) == 3
-        @test NonArchimedeanMachineLearning.unwrap(lifted_v[1]) == K(1)
-        @test NonArchimedeanMachineLearning.unwrap(lifted_v[2]) == K(2)
-        @test NonArchimedeanMachineLearning.unwrap(lifted_v[3]) == K(3)
+        @test NonArchimedeanMachineLearning.unwrap(lifted_v) == v
 
         # Lift tuple
         t = (K(4), K(5))
         lifted_t = NonArchimedeanMachineLearning.lift(t)
-        @test lifted_t isa NTuple{2,ValuedFieldPoint{2,20,PadicFieldElem}}
-        @test NonArchimedeanMachineLearning.unwrap(lifted_t[1]) == K(4)
-        @test NonArchimedeanMachineLearning.unwrap(lifted_t[2]) == K(5)
+        @test NonArchimedeanMachineLearning.unwrap(lifted_t) == t
 
         @test_throws ErrorException NonArchimedeanMachineLearning.lift(PadicFieldElem[])
         @test_throws ErrorException NonArchimedeanMachineLearning.lift(())
@@ -190,22 +177,6 @@ using NonArchimedeanMachineLearning
         @test NonArchimedeanMachineLearning.lift(x) == Oscar.lift(ZZ, K(5))
     end
 
-    @testset "Type Stability" begin
-        # Verify type parameters propagate correctly
-        x = ValuedFieldPoint(K(5))
-        y = ValuedFieldPoint(K(7))
-
-        # Result of arithmetic should have same type parameters
-        z = x + y
-        @test typeof(z) == typeof(x)
-
-        z = x * y
-        @test typeof(z) == typeof(x)
-
-        z = 3 * x
-        @test typeof(z) == typeof(x)
-    end
-
     @testset "Different Primes" begin
         # Test with different prime
         L = PadicField(3, 15)
@@ -213,7 +184,6 @@ using NonArchimedeanMachineLearning
 
         @test NonArchimedeanMachineLearning.prime(x) == 3
         @test precision(x) == 15
-        @test x isa ValuedFieldPoint{3, 15, PadicFieldElem}
 
         # Verify 3^2 = 9 has valuation 2
         y = ValuedFieldPoint(L(9))

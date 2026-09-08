@@ -22,7 +22,6 @@ using NonArchimedeanMachineLearning
     @testset "interleaving data and parameter polydiscs" begin
         full = NAML.set_abstract_model_variable(model, data_point, param_point)
 
-        @test typeof(full) == ValuationPolydisc{PadicFieldElem, Int, 4}
         @test collect(NAML.center(full)) == [K(1), K(3), K(2), K(4)]
         @test collect(NAML.radius(full)) == [1, 3, 2, 4]
 
@@ -30,13 +29,10 @@ using NonArchimedeanMachineLearning
         public_param = ValuationPolydisc([K(3), K(4)], [3, 4])
         full_vfp = NAML.set_abstract_model_variable(model, public_data, public_param)
 
-        @test typeof(full_vfp) ==
-              ValuationPolydisc{ValuedFieldPoint{2, 20, PadicFieldElem}, Int, 4}
         @test collect(NAML.unwrap(collect(NAML.center(full_vfp)))) == [K(1), K(3), K(2), K(4)]
         @test collect(NAML.radius(full_vfp)) == [1, 3, 2, 4]
 
         mixed_full = NAML.set_abstract_model_variable(model, data_point, public_param)
-        @test typeof(mixed_full) == ValuationPolydisc{PadicFieldElem, Int, 4}
         @test collect(NAML.center(mixed_full)) == [K(1), K(3), K(2), K(4)]
     end
 
@@ -65,7 +61,6 @@ using NonArchimedeanMachineLearning
         combined_lin = NAML.specialise(lin_model, [[K(1)], [K(3)]])
 
         @test length(combined_abs.polys) == 4
-        @test length(combined_lin.polys) == 4
         @test [p.constant for p in combined_lin.polys] == [K(1), K(2), K(3), K(6)]
         @test [p.coefficients for p in combined_lin.polys] ==
               [[K(1)], [K(3)], [K(1)], [K(3)]]

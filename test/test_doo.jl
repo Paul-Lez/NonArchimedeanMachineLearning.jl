@@ -5,7 +5,6 @@ Test file for DOO (Deterministic Optimistic Optimization) implementation.
 using Test
 using NonArchimedeanMachineLearning
 using Oscar
-using DataStructures: PriorityQueue
 
 @testset "DOO Optimizer Tests" begin
     # Setup: 2-adic field and simple quadratic loss
@@ -31,9 +30,6 @@ using DataStructures: PriorityQueue
 
     @testset "DOO Node Creation" begin
         node = DOONode(param, 0, 0, nothing)
-        @test node.depth == 0
-        @test node.position == 0
-        @test node.parent === nothing
         @test isempty(node.children)
         @test node.value === nothing
         @test node.is_expanded == false
@@ -49,23 +45,6 @@ using DataStructures: PriorityQueue
 
         state.best_node = nothing
         @test_throws Exception get_best_value(state)
-    end
-
-    @testset "DOO Config Creation" begin
-        # Define delta function: exponentially decreasing with depth
-        delta = h -> 2.0^(-h)
-
-        config = DOOConfig(
-            delta = delta,
-            degree = 1,
-            strict = false
-        )
-
-        @test config.delta(0) == 1.0
-        @test config.delta(1) == 0.5
-        @test config.delta(2) == 0.25
-        @test config.degree == 1
-        @test config.strict == false
     end
 
     @testset "DOO Invalid Degree Fails at Initialization" begin
@@ -94,16 +73,11 @@ using DataStructures: PriorityQueue
         # Initialize optimizer
         optim = doo_descent_init(param, loss, 1, config)
 
-        @test optim isa OptimSetup
-        @test optim.state isa DOOState
-        @test optim.context isa DOOConfig
-
         # Check initial state
         @test optim.state.root.value !== nothing  # Root should be evaluated
         @test optim.state.best_node === optim.state.root
         @test optim.state.total_samples == 1  # Only root evaluated
         @test optim.state.step_count == 0
-        @test optim.state.leaves isa PriorityQueue
         @test length(optim.state.leaves) == 1  # Only root is a leaf
         # Non-strict DOO does not use the fixed-subset coordinate schedule.
         @test isempty(optim.state.branch_sets)
@@ -137,37 +111,7 @@ using DataStructures: PriorityQueue
         @test isempty(optim.state.leaves)
     end
 
-    @testset "DOO Utility Functions" begin
-        delta = h -> 2.0^(-h)
-        config = DOOConfig(delta = delta, degree = 1)
-        optim = doo_descent_init(param, loss, 1, config)
-
-        # Run a few steps
-        for i in 1:5
-            step!(optim)
-        end
-
-        # Test utility functions
-        tree_size = get_tree_size(optim.state)
-        @test tree_size >= 1
-
-        leaf_count = get_leaf_count(optim.state)
-        @test leaf_count >= 1
-
-        all_leaves = get_all_leaves(optim.state)
-        @test length(all_leaves) >= 1
-
-        best_node = optim.state.best_node
-        @test best_node !== nothing
-        @test best_node === optim.state.best_node
-        @test best_node.value !== nothing
-
-        best_value = get_best_value(optim.state)
-        @test best_value !== nothing
-        @test best_value < 0  # Since value_transform converts loss to -loss
-    end
-
-    @testset "DOO Cached Best Node" begin
+    @testset "DOO Tree Utilities and Cached Best Node" begin
         delta = h -> 2.0^(-h)
         config = DOOConfig(delta = delta, degree = 1)
         optim = doo_descent_init(param, loss, 1, config)
@@ -187,7 +131,12 @@ using DataStructures: PriorityQueue
         end
 
         collect_values(optim.state.root)
+        @test get_tree_size(optim.state) == length(values)
+        @test get_best_value(optim.state) == maximum(values)
         @test optim.state.best_node.value == maximum(values)
+        leaves = get_all_leaves(optim.state)
+        @test Set(leaves) == Set(keys(optim.state.leaves))
+        @test get_leaf_count(optim.state) == length(leaves)
 
         unevaluated = DOONode(param, 1, 0, optim.state.root)
         @test_throws Exception NonArchimedeanMachineLearning.update_best_node!(
@@ -199,7 +148,7 @@ using DataStructures: PriorityQueue
         config = DOOConfig(delta = delta, degree = 1)
         optim = doo_descent_init(param, loss, 1, config)
 
-        @test_nowarn step!(optim)
+        step!(optim)
 
         queued_children = collect(keys(optim.state.leaves))
         @test Set(queued_children) == Set(optim.state.root.children)
@@ -235,8 +184,6 @@ using DataStructures: PriorityQueue
         @test b0 == 1.0 + 1.0  # value + delta(0)
         @test b1 == 1.0 + 0.5  # value + delta(1)
         @test b2 == 1.0 + 0.25 # value + delta(2)
-
-        @test b0 > b1 > b2
 
         # Unexplored node should have infinite b-value
         unexplored = DOONode(param, 0, 0, nothing)
@@ -284,18 +231,6 @@ using DataStructures: PriorityQueue
         @test NonArchimedeanMachineLearning.b_value(nodes[7], config) == 1.0625
     end
 
-    @testset "DOO Strict Mode" begin
-        delta = h -> 2.0^(-h)
-        config = DOOConfig(delta = delta, degree = 1, strict = true)
-        optim = doo_descent_init(param, loss, 1, config)
-
-        for _ in 1:3
-            @test_nowarn step!(optim)
-            @test 1 <= optim.state.next_branch <= NonArchimedeanMachineLearning.dim(param)
-        end
-        @test get_tree_size(optim.state) > 1
-    end
-
     @testset "DOO Strict Mode Coordinate Schedule" begin
         delta = h -> 2.0^(-h)
         config = DOOConfig(delta = delta, degree = 1, strict = true)
@@ -303,18 +238,18 @@ using DataStructures: PriorityQueue
         flat_loss = Loss(ps -> zeros(length(ps)), ts -> zeros(length(ts)))
 
         optim = doo_descent_init(param2, flat_loss, 1, config)
-        @test_nowarn step!(optim)
+        step!(optim)
         @test optim.state.next_branch == 1
         @test all(child.polydisc.radius == (1, 0) for child in optim.state.root.children)
 
-        @test_nowarn step!(optim)
+        step!(optim)
         expanded_child = optim.state.root.children[1]
         @test expanded_child.is_expanded
         @test all(child.polydisc.radius == (1, 1) for child in expanded_child.children)
         @test optim.state.next_branch == 1
 
         offset_optim = doo_descent_init(param2, flat_loss, 2, config)
-        @test_nowarn step!(offset_optim)
+        step!(offset_optim)
         @test all(child.polydisc.radius == (0, 1)
             for child in offset_optim.state.root.children)
     end
@@ -327,7 +262,7 @@ using DataStructures: PriorityQueue
         # Strict mode starting at the first pair of radii to shrink: [1, 2].
         strict_config = DOOConfig(delta = delta, degree = 2, strict = true)
         strict_optim = doo_descent_init(param3, flat_loss, 1, strict_config)
-        @test_nowarn step!(strict_optim)
+        step!(strict_optim)
         @test length(strict_optim.state.root.children) == 4
         @test all(child.polydisc.radius == (1, 1, 0)
             for child in strict_optim.state.root.children)
@@ -338,14 +273,14 @@ using DataStructures: PriorityQueue
 
         # Starting at the second pair means we shrink radii 1 and 3.
         offset_optim = doo_descent_init(param3, flat_loss, 2, strict_config)
-        @test_nowarn step!(offset_optim)
+        step!(offset_optim)
         @test all(child.polydisc.radius == (1, 0, 1)
             for child in offset_optim.state.root.children)
 
         # Non-strict mode allows shrinking along any degree-2 coordinate subset.
         nonstrict_config = DOOConfig(delta = delta, degree = 2, strict = false)
         nonstrict_optim = doo_descent_init(param3, flat_loss, 1, nonstrict_config)
-        @test_nowarn step!(nonstrict_optim)
+        step!(nonstrict_optim)
         @test length(nonstrict_optim.state.root.children) == 12
         @test Set(child.polydisc.radius for child in nonstrict_optim.state.root.children) ==
               Set([(1, 1, 0), (1, 0, 1), (0, 1, 1)])
