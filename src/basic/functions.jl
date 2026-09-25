@@ -823,11 +823,24 @@ integer quantity ``v(a_n) + \langle r, n \rangle`` over non-zero terms.
 """
 function directional_exponent(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{
         S, T, N}) where {S, T, N}
+    return _directional_exponent(_expand_along_direction(f, v), v)
+end
+
+# Expansion of `f` around the center of the direction of `v`, i.e. the polynomial
+# g(T) = f(T + a) whose coefficients a_n satisfy f = ∑_n a_n (T - a)^n.
+function _expand_along_direction(f::AbstractAlgebra.Generic.MPoly{S},
+        v::ValuationTangent{S, T, N}) where {S, T, N}
     t = gens(f.parent)
-    # For now, we're assuming the direction is always downwards so we can 
+    # For now, we're assuming the direction is always downwards so we can
     # use the center for the "target". This works for descent, but not in general.
     # TODO: also make this work in the case where we use a wrapper around the valued field value
-    g = AbstractAlgebra.evaluate(f, t + collect(v.direction.center))
+    return AbstractAlgebra.evaluate(f, t + collect(v.direction.center))
+end
+
+# Directional exponent of `f` along `v`, given the expansion `g` of `f` around the
+# center of the direction of `v` (see `_expand_along_direction`).
+function _directional_exponent(g::AbstractAlgebra.Generic.MPoly{S},
+        v::ValuationTangent{S, T, N}) where {S, T, N}
     exp_vecs = collect(Nemo.exponent_vectors(g))
     # Compute v(a_n) + ⟨radius, n⟩ for each term. Sparse polynomial representation
     # guarantees all stored coefficients are nonzero, so no filtering is needed.
@@ -857,15 +870,12 @@ Uses the formula: if locally ``|f| = a_n r^n`` for exponent ``n``, then
 """
 function directional_derivative(f::AbstractAlgebra.Generic.MPoly{S}, v::ValuationTangent{
         S, T, N}) where {S, T, N}
-    # Recover the variables of the polynomial ring we're working over
-    x = gens(f.parent)
     # Compute the expansion of f around the direction a of the tangent vector v, i.e.
     # The coefficients a_n such that f = ∑_n a_n (T-a)^n. We do this by computing the
     # expansion around 0 of the polynomial g(T) = f(T+a).
-    # TODO: this is a redundant calculation given that we already know that from computing the directional exponent. Let's fix that.
-    g = AbstractAlgebra.evaluate(f, x + collect(v.direction.center))
-    # Next we need to compute the directional exponent of f along v
-    n = directional_exponent(f, v)
+    g = _expand_along_direction(f, v)
+    # Next we need to compute the directional exponent of f along v, reusing g
+    n = _directional_exponent(g, v)
     # Use the formula to get d_v
     d_v = -sum(n) * abs(coeff(g, n)) * (Float64(prime(v.point))^(-sum(v.point.radius .* n)))
     return d_v
