@@ -1014,21 +1014,28 @@ function batch_evaluate_init(f::Constant{S},
     return ConstantEvaluator{ValuedFieldPoint{P, Prec, S}, T, N}(Float64(f.value))
 end
 
+# Evaluates a polynomial over the underlying field at polydiscs whose centers
+# are `ValuedFieldPoint`s, by unwrapping the centers and delegating to `inner`.
+struct LiftedMPolyEvaluator{
+    VFP, T, N, E <: PolydiscFunctionEvaluator
+} <: PolydiscFunctionEvaluator{VFP, T, N}
+    inner::E
+end
+
+function (eval::LiftedMPolyEvaluator{
+        ValuedFieldPoint{P, Prec, S}, T, N, E
+    })(p::ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}) where {
+        P, Prec, S, T, N, E}
+    unwrapped = ValuationPolydisc{S, T, N}(p.center |> unwrap, p.radius)
+    return eval.inner(unwrapped)
+end
+
 function batch_evaluate_init(poly::AbstractAlgebra.Generic.MPoly{S},
         ::Type{ValuationPolydisc{ValuedFieldPoint{P, Prec, S}, T, N}}) where {
         S, P, Prec, T, N}
     VFP = ValuedFieldPoint{P, Prec, S}
-    function wrapped_eval(p::ValuationPolydisc)
-        unwrapped_polydisc = ValuationPolydisc{S, T, N}(p.center |> unwrap, p.radius)
-        return evaluate(poly, unwrapped_polydisc)
-    end
-    function wrapped_deriv(v::ValuationTangent)
-        unwrapped_point = ValuationPolydisc{S, T, N}(v.point.center |> unwrap, v.point.radius)
-        unwrapped_direction = ValuationPolydisc{S, T, N}(v.direction.center |> unwrap, v.direction.radius)
-        unwrapped_tangent = ValuationTangent{S, T, N}(unwrapped_point, unwrapped_direction, v.magnitude)
-        return directional_derivative(poly, unwrapped_tangent)
-    end
-    return LambdaEvaluator{VFP, T, N}(wrapped_eval, wrapped_deriv)
+    inner = batch_evaluate_init(poly, ValuationPolydisc{S, T, N})
+    return LiftedMPolyEvaluator{VFP, T, N, typeof(inner)}(inner)
 end
 
 function batch_evaluate_init(f::AbsolutePolynomialSum{S},
@@ -1200,6 +1207,17 @@ end
 function directional_derivative(eval::MPolyEvaluator{S, T, N}, v::ValuationTangent{
         S, T, N}) where {S, T, N}
     return directional_derivative(eval.poly, v)
+end
+
+function directional_derivative(eval::LiftedMPolyEvaluator{
+        ValuedFieldPoint{P, Prec, S}, T, N, E
+    }, v::ValuationTangent{ValuedFieldPoint{P, Prec, S}, T, N}) where {
+        P, Prec, S, T, N, E}
+    unwrapped_point = ValuationPolydisc{S, T, N}(v.point.center |> unwrap, v.point.radius)
+    unwrapped_direction = ValuationPolydisc{S, T, N}(v.direction.center |> unwrap, v.direction.radius)
+    unwrapped_tangent = ValuationTangent{S, T, N}(
+        unwrapped_point, unwrapped_direction, v.magnitude)
+    return directional_derivative(eval.inner, unwrapped_tangent)
 end
 
 function directional_derivative(eval::CompEvaluator{S, T, N}, v::ValuationTangent{
