@@ -234,6 +234,146 @@ function evaluate(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{
     return max
 end
 
+#=============================================================================
+ Valuation-based evaluation of polynomials
+
+ By Taylor expansion, the coefficients of g(x) = f(x + c) are
+
+     b_β = ∑_{α ≥ β} a_α C(α, β) c^(α - β),   C(α, β) = ∏_i binomial(α_i, β_i).
+
+ Since the absolute value is ultrametric,
+
+     v(b_β) ≥ min_α [v(a_α) + v(C(α, β)) + ⟨α - β, v(c)⟩],
+
+ with equality whenever the minimum is attained by a single α. Hence for most β
+ the valuation of b_β, and so the term |b_β| p^{-⟨r, β⟩} of `evaluate`, follows
+ from integer arithmetic on valuations alone. Only when several α attain the
+ minimum can cancellation occur, and only then is b_β computed as a p-adic sum.
+ When such a sum cancels to an exact p-adic zero, its reported valuation depends
+ on the precision reached by the computation, so we fall back to `evaluate` to
+ reproduce its result exactly.
+=============================================================================#
+
+# Data for the tropicalization of the Taylor coefficients b_β of a polynomial,
+# precomputed once per polynomial: for each β below some exponent α of `f`, the
+# pairs (α, C(α, β)) contributing to b_β, with their valuations.
+struct TropicalTaylorData{S, N}
+    coeffs::Vector{S}
+    exponents::Vector{NTuple{N, Int}}
+    coeff_valuations::Vector{Int}
+    betas::Vector{NTuple{N, Int}}
+    # For each β: (index of α, C(α, β), v(C(α, β)))
+    contributions::Vector{Vector{Tuple{Int, ZZRingElem, Int}}}
+end
+
+function TropicalTaylorData(f::AbstractAlgebra.Generic.MPoly{S},
+        ::Val{N}) where {S <: PadicFieldElem, N}
+    p = Int(Nemo.prime(Nemo.base_ring(f)))
+    coeffs = S[]
+    exponents = NTuple{N, Int}[]
+    for (a, α) in zip(Nemo.coefficients(f), Nemo.exponent_vectors(f))
+        iszero(a) && continue
+        push!(coeffs, a)
+        push!(exponents, ntuple(i -> Int(α[i]), N))
+    end
+    coeff_valuations = [Int(valuation(a)) for a in coeffs]
+    beta_index = Dict{NTuple{N, Int}, Int}()
+    betas = NTuple{N, Int}[]
+    contributions = Vector{Tuple{Int, ZZRingElem, Int}}[]
+    for (j, α) in enumerate(exponents)
+        for β in Iterators.product((0:α[i] for i in 1:N)...)
+            binom = prod(ZZ(binomial(α[i], β[i])) for i in 1:N; init = ZZ(1))
+            k = get!(beta_index, β) do
+                push!(betas, β)
+                push!(contributions, Tuple{Int, ZZRingElem, Int}[])
+                length(betas)
+            end
+            push!(contributions[k], (j, binom, Int(Nemo.valuation(binom, p))))
+        end
+    end
+    return TropicalTaylorData{S, N}(
+        coeffs, exponents, coeff_valuations, betas, contributions)
+end
+
+const _INFINITE_VALUATION = typemax(Int) ÷ 4
+
+# Same result as `evaluate(f, p)`, where `taylor_data == TropicalTaylorData(f, Val(N))`.
+function _evaluate_with_taylor_data(taylor_data::TropicalTaylorData{S, N},
+        f::AbstractAlgebra.Generic.MPoly{S},
+        p::ValuationPolydisc{S, T, N}) where {S, T, N}
+    isempty(taylor_data.coeffs) && return evaluate(f, p)
+    # A zero center coordinate is exact: expanding around it adds no terms.
+    center_valuations = ntuple(
+        i -> iszero(p.center[i]) ? _INFINITE_VALUATION : Int(valuation(p.center[i])), N)
+    num_betas = length(taylor_data.betas)
+    # Tropical lower bound for v(b_β), and whether it is attained by a single α
+    bounds = Vector{Int}(undef, num_betas)
+    unique_minimizer = Vector{Bool}(undef, num_betas)
+    for k in 1:num_betas
+        β = taylor_data.betas[k]
+        bound = _INFINITE_VALUATION
+        count = 0
+        for (j, _, binom_valuation) in taylor_data.contributions[k]
+            α = taylor_data.exponents[j]
+            term_valuation = taylor_data.coeff_valuations[j] + binom_valuation
+            for i in 1:N
+                δ = α[i] - β[i]
+                δ == 0 && continue
+                if center_valuations[i] == _INFINITE_VALUATION
+                    term_valuation = _INFINITE_VALUATION
+                    break
+                end
+                term_valuation += δ * center_valuations[i]
+            end
+            term_valuation == _INFINITE_VALUATION && continue
+            if term_valuation < bound
+                bound = term_valuation
+                count = 1
+            elseif term_valuation == bound
+                count += 1
+            end
+        end
+        bounds[k] = bound
+        unique_minimizer[k] = count == 1
+    end
+    weight(k) = bounds[k] + sum(p.radius[i] * taylor_data.betas[k][i] for i in 1:N)
+    # Smallest weight v(b_β) + ⟨r, β⟩ among coefficients whose valuation is known
+    best = _INFINITE_VALUATION
+    for k in 1:num_betas
+        unique_minimizer[k] && (best = min(best, weight(k)))
+    end
+    # Coefficients with several minimal terms may cancel. Compute those exactly,
+    # unless their lower bound already rules them out.
+    for k in 1:num_betas
+        (unique_minimizer[k] || bounds[k] == _INFINITE_VALUATION) && continue
+        weight(k) <= best || continue
+        β = taylor_data.betas[k]
+        b = Base.zero(Nemo.parent(taylor_data.coeffs[1]))
+        for (j, binom, _) in taylor_data.contributions[k]
+            α = taylor_data.exponents[j]
+            term = taylor_data.coeffs[j] * binom
+            for i in 1:N
+                δ = α[i] - β[i]
+                δ == 0 || (term *= p.center[i]^δ)
+            end
+            b += term
+        end
+        iszero(b) && return evaluate(f, p)
+        bounds[k] = Int(valuation(b))
+        best = min(best, weight(k))
+    end
+    # Same floating-point expression as `evaluate`, over the maximal terms
+    prime_value = Float64(prime(p))
+    result = 0.0
+    for k in 1:num_betas
+        bounds[k] == _INFINITE_VALUATION && continue
+        weight(k) == best || continue
+        result = max(result, prime_value^(-bounds[k]) *
+                             prime_value^(-sum(p.radius .* taylor_data.betas[k])))
+    end
+    return result
+end
+
 function evaluate(fun::Add{S}, var::ValuationPolydisc{S, T, N}) where {S, T, N}
     return evaluate(fun.left, var) + evaluate(fun.right, var)
 end
@@ -582,14 +722,32 @@ function (eval::LambdaEvaluator{S, T, N})(p::ValuationPolydisc{S, T, N}) where {
 end
 
 # --- MPoly Evaluator (wraps raw polynomial evaluation) ---
-struct MPolyEvaluator{S, T, N, P <: AbstractAlgebra.Generic.MPoly} <:
+struct MPolyEvaluator{S, T, N, P <: AbstractAlgebra.Generic.MPoly, D} <:
        PolydiscFunctionEvaluator{S, T, N}
     poly::P
+    # `TropicalTaylorData` for p-adic coefficients, `nothing` otherwise
+    taylor_data::D
 end
 
-function (eval::MPolyEvaluator{S, T, N, P})(p::ValuationPolydisc{
+_tropical_taylor_data(poly, ::Val) = nothing
+function _tropical_taylor_data(
+        poly::AbstractAlgebra.Generic.MPoly{<:PadicFieldElem}, n::Val)
+    return TropicalTaylorData(poly, n)
+end
+
+function MPolyEvaluator{S, T, N, P}(poly::P) where {S, T, N, P}
+    taylor_data = _tropical_taylor_data(poly, Val(N))
+    return MPolyEvaluator{S, T, N, P, typeof(taylor_data)}(poly, taylor_data)
+end
+
+function (eval::MPolyEvaluator{S, T, N, P, Nothing})(p::ValuationPolydisc{
         S, T, N}) where {S, T, N, P}
     return evaluate(eval.poly, p)
+end
+
+function (eval::MPolyEvaluator{S, T, N, P, <:TropicalTaylorData})(p::ValuationPolydisc{
+        S, T, N}) where {S, T, N, P}
+    return _evaluate_with_taylor_data(eval.taylor_data, eval.poly, p)
 end
 
 #=============================================================================
