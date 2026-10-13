@@ -434,10 +434,23 @@ callable evaluator. The evaluator type records `S`, `T`, and `N`.
 ```julia
 f = LinearPolynomial([K(1), K(2)], K(0))
 eval = batch_evaluate_init(f, ValuationPolydisc{S,T,N})
-result = eval(polydisc)
+scalar_result = eval(polydisc)
+batch_result = eval([polydisc])
 ```
+
+The evaluator is callable on either a single `ValuationPolydisc` or an
+`AbstractVector` of polydiscs. Batch calls return one result per input.
 """
 abstract type PolydiscFunctionEvaluator{S, T, N} end
+
+@doc raw"""
+    (eval::PolydiscFunctionEvaluator)(points::AbstractVector)
+
+Evaluate a typed evaluator on a batch of polydiscs. This is equivalent to
+calling the evaluator separately on each point and returns the results in the
+same order.
+"""
+(eval::PolydiscFunctionEvaluator)(pts::AbstractVector) = map(eval, pts)
 
 # --- LinearPolynomial Evaluator ---
 @doc raw"""
@@ -602,7 +615,8 @@ the concrete evaluator type instead of closing over an untyped function.
 ```julia
 f = LinearPolynomial([K(1), K(2)], K(0))
 eval = batch_evaluate_init(f, ValuationPolydisc{ValuedFieldPoint{2,20,PadicFieldElem},Int,2})
-result = eval(some_polydisc)
+scalar_result = eval(some_polydisc)
+batch_result = eval([some_polydisc])
 ```
 """
 function batch_evaluate_init(f::PolydiscFunction{S}, ::Type{ValuationPolydisc{
@@ -1094,6 +1108,42 @@ end
 #=============================================================================
  Directional Derivatives for Typed Evaluators
 =============================================================================#
+
+@doc raw"""
+    directional_derivative(eval::PolydiscFunctionEvaluator{S,T,N}, vs::AbstractVector{<:ValuationTangent{S,T,N}}) where {S,T,N}
+
+Compute directional derivatives for a batch of tangent vectors using a typed
+polydisc-function evaluator.
+
+The batch form is equivalent to applying the scalar method to each tangent
+vector in order:
+
+```julia
+directional_derivative(eval, vs) ==
+    [directional_derivative(eval, v) for v in vs]
+```
+
+# Arguments
+- `eval`: A typed evaluator created by `batch_evaluate_init`.
+- `vs`: A vector of tangent vectors with the same coefficient, radius, and
+  dimension parameters as `eval`.
+
+# Returns
+A vector containing one directional derivative for each tangent vector.
+
+# Example
+```julia
+eval = batch_evaluate_init(f, ValuationPolydisc{S,Int,N})
+derivatives = directional_derivative(eval, tangent_vectors)
+```
+"""
+function directional_derivative(
+    eval::PolydiscFunctionEvaluator{S,T,N},
+    vs::AbstractVector{<:ValuationTangent{S,T,N}}
+) where {S,T,N}
+  return map(v -> directional_derivative(eval, v), vs)
+end
+
 
 function directional_derivative(eval::ConstantEvaluator{S, T, N}, v::ValuationTangent{
         S, T, N}) where {S, T, N}

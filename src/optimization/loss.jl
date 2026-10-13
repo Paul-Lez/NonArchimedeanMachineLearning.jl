@@ -113,13 +113,13 @@ function MSE_loss_init_new(model::AbstractModel{S}, data::Vector{Tuple{S, U}}) w
     # Create a closure that computes the MSE for a batch of parameter values
     function MSE_compute(params)
         isempty(params) && return Float64[]
-        return [batch_eval(param) for param in params]
+        return batch_eval(params)
     end
 
     # Create a closure that computes the gradient of the loss along a batch of tangent directions
     function MSE_grad(vs)
         isempty(vs) && return Float64[]
-        return [directional_derivative(batch_eval, v) for v in vs]
+        return directional_derivative(batch_eval, vs)
     end
     return Loss(MSE_compute, MSE_grad)
 end

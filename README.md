@@ -42,7 +42,8 @@ f = AbsolutePolynomialSum([x^2 - 1])
 # Build a typed loss function
 VP    = ValuationPolydisc{PadicFieldElem, Int, 1}
 batch = NonArchimedeanMachineLearning.batch_evaluate_init(f, VP)
-loss  = Loss(params -> map(batch, params), _ -> 0)
+# Typed evaluators accept either one polydisc or a vector of polydiscs.
+loss  = Loss(batch, _ -> 0)
 
 # Starting polydisc: the 2-adic unit ball centered at 1
 initial_param = VP((K(1),), (0,))

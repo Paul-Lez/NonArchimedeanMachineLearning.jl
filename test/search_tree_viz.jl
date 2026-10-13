@@ -20,8 +20,8 @@ function _make_loss(K)
     batch_eval = batch_evaluate_init(poly, ValuationPolydisc{
         ValuedFieldPoint{2, 20, PadicFieldElem}, Int64, 1})
     Loss(
-        params -> [batch_eval(p) for p in params],
-        vs -> [directional_derivative(poly, v) for v in vs]
+        batch_eval,
+        vs -> directional_derivative(batch_eval, vs)
     )
 end
 

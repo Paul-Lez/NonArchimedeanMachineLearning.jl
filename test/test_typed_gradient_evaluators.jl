@@ -208,4 +208,28 @@ using NonArchimedeanMachineLearning
 
         @test eval_result ≈ symbolic_result
     end
+
+    @testset "Batched directional derivatives" begin
+        R, (x, y) = polynomial_ring(K, ["x", "y"])
+        poly = x^2 + y
+        eval_typed = batch_evaluate_init(poly, ValuationPolydisc{PadicFieldElem, Int, 2})
+
+        p1 = make_polydisc([K(3), K(1)], [0, 0])
+        d1 = make_polydisc([K(1), K(0)], [1, 0])
+        v1 = ValuationTangent(p1, d1, [1, 0])
+
+        p2 = make_polydisc([K(5), K(2)], [0, 0])
+        d2 = make_polydisc([K(0), K(1)], [0, 1])
+        v2 = ValuationTangent(p2, d2, [0, 1])
+
+        tangents = [v1, v2]
+        batched_result = directional_derivative(eval_typed, tangents)
+        scalar_result = [directional_derivative(eval_typed, v) for v in tangents]
+
+        @test batched_result == scalar_result
+        @test directional_derivative(eval_typed, [v1]) == [directional_derivative(eval_typed, v1)]
+
+        empty_tangents = ValuationTangent{PadicFieldElem, Int, 2}[]
+        @test isempty(directional_derivative(eval_typed, empty_tangents))
+    end
 end
