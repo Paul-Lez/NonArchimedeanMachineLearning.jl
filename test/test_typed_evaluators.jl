@@ -19,6 +19,21 @@ using NonArchimedeanMachineLearning
             (LinearAbsolutePolynomialSum([linear, second]), 9 / 8)]
         @test batch_evaluate_init(f, PT)(p) == expected
     end
+
+    @testset "Lifted polynomial evaluator" begin
+        poly = x^3 + K(2) * x * y + K(1)
+        lifted = batch_evaluate_init(poly, PT)
+        @test lifted isa LiftedMPolyEvaluator
+        raw_p = ValuationPolydisc{PadicFieldElem, Int, 2}((K(1), K(2)), (3, 3))
+        @test lifted(p) == NonArchimedeanMachineLearning.evaluate(poly, raw_p)
+
+        child = ValuationPolydisc([K(1), K(2)], [4, 3])
+        raw_child = ValuationPolydisc{PadicFieldElem, Int, 2}((K(1), K(2)), (4, 3))
+        tangent = ValuationTangent(p, child, zeros(Int, 2))
+        raw_tangent = ValuationTangent(raw_p, raw_child, zeros(Int, 2))
+        @test directional_derivative(lifted, tangent) ==
+              directional_derivative(poly, raw_tangent)
+    end
 end
 
 @testset "Typed Evaluator Batch Calls" begin                                 

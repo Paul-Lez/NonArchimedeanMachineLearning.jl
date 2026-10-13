@@ -67,7 +67,7 @@ export PolydiscFunctionEvaluator  # Abstract evaluator type
 export LinearPolynomialEvaluator, ConstantEvaluator
 export AddEvaluator, SubEvaluator, MulEvaluator, DivEvaluator
 export SMulEvaluator, CompEvaluator, SumEvaluator
-export LambdaEvaluator, MPolyEvaluator
+export LambdaEvaluator, MPolyEvaluator, LiftedMPolyEvaluator
 export directional_exponent, directional_derivative, grad
 # Note: evaluate not exported to avoid conflicts with Oscar/AbstractAlgebra - use NAML.evaluate
 
