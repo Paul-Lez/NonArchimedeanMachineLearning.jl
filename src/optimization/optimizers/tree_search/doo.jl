@@ -67,6 +67,7 @@ Fields:
                      NOTE: User will define this based on specific problem structure.
 - `degree::Int`: Number of coordinates refined by each expansion (default: 1)
 - `strict::Bool`: If true, use the coordinate-wise cell decomposition (default: false)
+- `start_branch::Int`: Starting subset index for strict mode (default: 1)
 - `value_transform::Function`: Transform loss to value for maximization (default: loss -> -loss)
 
 Theoretical Notes:
@@ -83,19 +84,22 @@ Note: DOO does not need an explicit max_depth parameter. The tree search natural
 terminates when the polydisc `children()` function returns empty at the precision
 boundary of the p-adic field.
 """
-struct DOOConfig
+struct DOOConfig <: AbstractOptimConfig
     delta::Function
     degree::Int
     strict::Bool
+    start_branch::Int
     value_transform::Function
 
     function DOOConfig(;
             delta::Function,
             degree::Int = 1,
             strict::Bool = false,
+            start_branch::Int = 1,
             value_transform::Function = loss -> -loss
     )
-        new(delta, degree, strict, value_transform)
+        @req start_branch >= 1 "start_branch must be positive"
+        new(delta, degree, strict, start_branch, value_transform)
     end
 end
 
@@ -330,8 +334,8 @@ function doo_descent(loss::Loss, param::ValuationPolydisc{S, T, N},
 end
 
 """
-    doo_descent_init(param::ValuationPolydisc{S,T}, loss::Loss,
-                     next_branch::Int, config::DOOConfig) where {S,T}
+    doo_descent_init(param::ValuationPolydisc{S,T,N}, loss::Loss,
+                     config::DOOConfig) where {S,T,N}
 
 Initialize DOO optimizer.
 
@@ -341,13 +345,13 @@ and returns an OptimSetup configured for DOO optimization.
 Arguments:
 - `param`: Initial parameter polydisc (becomes root of search tree)
 - `loss`: Loss function with eval and grad methods
-- `next_branch`: Starting subset index for strict mode
-- `config`: DOO configuration
+- `config`: DOO configuration (`config.start_branch` is the starting subset
+  index for strict mode)
 
 Returns: OptimSetup instance ready for optimization via step!()
 """
 function doo_descent_init(param::ValuationPolydisc{S, T, N}, loss::Loss,
-        next_branch::Int, config::DOOConfig) where {S, T, N}
+        config::DOOConfig) where {S, T, N}
     @req 1 <= config.degree <= N "degree must be between 1 and the dimension of the polydisc"
 
     # Create root node
@@ -361,7 +365,7 @@ function doo_descent_init(param::ValuationPolydisc{S, T, N}, loss::Loss,
     # Create initial state with root as only leaf
     branch_sets = config.strict ? strict_branch_sets(Val(N), config.degree) : Vector{Vector{Int}}()
     state = DOOState{S, T, N}(root, branch_sets)
-    state.next_branch = next_branch
+    state.next_branch = config.start_branch
     state.total_samples = 1
 
     # Create descent function closure

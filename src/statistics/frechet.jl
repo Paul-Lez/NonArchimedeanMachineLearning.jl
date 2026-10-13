@@ -65,7 +65,7 @@ function frechet_mean(X::Array{ValuationPolydisc{S, T, N}, 1}, prec) where {S, T
     for i in 2:length(X)
         starting_point = join(starting_point, X[i])
     end
-    optim = greedy_descent_init(starting_point, loss, 1, (false, 1))
+    optim = greedy_descent_init(starting_point, loss, GreedyDescentConfig())
     for i in 1:prec
         step!(optim)
     end

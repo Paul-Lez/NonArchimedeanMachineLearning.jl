@@ -36,7 +36,7 @@ using NonArchimedeanMachineLearning
         ell = MPE_loss_init(f, data, 2)
 
         # Initialize greedy descent optimizer
-        greedy_optim = greedy_descent_init(model.param, ell, 1, (false, 1))
+        greedy_optim = greedy_descent_init(model.param, ell, GreedyDescentConfig())
 
         # Record initial loss
         initial_loss = eval_loss(greedy_optim)

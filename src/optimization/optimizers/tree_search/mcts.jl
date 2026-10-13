@@ -96,18 +96,20 @@ Configuration parameters for the MCTS optimizer.
 - `degree::Int`: Degree for child polydisc generation (passed to `children` function)
 - `max_children::Union{Int, Nothing}`: Maximum number of children to consider per expansion (nothing = all)
 - `strict::Bool`: If true, use single-branch descent; if false, use full children
+- `start_branch::Int`: Branch to descend along first in strict mode
 - `value_transform::Function`: Transform from loss to value (default: sigmoid_transform())
 - `selection_mode::SelectionMode`: Strategy for selecting the next step
   (`VisitCount`, `BestValue`, or `BestLoss`)
 - `persist_tree::Bool`: If true, reuse the subtree rooted at the selected child
   across steps (default: true)
 """
-struct MCTSConfig
+struct MCTSConfig <: AbstractOptimConfig
     num_simulations::Int
     exploration_constant::Float64
     degree::Int
     max_children::Union{Int, Nothing}
     strict::Bool
+    start_branch::Int
     value_transform::Function
     selection_mode::SelectionMode
     persist_tree::Bool
@@ -124,6 +126,7 @@ Create an MCTS configuration with default settings.
 - `degree::Int=1`: Child generation degree
 - `max_children::Union{Int, Nothing}=nothing`: Max children to consider (nothing = all)
 - `strict::Bool=false`: Whether to use single-branch descent
+- `start_branch::Int=1`: Branch to descend along first in strict mode
 - `value_transform::Function=sigmoid_transform()`: Loss to value transformation (see `sigmoid_transform`, `tanh_transform`, `negation_transform`)
 - `selection_mode::SelectionMode=VisitCount`: Child selection strategy
   (`VisitCount`, `BestValue`, or `BestLoss`)
@@ -135,16 +138,19 @@ function MCTSConfig(;
         degree::Int = 1,
         max_children::Union{Int, Nothing} = nothing,
         strict::Bool = false,
+        start_branch::Int = 1,
         value_transform::Function = DEFAULT_VALUE_TRANSFORM,
         selection_mode::SelectionMode = VisitCount,
         persist_tree::Bool = true
 )
+    @req start_branch >= 1 "start_branch must be positive"
     return MCTSConfig(
         num_simulations,
         exploration_constant,
         degree,
         max_children,
         strict,
+        start_branch,
         value_transform,
         selection_mode,
         persist_tree
@@ -726,7 +732,7 @@ function mcts_descent_init(
 ) where {S, T, N}
     # Initialize state
     root = MCTSNode(param)
-    state = MCTSState{S, T, N}(root, 1, 0)
+    state = MCTSState{S, T, N}(root, config.start_branch, 0)
 
     return OptimSetup(
         loss,

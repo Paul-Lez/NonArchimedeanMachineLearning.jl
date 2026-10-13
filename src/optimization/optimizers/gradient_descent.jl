@@ -72,7 +72,39 @@ function gradient_param(
 end
 
 @doc raw"""
-    gradient_descent(loss::Loss, param::ValuationPolydisc{S,T,N}, next_branch::Int, settings::Tuple{Bool,Int}) where {S,T,N}
+    GradientDescentConfig(; strict=false, degree=1, start_branch=1)
+
+Configuration for gradient descent optimization.
+
+# Fields
+- `strict::Bool`: If true, descend one coordinate at a time; if false, descend all coordinates
+- `degree::Int`: Number of children to explore per polydisc node (non-strict mode)
+- `start_branch::Int`: Coordinate to descend along first (strict mode)
+
+# Example
+```julia
+config = GradientDescentConfig(strict = false, degree = 1)
+optim = gradient_descent_init(param, loss, config)
+```
+"""
+struct GradientDescentConfig <: AbstractOptimConfig
+    strict::Bool
+    degree::Int
+    start_branch::Int
+
+    function GradientDescentConfig(;
+            strict::Bool = false,
+            degree::Int = 1,
+            start_branch::Int = 1
+    )
+        @req degree >= 1 "degree must be positive"
+        @req start_branch >= 1 "start_branch must be positive"
+        new(strict, degree, start_branch)
+    end
+end
+
+@doc raw"""
+    gradient_descent(loss::Loss, param::ValuationPolydisc{S,T,N}, next_branch::Int, settings::GradientDescentConfig) where {S,T,N}
 
 Perform one step of gradient descent optimization.
 
@@ -83,7 +115,7 @@ the gradient norm (steepest descent direction).
 - `loss::Loss`: The loss function structure
 - `param::ValuationPolydisc{S,T,N}`: Current parameter values
 - `next_branch::Int`: Index of the next branch to descend in strict mode
-- `settings::Tuple{Bool,Int}`: `(strict, degree)` where `strict` enables single-coordinate descent
+- `settings::GradientDescentConfig`: Configuration for gradient descent
 
 # Returns
 `Tuple{ValuationPolydisc{S,T,N}, Int, Bool}`: New parameters, next branch index,
@@ -93,16 +125,10 @@ function gradient_descent(
         loss::Loss,
         param::ValuationPolydisc{S, T, N},
         next_branch::Int,
-        settings::Tuple{Bool, Int}
+        settings::GradientDescentConfig
 ) where {S, T, N}
     # Compute the children of the point param
-    (strict, degree) = settings
-    if strict
-        below_nodes = children_along_branch(param, next_branch)
-        next_branch = next_branch == dim(param) ? 1 : next_branch + 1
-    else
-        below_nodes = children(param, degree)
-    end
+    below_nodes, next_branch = _descent_candidates(param, next_branch, settings)
     isempty(below_nodes) && return (param, next_branch, true)
     # Get the corresponding tangent vectors.
     # Evaluate gradient at each child (not at param): children have positive radius in one
@@ -118,33 +144,32 @@ function gradient_descent(
 end
 
 @doc raw"""
-    gradient_descent_init(param::ValuationPolydisc{S,T,N}, loss::Loss, next_branch::Int, settings::Tuple{Bool,Int}) where {S,T,N}
+    gradient_descent_init(param::ValuationPolydisc{S,T,N}, loss::Loss, settings::GradientDescentConfig=GradientDescentConfig()) where {S,T,N}
 
 Initialize an optimization setup for gradient descent.
 
 # Arguments
 - `param::ValuationPolydisc{S,T,N}`: Initial parameter values
 - `loss::Loss`: The loss function structure
-- `next_branch::Int`: Starting branch index for strict mode
-- `settings::Tuple{Bool,Int}`: `(strict, degree)` controlling descent behavior
+- `settings::GradientDescentConfig`: Configuration controlling descent behavior
 
 # Returns
 `OptimSetup`: Configured optimization setup for gradient descent
 
 # Notes
-The `next_branch` state is used only when `strict` mode is enabled.
+`settings.start_branch` is used only when `strict` mode is enabled.
 """
 function gradient_descent_init(
         param::ValuationPolydisc{S, T, N},
         loss::Loss,
-        next_branch::Int,
-        settings::Tuple{Bool, Int}
+        settings::GradientDescentConfig = GradientDescentConfig()
 ) where {S, T, N}
+    @req settings.start_branch <= N "start_branch must be at most the dimension of the polydisc"
     return OptimSetup(
         loss,
         param,
         (l, p, st, ctx) -> gradient_descent(l, p, st, ctx),
-        next_branch,
+        settings.start_branch,
         settings,
         false
     )

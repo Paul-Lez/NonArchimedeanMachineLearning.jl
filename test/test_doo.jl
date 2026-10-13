@@ -53,11 +53,11 @@ using Oscar
         flat_loss = Loss(ps -> zeros(length(ps)), ts -> zeros(length(ts)))
 
         @test_throws Exception doo_descent_init(
-            param2, flat_loss, 1, DOOConfig(delta = delta, degree = 0))
+            param2, flat_loss, DOOConfig(delta = delta, degree = 0))
         @test_throws Exception doo_descent_init(
-            param2, flat_loss, 1, DOOConfig(delta = delta, degree = 3))
+            param2, flat_loss, DOOConfig(delta = delta, degree = 3))
         @test_throws Exception doo_descent_init(
-            param2, flat_loss, 1, DOOConfig(delta = delta, degree = 3, strict = true))
+            param2, flat_loss, DOOConfig(delta = delta, degree = 3, strict = true))
     end
 
     @testset "DOO Initialization and Basic Descent" begin
@@ -71,7 +71,7 @@ using Oscar
         )
 
         # Initialize optimizer
-        optim = doo_descent_init(param, loss, 1, config)
+        optim = doo_descent_init(param, loss, config)
 
         # Check initial state
         @test optim.state.root.value !== nothing  # Root should be evaluated
@@ -104,7 +104,7 @@ using Oscar
         flat_loss = Loss(ps -> zeros(length(ps)), ts -> zeros(length(ts)))
         terminal_param = ValuationPolydisc{PadicFieldElem, Int, 1}((K(0),), (prec,))
 
-        optim = doo_descent_init(terminal_param, flat_loss, 1, DOOConfig(delta = delta))
+        optim = doo_descent_init(terminal_param, flat_loss, DOOConfig(delta = delta))
         @test step!(optim)
         @test has_converged(optim)
         @test optim.state.root.is_expanded
@@ -114,7 +114,7 @@ using Oscar
     @testset "DOO Tree Utilities and Cached Best Node" begin
         delta = h -> 2.0^(-h)
         config = DOOConfig(delta = delta, degree = 1)
-        optim = doo_descent_init(param, loss, 1, config)
+        optim = doo_descent_init(param, loss, config)
 
         for _ in 1:5
             step!(optim)
@@ -146,7 +146,7 @@ using Oscar
     @testset "DOO Leaf Queue Prioritizes Greatest B-value" begin
         delta = h -> 2.0^(-h)
         config = DOOConfig(delta = delta, degree = 1)
-        optim = doo_descent_init(param, loss, 1, config)
+        optim = doo_descent_init(param, loss, config)
 
         step!(optim)
 
@@ -237,7 +237,7 @@ using Oscar
         param2 = ValuationPolydisc{PadicFieldElem, Int, 2}((K(0), K(0)), (0, 0))
         flat_loss = Loss(ps -> zeros(length(ps)), ts -> zeros(length(ts)))
 
-        optim = doo_descent_init(param2, flat_loss, 1, config)
+        optim = doo_descent_init(param2, flat_loss, config)
         step!(optim)
         @test optim.state.next_branch == 1
         @test all(child.polydisc.radius == (1, 0) for child in optim.state.root.children)
@@ -248,7 +248,8 @@ using Oscar
         @test all(child.polydisc.radius == (1, 1) for child in expanded_child.children)
         @test optim.state.next_branch == 1
 
-        offset_optim = doo_descent_init(param2, flat_loss, 2, config)
+        offset_optim = doo_descent_init(param2, flat_loss,
+            DOOConfig(delta = delta, degree = 1, strict = true, start_branch = 2))
         step!(offset_optim)
         @test all(child.polydisc.radius == (0, 1)
             for child in offset_optim.state.root.children)
@@ -261,7 +262,7 @@ using Oscar
 
         # Strict mode starting at the first pair of radii to shrink: [1, 2].
         strict_config = DOOConfig(delta = delta, degree = 2, strict = true)
-        strict_optim = doo_descent_init(param3, flat_loss, 1, strict_config)
+        strict_optim = doo_descent_init(param3, flat_loss, strict_config)
         step!(strict_optim)
         @test length(strict_optim.state.root.children) == 4
         @test all(child.polydisc.radius == (1, 1, 0)
@@ -272,14 +273,15 @@ using Oscar
             strict_optim.state.root.children[1], strict_optim.state) == [1, 3]
 
         # Starting at the second pair means we shrink radii 1 and 3.
-        offset_optim = doo_descent_init(param3, flat_loss, 2, strict_config)
+        offset_optim = doo_descent_init(param3, flat_loss,
+            DOOConfig(delta = delta, degree = 2, strict = true, start_branch = 2))
         step!(offset_optim)
         @test all(child.polydisc.radius == (1, 0, 1)
             for child in offset_optim.state.root.children)
 
         # Non-strict mode allows shrinking along any degree-2 coordinate subset.
         nonstrict_config = DOOConfig(delta = delta, degree = 2, strict = false)
-        nonstrict_optim = doo_descent_init(param3, flat_loss, 1, nonstrict_config)
+        nonstrict_optim = doo_descent_init(param3, flat_loss, nonstrict_config)
         step!(nonstrict_optim)
         @test length(nonstrict_optim.state.root.children) == 12
         @test Set(child.polydisc.radius for child in nonstrict_optim.state.root.children) ==

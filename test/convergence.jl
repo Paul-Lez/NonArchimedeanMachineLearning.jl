@@ -24,7 +24,7 @@ using NonArchimedeanMachineLearning
     param0 = ValuationPolydisc([K(0)], [0])
 
     @testset "has_converged accessor" begin
-        optim = greedy_descent_init(param0, loss, 1, (false, 1))
+        optim = greedy_descent_init(param0, loss, GreedyDescentConfig())
         @test has_converged(optim) == false
 
         # Manually set converged flag
@@ -33,7 +33,7 @@ using NonArchimedeanMachineLearning
     end
 
     @testset "Greedy descent convergence at precision boundary" begin
-        optim = greedy_descent_init(param0, loss, 1, (false, 1))
+        optim = greedy_descent_init(param0, loss, GreedyDescentConfig())
         converged = false
         steps = 0
         for i in 1:100
@@ -51,7 +51,7 @@ using NonArchimedeanMachineLearning
     end
 
     @testset "optimize! returns early on convergence" begin
-        optim = greedy_descent_init(param0, loss, 1, (false, 1))
+        optim = greedy_descent_init(param0, loss, GreedyDescentConfig())
         steps = optimize!(optim, 100)
         @test has_converged(optim) == true
         @test steps <= prec + 1
@@ -67,14 +67,14 @@ using NonArchimedeanMachineLearning
         loss_high = MSE_loss_init(model_high, data_high)
         param_high = ValuationPolydisc([K_high(0)], [0])
 
-        optim = greedy_descent_init(param_high, loss_high, 1, (false, 1))
+        optim = greedy_descent_init(param_high, loss_high, GreedyDescentConfig())
         steps = optimize!(optim, 3)
         @test steps == 3
         @test has_converged(optim) == false
     end
 
     @testset "random_descent works and converges" begin
-        optim = random_descent_init(param0, loss, 1, (false, 1))
+        optim = random_descent_init(param0, loss, RandomDescentConfig())
         @test has_converged(optim) == false
 
         # Should not crash
@@ -93,9 +93,62 @@ using NonArchimedeanMachineLearning
         loss_gd = MSE_loss_init(model_gd, data_gd)
         param_gd = ValuationPolydisc([K_gd(0)], [0])
 
-        optim = gradient_descent_init(param_gd, loss_gd, 1, (false, 1))
+        optim = gradient_descent_init(param_gd, loss_gd, GradientDescentConfig())
         steps = optimize!(optim, 100)
         @test has_converged(optim) == true
         @test steps <= 4
+    end
+end
+
+@testset "Optimizer Configs" begin
+    K = PadicField(2, 5)
+    param2 = ValuationPolydisc{PadicFieldElem, Int, 2}((K(0), K(0)), (0, 0))
+    flat_loss = Loss(ps -> zeros(length(ps)), ts -> zeros(length(ts)))
+
+    @testset "$Config construction" for Config in (
+        GreedyDescentConfig, GradientDescentConfig, RandomDescentConfig)
+        config = Config()
+        @test config isa AbstractOptimConfig
+        @test config.strict == false
+        @test config.degree == 1
+        @test config.start_branch == 1
+
+        config = Config(strict = true, degree = 2, start_branch = 2)
+        @test (config.strict, config.degree, config.start_branch) == (true, 2, 2)
+
+        @test_throws Exception Config(degree = 0)
+        @test_throws Exception Config(start_branch = 0)
+    end
+
+    @testset "Tree-search configs share the supertype" begin
+        @test DOOConfig(delta = h -> 2.0^(-h)) isa AbstractOptimConfig
+        @test MCTSConfig() isa AbstractOptimConfig
+        @test DAGMCTSConfig() isa AbstractOptimConfig
+        @test DOOConfig(delta = h -> 2.0^(-h)).start_branch == 1
+        @test MCTSConfig().start_branch == 1
+        @test_throws Exception DOOConfig(delta = h -> 2.0^(-h), start_branch = 0)
+        @test_throws Exception MCTSConfig(start_branch = 0)
+    end
+
+    @testset "Strict mode starts at start_branch: $init" for (init, Config) in (
+        (greedy_descent_init, GreedyDescentConfig),
+        (gradient_descent_init, GradientDescentConfig),
+        (random_descent_init, RandomDescentConfig))
+        optim = init(param2, flat_loss, Config(strict = true, start_branch = 2))
+        @test optim.state == 2
+        step!(optim)
+        @test optim.param.radius == (0, 1)
+        @test optim.state == 1
+        step!(optim)
+        @test optim.param.radius == (1, 1)
+
+        @test_throws Exception init(param2, flat_loss,
+            Config(strict = true, start_branch = 3))
+    end
+
+    @testset "MCTS state starts at start_branch" begin
+        optim = mcts_descent_init(param2, flat_loss,
+            MCTSConfig(strict = true, start_branch = 2))
+        @test optim.state.next_branch == 2
     end
 end

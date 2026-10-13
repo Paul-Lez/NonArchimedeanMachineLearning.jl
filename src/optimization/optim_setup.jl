@@ -31,6 +31,37 @@ function Base.:+(f::Loss, g::Loss)
     return Loss(eval, grad)
 end
 
+@doc raw"""
+    AbstractOptimConfig
+
+Supertype of all optimizer configurations (e.g. `GreedyDescentConfig`,
+`GradientDescentConfig`, `RandomDescentConfig`, `DOOConfig`, `MCTSConfig`,
+`DAGMCTSConfig`).
+
+All configurations provide a `degree::Int` field. Configurations of optimizers
+that support strict (single-branch) descent, i.e. all of the above except
+`DAGMCTSConfig`, additionally provide `strict::Bool` and `start_branch::Int`.
+"""
+abstract type AbstractOptimConfig end
+
+# Children of `param` considered in one descent step, together with the branch
+# to descend along in the next step.  In strict mode, only the coordinate
+# `next_branch` is refined and the branches are cycled through; otherwise all
+# children of the given degree are returned.
+function _descent_candidates(
+        param::ValuationPolydisc,
+        next_branch::Int,
+        config::AbstractOptimConfig
+)
+    if config.strict
+        below_nodes = children_along_branch(param, next_branch)
+        next_branch = next_branch == dim(param) ? 1 : next_branch + 1
+    else
+        below_nodes = children(param, config.degree)
+    end
+    return below_nodes, next_branch
+end
+
 # TODO: possible refactor:
 # We can bundle the value of param in the state, 
 # by assuming that the state type always has a method
@@ -199,7 +230,7 @@ early convergence from hitting `max_steps`.
 
 # Example
 ```julia
-optim = greedy_descent_init(param, loss, 1, (false, 1))
+optim = greedy_descent_init(param, loss, GreedyDescentConfig(strict = false, degree = 1))
 steps = optimize!(optim, 100; verbose=true)
 if has_converged(optim)
     println("Converged after \$steps steps")

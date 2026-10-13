@@ -53,7 +53,7 @@ n_steps = 60
 
 # ── Greedy Descent ────────────────────────────────────────────────────────────
 
-greedy_optim = greedy_descent_init(initial_param, loss, 1, (false, 1))
+greedy_optim = greedy_descent_init(initial_param, loss, GreedyDescentConfig())
 greedy_loss, greedy_param = run_optimizer(greedy_optim, n_steps)
 
 # ── MCTS ──────────────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ mcts_loss, mcts_param = run_optimizer(mcts_optim, n_steps)
 
 # ── DOO ───────────────────────────────────────────────────────────────────────
 
-doo_optim = doo_descent_init(initial_param, loss, 1,
+doo_optim = doo_descent_init(initial_param, loss,
     DOOConfig(delta=h -> 2.0^(-h), degree=1))
 doo_loss, doo_param = run_optimizer(doo_optim, 8 * n_steps)
 

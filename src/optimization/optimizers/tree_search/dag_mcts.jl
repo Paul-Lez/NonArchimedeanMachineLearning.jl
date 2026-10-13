@@ -171,7 +171,7 @@ The `persist_table` option allows experimenting with:
 - persist_table=true: Reuse learned information across steps (may grow large)
 - persist_table=false: Fresh search each step
 """
-struct DAGMCTSConfig
+struct DAGMCTSConfig <: AbstractOptimConfig
     num_simulations::Int
     exploration_constant::Float64
     degree::Int
