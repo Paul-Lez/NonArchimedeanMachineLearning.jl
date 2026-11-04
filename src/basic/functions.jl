@@ -295,7 +295,7 @@ function TropicalTaylorData(f::AbstractAlgebra.Generic.MPoly{S},
         coeffs, exponents, coeff_valuations, betas, contributions)
 end
 
-const _INFINITE_VALUATION = typemax(Int) ÷ 4
+const _INFINITE_VALUATION = typemax(Int)
 
 # Same result as `evaluate(f, p)`, where `taylor_data == TropicalTaylorData(f, Val(N))`.
 function _evaluate_with_taylor_data(taylor_data::TropicalTaylorData{S, N},
