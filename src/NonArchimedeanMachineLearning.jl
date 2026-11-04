@@ -37,6 +37,7 @@ include("statistics/frechet.jl")
 include("statistics/least_squares.jl")
 include("visualization/loss_landscape.jl")
 include("visualization/search_tree_viz.jl")
+include("utils/docs.jl")
 
 # Export types and functions
 
