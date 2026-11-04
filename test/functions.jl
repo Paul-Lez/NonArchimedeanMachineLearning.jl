@@ -5,6 +5,7 @@
 
 using Test
 using Oscar
+using Random
 using NonArchimedeanMachineLearning
 
 struct UnsupportedPolydiscFunction{S} <: NonArchimedeanMachineLearning.PolydiscFunction{S} end
@@ -341,5 +342,34 @@ end
         # Keep one test per thin wrapper instead of a polynomial × point matrix.
         @test NAML.evaluate(AbsolutePolynomialSum([x * y]), pd) == 1 / 8
         @test batch_evaluate_init(x * y)(pd) == 1 / 8
+    end
+end
+
+@testset "Valuation-based polynomial evaluation matches evaluate" begin
+    for (p, prec) in ((2, 20), (3, 12))
+        K = PadicField(p, prec)
+        R, (x, a, b) = polynomial_ring(K, ["x", "a", "b"])
+        P = ValuationPolydisc{PadicFieldElem, Int, 3}
+        polys = [(x - a) * (x - b),
+                 (x - a)^2 * (x - b) + K(p) * b,
+                 x^4 * a + K(3) * x^2 * b^3 + K(5) * x * b + K(7),
+                 (x - a)^2 + K(p)^-3 * (a * b - x)]
+        rng = Xoshiro(p)
+        random_center() = rand(rng) < 0.1 ? K(0) :
+                          rand(rng) < 0.1 ? K(rand(rng, 1:7)) * K(p)^rand(rng, -3:-1) :
+                          K(rand(rng, 0:(p^(prec - 1))))
+        for f in polys
+            evaluator = batch_evaluate_init(f, P)
+            @test evaluator.taylor_data isa NonArchimedeanMachineLearning.TropicalTaylorData
+            for _ in 1:150
+                # Generic discs, and discs near a root x = a where terms cancel
+                xv = rand(rng, 0:(p^(prec - 1)))
+                near_root = K(xv + p^rand(rng, 1:prec) * rand(rng, 0:3))
+                center = rand(rng, Bool) ? (random_center(), random_center(), random_center()) :
+                         (K(xv), near_root, random_center())
+                disc = P(center, Tuple(rand(rng, 0:prec) for _ in 1:3))
+                @test evaluator(disc) == NonArchimedeanMachineLearning.evaluate(f, disc)
+            end
+        end
     end
 end
