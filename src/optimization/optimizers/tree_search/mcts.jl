@@ -39,6 +39,26 @@ mutable struct MCTSNode{S, T, N}
 end
 
 @doc raw"""
+    get_children(node::MCTSNode)
+Get the children of a node.
+"""
+function get_children(node::MCTSNode)
+    return node.children
+end
+
+@doc raw"""
+    get_parent(node::MCTSNode)
+Get the parent of a node.
+"""
+function get_parent(node::MCTSNode)
+    return node.parent
+end 
+
+function set_parent(node::MCTSNode, parent::Union{MCTSNode, Nothing})
+    node.parent = parent
+end
+
+@doc raw"""
     MCTSNode(polydisc::ValuationPolydisc{S,T,N}, parent=nothing) where {S,T,N}
 
 Create a new MCTS node with the given polydisc and optional parent.
@@ -205,12 +225,12 @@ end
 Select the child with the highest UCB1 score.
 """
 function select_child(node::MCTSNode, exploration_constant::Float64)
-    @assert !isempty(node.children) "Cannot select from node with no children"
+    @assert !isempty(get_children(node)) "Cannot select from node with no children"
 
     best_score = -Inf
     best_child = nothing
 
-    for child in node.children
+    for child in get_children(node)
         if child.is_solved
             # Solved children use proven_value directly (no exploration bonus)
             score = child.proven_value
@@ -261,19 +281,19 @@ function expand_node!(node::MCTSNode{S, T, N}, config::MCTSConfig) where {S, T, 
     # Create child nodes
     for polydisc in child_polydiscs
         child_node = MCTSNode(polydisc, node)
-        push!(node.children, child_node)
+        push!(get_children(node), child_node)
     end
 
     node.is_expanded = true
 
     # Terminal detection: no children means precision limit reached
-    if isempty(node.children)
+    if isempty(get_children(node))
         node.is_terminal = true
         node.is_solved = true
         # proven_value will be set by the caller after evaluating the loss
     end
 
-    node.unsolved_children_count = length(node.children)
+    node.unsolved_children_count = length(get_children(node))
 end
 
 @doc raw"""
@@ -286,7 +306,7 @@ Returns the leaf node reached by following UCB1 selections.
 function select_path(root::MCTSNode, exploration_constant::Float64)
     node = root
 
-    while node.is_expanded && !isempty(node.children) && !node.is_solved
+    while node.is_expanded && !isempty(get_children(node)) && !node.is_solved
         node = select_child(node, exploration_constant)
     end
 
@@ -353,7 +373,7 @@ function check_solved!(node::MCTSNode)
         return false
     end
     node.is_solved = true
-    node.proven_value = maximum(child.proven_value for child in node.children)
+    node.proven_value = maximum(child.proven_value for child in get_children(node))
     return true
 end
 
@@ -366,7 +386,7 @@ Stops as soon as a parent is not newly solved.
 """
 function propagate_solved_up!(node::MCTSNode)
     child = node
-    current = node.parent
+    current = get_parent(node)
     while !isnothing(current)
         if !child.is_solved || current.is_solved
             break
@@ -507,7 +527,7 @@ function find_best_node_in_tree(node::MCTSNode)
     best_value = average_value(node)
 
     # Recursively search children
-    for child in node.children
+    for child in get_children(node)
         child_best = find_best_node_in_tree(child)
         if !isnothing(child_best)
             child_value = average_value(child_best)
@@ -571,7 +591,7 @@ function find_min_loss_node_in_tree(node::MCTSNode)
     best_node = node
     best_loss = node.min_loss
 
-    for child in node.children
+    for child in get_children(node)
         child_best = find_min_loss_node_in_tree(child)
         if !isnothing(child_best) && child_best.min_loss < best_loss
             best_node = child_best
@@ -622,7 +642,7 @@ function select_best_child(root::MCTSNode, config::MCTSConfig)
         end
 
         # If best node is a direct child, return it
-        if best_node.parent === root
+        if get_parent(best_node) === root
             return best_node
         end
 
@@ -644,7 +664,7 @@ function select_best_child(root::MCTSNode, config::MCTSConfig)
             return root.children[1]
         end
 
-        if min_node.parent === root
+        if get_parent(min_node) === root
             return min_node
         end
 
@@ -702,7 +722,7 @@ function mcts_descent(
     # Update state for next step
     if config.persist_tree
         # Reuse the subtree rooted at best_node
-        best_node.parent = nothing  # Sever parent link for GC of old tree
+        set_parent(best_node, nothing)  # Sever parent link for GC of old tree
         state.root = best_node
     else
         state.root = MCTSNode(best_polydisc)  # Fresh node for next iteration
@@ -761,10 +781,10 @@ function print_tree_stats(node::MCTSNode, depth::Int = 0, max_depth::Int = 3)
     indent = "  " ^ depth
     solved_str = node.is_solved ? ", SOLVED($(round(node.proven_value, digits=4)))" : ""
     terminal_str = node.is_terminal ? ", TERMINAL" : ""
-    println("$(indent)Node: visits=$(node.visits), avg_value=$(round(average_value(node), digits=4)), children=$(length(node.children))$(terminal_str)$(solved_str)")
+    println("$(indent)Node: visits=$(node.visits), avg_value=$(round(average_value(node), digits=4)), children=$(length(get_children(node)))$(terminal_str)$(solved_str)")
 
     # Sort children by visits for display
-    sorted_children = sort(node.children, by = c -> c.visits, rev = true)
+    sorted_children = sort(get_children(node), by = c -> c.visits, rev = true)
     for (i, child) in enumerate(sorted_children[1:min(3, length(sorted_children))])
         print_tree_stats(child, depth + 1, max_depth)
     end
@@ -777,7 +797,7 @@ Count the total number of nodes in the MCTS tree.
 """
 function get_tree_size(node::MCTSNode)
     count = 1
-    for child in node.children
+    for child in get_children(node)
         count += get_tree_size(child)
     end
     return count
