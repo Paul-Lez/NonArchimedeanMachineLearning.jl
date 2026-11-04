@@ -63,6 +63,38 @@ mutable struct DAGMCTSNode{S, T, N} <: AbstractDAGMCTSNode{S, T, N}
 end
 
 @doc raw"""
+    get_parents(node::DAGMCTSPathNode)
+Get the parents of a node.
+"""
+function get_parents(node::DAGMCTSNode)
+    return node.parents
+end
+
+@doc raw"""
+    get_parents(node::DAGMCTSPathNode)
+Get the parents of a node.
+"""
+function set_parents(node::DAGMCTSNode{S, T, N}, parents::Vector{DAGMCTSNode{S, T, N}}) where {S, T, N}
+    node.parents = parents
+end
+
+function add_parent!(node::DAGMCTSNode{S, T, N}, parent::DAGMCTSNode{S, T, N}) where {S, T, N}
+    push!(node.parents, parent)
+end
+
+@doc raw"""
+    get_children(node::DAGMCTSPathNode)
+Get the children of a node.
+"""
+function get_children(node::DAGMCTSNode)
+    return node.children
+end
+
+function set_children(node::DAGMCTSNode{S, T, N}, children::Vector{DAGMCTSNode{S, T, N}}) where {S, T, N}
+    node.children = children
+end
+
+@doc raw"""
     DAGMCTSNode(polydisc::ValuationPolydisc{S,T,N}) where {S,T,N}
 
 Create a new DAG-MCTS node with the given polydisc and no parents.
@@ -127,6 +159,34 @@ mutable struct DAGMCTSPathNode{S, T, N} <: AbstractDAGMCTSNode{S, T, N}
     total_value::Float64
     is_expanded::Bool
     is_terminal::Bool
+end
+
+@doc raw"""
+    get_parents(node::DAGMCTSPathNode)
+Get the parents of a node.
+"""
+function get_parents(node::DAGMCTSPathNode)
+    return node.parents
+end
+
+function set_parents(node::DAGMCTSPathNode{S, T, N}, parents::Vector{DAGMCTSPathNode{S, T, N}}) where {S, T, N}
+    node.parents = parents
+end
+
+function add_parent!(node::DAGMCTSPathNode{S, T, N}, parent::DAGMCTSPathNode{S, T, N}) where {S, T, N}
+    push!(node.parents, parent)
+end
+
+@doc raw"""
+    get_children(node::DAGMCTSPathNode)
+Get the children of a node.
+"""
+function get_children(node::DAGMCTSPathNode)
+    return node.children
+end
+
+function set_children(node::DAGMCTSPathNode{S, T, N}, children::Vector{DAGMCTSPathNode{S, T, N}}) where {S, T, N}
+    node.children = children
 end
 
 function DAGMCTSPathNode(polydisc::ValuationPolydisc{S, T, N}) where {S, T, N}
@@ -319,8 +379,8 @@ function get_or_create_node!(
     end
 
     # Link parent if provided and not already linked
-    if !isnothing(parent) && !(parent in node.parents)
-        push!(node.parents, parent)
+    if !isnothing(parent) && !(parent in get_parents(node))
+        add_parent!(node, parent)
     end
 
     return node
@@ -341,8 +401,8 @@ function get_or_create_path_node!(
         DAGMCTSPathNode(polydisc)
     end
 
-    if !isnothing(parent) && !(parent in node.parents)
-        push!(node.parents, parent)
+    if !isnothing(parent) && !(parent in get_parents(node))
+        add_parent!(node, parent)
     end
 
     return node
@@ -395,13 +455,13 @@ Select the child with the highest UCT score.
 Tuple of (action_index, child_node) for the best child
 """
 function select_child(node::DAGMCTSNode, exploration_constant::Float64)
-    @assert !isempty(node.children) "Cannot select from node with no children"
+    @assert !isempty(get_children(node)) "Cannot select from node with no children"
 
     best_score = -Inf
     best_action = nothing
     best_child = nothing
 
-    for (action, child) in enumerate(node.children)
+    for (action, child) in enumerate(get_children(node))
         if child.is_solved
             # Solved children use proven_value directly (no exploration bonus)
             score = child.proven_value
@@ -454,13 +514,13 @@ function select_child(
         path_stats::Dict{DAGMCTSPathKey{S, T, N}, DAGMCTSPathStats},
         exploration_constant::Float64
 ) where {S, T, N}
-    @assert !isempty(node.children) "Cannot select from node with no children"
+    @assert !isempty(get_children(node)) "Cannot select from node with no children"
 
     best_score = -Inf
     best_action = 1
-    best_child = node.children[1]
+    best_child = get_children(node)[1]
 
-    for (action, child) in enumerate(node.children)
+    for (action, child) in enumerate(get_children(node))
         score = ducb_score(path_stats, path_key, child, exploration_constant)
         if score > best_score
             best_score = score
@@ -490,7 +550,7 @@ linking to the existing node if so (the "Lookup & Link" step).
 - `config`: Configuration parameters
 
 # Returns
-Nothing (modifies node.children in place)
+Nothing (modifies get_children(node) in place)
 """
 function expand_node!(
         node::DAGMCTSNode{S, T, N},
@@ -507,29 +567,29 @@ function expand_node!(
     # Pre-size children vector and create/retrieve nodes for each child
     # When track_parents=false, pass nothing as parent to skip parent vector push
     n_children = length(child_polydiscs)
-    resize!(node.children, n_children)
+    resize!(get_children(node), n_children)
     parent_for_link = config.track_parents ? node : nothing
     for (i, child_polydisc) in enumerate(child_polydiscs)
         child_node = get_or_create_node!(table, child_polydisc, parent_for_link)
-        node.children[i] = child_node
+        get_children(node)[i] = child_node
     end
 
     node.is_expanded = true
 
     # Terminal detection: no children means precision limit reached
-    if isempty(node.children)
+    if isempty(get_children(node))
         node.is_terminal = true
         node.is_solved = true
         # proven_value will be set by the caller after evaluating the loss
         node.unsolved_children_count = 0
     else
         # Count unsolved children (some may already be solved via transposition table)
-        node.unsolved_children_count = count(c -> !c.is_solved, node.children)
+        node.unsolved_children_count = count(c -> !c.is_solved, get_children(node))
 
         # If all children happen to already be solved (transposition), mark this node solved too
         if node.unsolved_children_count == 0
             node.is_solved = true
-            node.proven_value = maximum(child.proven_value for child in node.children)
+            node.proven_value = maximum(child.proven_value for child in get_children(node))
         end
     end
 end
@@ -546,15 +606,15 @@ function expand_node!(
     child_polydiscs = children(node.polydisc, config.degree)
 
     n_children = length(child_polydiscs)
-    resize!(node.children, n_children)
+    resize!(get_children(node), n_children)
     parent_for_link = config.track_parents ? node : nothing
     for (i, child_polydisc) in enumerate(child_polydiscs)
         child_node = get_or_create_path_node!(table, child_polydisc, parent_for_link)
-        node.children[i] = child_node
+        get_children(node)[i] = child_node
     end
 
     node.is_expanded = true
-    node.is_terminal = isempty(node.children)
+    node.is_terminal = isempty(get_children(node))
 end
 
 @doc raw"""
@@ -576,7 +636,7 @@ function select_path(root::DAGMCTSNode, exploration_constant::Float64)
     path = [root]
     node = root
 
-    while node.is_expanded && !isempty(node.children) && node.visits > 0 && !node.is_solved
+    while node.is_expanded && !isempty(get_children(node)) && node.visits > 0 && !node.is_solved
         _, child = select_child(node, exploration_constant)
         push!(path, child)
         node = child
@@ -594,7 +654,7 @@ function select_path(
     path_key = (HashedPolydisc(root.polydisc),)
     node = root
 
-    while node.is_expanded && !isempty(node.children)
+    while node.is_expanded && !isempty(get_children(node))
         _, child = select_child(node, path_key, state.path_stats, exploration_constant)
         push!(path, child)
         path_key = _extend_path_key(path_key, child)
@@ -749,7 +809,7 @@ function check_solved!(node::DAGMCTSNode)
         return false
     end
     node.is_solved = true
-    node.proven_value = maximum(child.proven_value for child in node.children)
+    node.proven_value = maximum(child.proven_value for child in get_children(node))
     return true
 end
 
@@ -764,7 +824,7 @@ only along the explicit simulation path (pragmatic fallback — some parents may
 not be notified immediately, but will catch up in future simulations).
 """
 function propagate_solved_up_dag!(node::DAGMCTSNode, path::Vector{<:DAGMCTSNode})
-    if !isempty(node.parents)
+    if !isempty(get_parents(node))
         # Parent pointers available: BFS to notify ALL parents
         queue = [node]
         while !isempty(queue)
@@ -1274,7 +1334,7 @@ function dag_mcts_descent(
 
     # Update state for next step
     if config.persist_table
-        # DAG-first architecture: the DAG persists via node.children pointers.
+        # DAG-first architecture: the DAG persists via get_children(node) pointers.
         # We re-root the tree and rebuild the transposition table as an ephemeral
         # index of only the reachable subtree. This prevents unbounded table growth
         # while preserving cached search information below the new root.
@@ -1356,7 +1416,7 @@ unreachable nodes. If `config.track_parents` is enabled, parent arrays of surviv
 nodes are filtered to remove references to pruned ancestors.
 
 This is the core of the "DAG-first" architecture: the DAG structure is maintained
-by `node.children` pointers, and the transposition table is merely an ephemeral
+by `get_children(node)` pointers, and the transposition table is merely an ephemeral
 index rebuilt each step.
 """
 function rebuild_table_from_subtree!(state::DAGMCTSState{S, T, N}, config::DAGMCTSConfig) where {
@@ -1384,7 +1444,7 @@ function rebuild_table_from_subtree!(state::DAGMCTSState{S, T, N}, config::DAGMC
     if config.track_parents
         reachable_ids = Set{UInt}(objectid(node) for node in values(new_table))
         for node in values(new_table)
-            filter!(p -> objectid(p) in reachable_ids, node.parents)
+            filter!(p -> objectid(p) in reachable_ids, get_parents(node))
         end
     end
 
@@ -1416,7 +1476,7 @@ function rebuild_table_from_subtree!(
     if config.track_parents
         reachable_ids = Set{UInt}(objectid(node) for node in values(new_table))
         for node in values(new_table)
-            filter!(p -> objectid(p) in reachable_ids, node.parents)
+            filter!(p -> objectid(p) in reachable_ids, get_parents(node))
         end
     end
 
@@ -1566,7 +1626,7 @@ function get_dag_stats(state::DAGMCTSState)
         child_parent_count = Dict{UInt, Int}()
         for node in values(state.transposition_table)
             if node.is_expanded
-                for child in node.children
+                for child in get_children(node)
                     cid = objectid(child)
                     child_parent_count[cid] = get(child_parent_count, cid, 0) + 1
                 end
@@ -1598,7 +1658,7 @@ function get_dag_stats(state::DAGMCTSPathState)
         child_parent_count = Dict{UInt, Int}()
         for node in values(state.transposition_table)
             if node.is_expanded
-                for child in node.children
+                for child in get_children(node)
                     cid = objectid(child)
                     child_parent_count[cid] = get(child_parent_count, cid, 0) + 1
                 end
@@ -1682,7 +1742,7 @@ function verify_transposition_table(state::DAGMCTSState)
 
         # Check children are in table
         if node.is_expanded
-            for child in node.children
+            for child in get_children(node)
                 child_key = HashedPolydisc(child.polydisc)
                 if !haskey(table, child_key)
                     @warn "Child not in transposition table"
@@ -1698,8 +1758,8 @@ function verify_transposition_table(state::DAGMCTSState)
         end
 
         # Check parent relationships (only if parents were tracked)
-        if !isempty(node.parents)
-            for parent in node.parents
+        if !isempty(get_parents(node))
+            for parent in get_parents(node)
                 found = false
                 for child in parent.children
                     if child === node
@@ -1724,14 +1784,14 @@ function verify_transposition_table(state::DAGMCTSState)
             return false
         end
         if node.is_expanded && !node.is_terminal
-            actual_unsolved = count(c -> !c.is_solved, node.children)
+            actual_unsolved = count(c -> !c.is_solved, get_children(node))
             if actual_unsolved != node.unsolved_children_count
                 @warn "unsolved_children_count mismatch: expected $actual_unsolved, got $(node.unsolved_children_count)"
                 return false
             end
         end
         if node.is_solved && !node.is_terminal && node.is_expanded
-            if any(c -> !c.is_solved, node.children)
+            if any(c -> !c.is_solved, get_children(node))
                 @warn "Solved non-terminal node has unsolved children"
                 return false
             end
@@ -1751,11 +1811,11 @@ function verify_transposition_table(state::DAGMCTSPathState)
         end
 
         if node.is_expanded
-            if node.is_terminal && !isempty(node.children)
+            if node.is_terminal && !isempty(get_children(node))
                 @warn "Terminal node has children"
                 return false
             end
-            for child in node.children
+            for child in get_children(node)
                 child_key = HashedPolydisc(child.polydisc)
                 if !haskey(table, child_key)
                     @warn "Child not in transposition table"
@@ -1768,8 +1828,8 @@ function verify_transposition_table(state::DAGMCTSPathState)
             end
         end
 
-        if !isempty(node.parents)
-            for parent in node.parents
+        if !isempty(get_parents(node))
+            for parent in get_parents(node)
                 if !(any(child -> child === node, parent.children))
                     @warn "Parent-child relationship inconsistent"
                     return false
