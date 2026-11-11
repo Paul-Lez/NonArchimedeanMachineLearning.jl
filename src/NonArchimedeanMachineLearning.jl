@@ -37,6 +37,7 @@ include("statistics/frechet.jl")
 include("statistics/least_squares.jl")
 include("visualization/loss_landscape.jl")
 include("visualization/search_tree_viz.jl")
+include("utils/docs.jl")
 
 # Export types and functions
 
@@ -67,7 +68,7 @@ export PolydiscFunctionEvaluator  # Abstract evaluator type
 export LinearPolynomialEvaluator, ConstantEvaluator
 export AddEvaluator, SubEvaluator, MulEvaluator, DivEvaluator
 export SMulEvaluator, CompEvaluator, SumEvaluator
-export LambdaEvaluator, MPolyEvaluator
+export LambdaEvaluator, MPolyEvaluator, LiftedMPolyEvaluator
 export directional_exponent, directional_derivative, grad
 # Note: evaluate not exported to avoid conflicts with Oscar/AbstractAlgebra - use NAML.evaluate
 

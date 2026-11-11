@@ -84,7 +84,7 @@ If this package was useful for your research, please consider adding the followi
 @article{lezeau2026nonarchimedean,
   title={Non-Archimedean Polydisc Spaces and Applications to Optimisation},
   author={Lezeau, Paul and Fam, Yiannis and Monod, Anthea and Ren, Yue},
-  year={2026}
-  url = {https://arxiv.org/abs/2606.07782},
+  year={2026},
+  url = {https://arxiv.org/abs/2606.07782}
 }
 ```
