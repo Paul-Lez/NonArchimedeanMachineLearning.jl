@@ -225,6 +225,12 @@ and finding the maximum absolute value term weighted by the radius.
 """
 function evaluate(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{
         S, T, N}) where {S, T, N}
+    return _evaluate_by_translation(f, p)
+end
+
+# Expand f(x + center) as a generic multivariate polynomial.
+function _evaluate_by_translation(f::AbstractAlgebra.Generic.MPoly{S},
+        p::ValuationPolydisc{S, T, N}) where {S, T, N}
     t = gens(f.parent)
     vec = [t[i] + p.center[i] for i in eachindex(p.center)]
     g = AbstractAlgebra.evaluate(f, vec)
@@ -232,6 +238,39 @@ function evaluate(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{
                  for v in Nemo.exponent_vectors(g)]
     max, _ = findmax(monomials)
     return max
+end
+
+# Taylor shift by repeated synthetic division (Horner): on return, `a` holds the
+# coefficients of f(x + c) for the coefficients `a` of f, lowest degree first.
+# It is dense, takes O(d^2) ring operations and, being division-free, loses no
+# precision.
+function _taylor_shift_horner!(a::AbstractVector, c)
+    d = length(a) - 1
+    for i in 0:(d - 1)
+        for j in (d - 1):-1:i
+            a[j + 1] += c * a[j + 2]
+        end
+    end
+    return a
+end
+
+function evaluate(f::AbstractAlgebra.Generic.MPoly{S}, p::ValuationPolydisc{
+        S, T, 1}) where {S, T}
+    length(f) == 0 && return _evaluate_by_translation(f, p)
+    degree = maximum(Int(α[1]) for α in Nemo.exponent_vectors(f))
+    R = Nemo.base_ring(f)
+    a = [Base.zero(R) for _ in 0:degree]
+    for (c, α) in zip(Nemo.coefficients(f), Nemo.exponent_vectors(f))
+        a[Int(α[1]) + 1] = c
+    end
+    _taylor_shift_horner!(a, p.center[1])
+    prime_value = Float64(prime(p))
+    result = 0.0
+    for (k, b) in enumerate(a)
+        iszero(b) && continue
+        result = max(result, abs(b) * prime_value^(-p.radius[1] * (k - 1)))
+    end
+    return result
 end
 
 #=============================================================================
