@@ -373,3 +373,29 @@ end
         end
     end
 end
+
+@testset "Univariate evaluate (Horner shift) matches generic translation" begin
+    for (p, prec) in ((2, 20), (3, 12), (5, 10), (7, 8))
+        K = PadicField(p, prec)
+        R, (x,) = polynomial_ring(K, ["x"])
+        P = ValuationPolydisc{PadicFieldElem, Int, 1}
+        rng = Xoshiro(p)
+        dense = sum(K(rand(rng, 1:(p^4))) * x^k for k in 0:12)
+        sparse = x^40 + K(p) * x^20 + K(1)
+        random_sparse = K(1) + x^60 +
+                        sum(K(rand(rng, 1:(p^4))) * x^rand(rng, 1:59) for _ in 1:5)
+        polys = (dense, (x - K(3))^6, (x + K(1))^p * (x - K(2)), sparse, random_sparse,
+                 K(p) * x, R(K(p^2)), x)
+        for f in polys
+            for _ in 1:100
+                xv = rand(rng, 0:(p^(prec - 1)))
+                center = rand(rng, 1:6) == 1 ? K(0) :
+                         rand(rng, Bool) ? K(xv) :
+                         K(xv + p^rand(rng, 1:prec) * rand(rng, 0:3))
+                disc = P((center,), (rand(rng, -3:prec),))
+                @test NonArchimedeanMachineLearning.evaluate(f, disc) ==
+                      NonArchimedeanMachineLearning._evaluate_by_translation(f, disc)
+            end
+        end
+    end
+end
